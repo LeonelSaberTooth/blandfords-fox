@@ -70,6 +70,7 @@ public final class NegevSelfTest {
         n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.FLOOR && c.high >= 0.99 && c.plateau <= 10, "highland_low", out, report);
         n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.WADI_FLOOR, "dune_wadi", out, report);
         n += dump(level, columns, d, c -> c.high > 0.2 && c.high < 0.8, "highland_edge", out, report);
+        n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.DRY_RIVER && c.dry > 0.9, "dry_river", out, report);
         report.append("areas written: ").append(n).append('\n');
         Files.writeString(out.resolve("report.txt"), report);
     }
@@ -135,6 +136,7 @@ public final class NegevSelfTest {
             case "smooth_sandstone", "cut_sandstone", "chiseled_sandstone" -> 's';
             case "granite" -> 'G';
             case "packed_mud" -> 'P';
+            case "stripped_oak_wood" -> 'o';
             case "dirt", "coarse_dirt" -> 'D';
             case "grass_block" -> 'R';
             case "stone", "deepslate", "andesite", "diorite", "tuff" -> 'X';

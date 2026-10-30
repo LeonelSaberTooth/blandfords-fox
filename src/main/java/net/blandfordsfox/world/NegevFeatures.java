@@ -8,7 +8,10 @@ import net.minecraft.data.worldgen.features.TreeFeatures;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeavesBlock;
@@ -61,6 +64,39 @@ public final class NegevFeatures {
         return k;
     }
 
+    /** What to paint a column as, and its floor height; null to leave it alone. */
+    record Ground(NegevShape.Kind kind, int floor) {}
+
+    @Nullable
+    static Ground ground(NegevShape.Column col, int topY) {
+        NegevShape.Kind k = verifiedKind(col, topY);
+        return switch (k) {
+            case VANILLA -> null;
+            // dried desert rivers look like valleys: the channel is a riverbed, its banks are rock
+            case DRY_RIVER -> topY + 1 <= NegevShape.MIN_FLOOR ? new Ground(NegevShape.Kind.FLOOR, NegevShape.MIN_FLOOR)
+                    : topY + 1 <= NegevShape.MIN_FLOOR + 10 ? new Ground(NegevShape.Kind.SLOPE, NegevShape.MIN_FLOOR) : null;
+            case WADI_FLOOR, WADI_SLOPE -> new Ground(k, col.wadiFloor);
+            default -> new Ground(k, col.hangingFloor > 0 && k == NegevShape.Kind.FLOOR ? col.hangingFloor : col.floor);
+        };
+    }
+
+    /** Turns river biome into desert where the river has been dried into a valley. */
+    static void dryRiverBiomes(WorldGenLevel level, NegevColumns columns, int x0, int z0) {
+        boolean any = false;
+        for (int dx = 2; dx < 16 && !any; dx += 4) for (int dz = 2; dz < 16 && !any; dz += 4) {
+            NegevShape.Column c = columns.get(x0 + dx, z0 + dz);
+            any = c.dry > 0.5 && c.river > 0;
+        }
+        if (!any || !(level.getLevel().getChunkSource() instanceof ServerChunkCache cache)) return;
+        ChunkAccess chunk = level.getChunk(x0 >> 4, z0 >> 4);
+        Holder<Biome> desert = level.registryAccess().registryOrThrow(Registries.BIOME).getHolderOrThrow(Biomes.DESERT);
+        chunk.fillBiomesFromNoise((qx, qy, qz, sampler) -> {
+            Holder<Biome> b = chunk.getNoiseBiome(qx, qy, qz);
+            if (b.is(Biomes.RIVER) && columns.get((qx << 2) + 2, (qz << 2) + 2).dry > 0.5) return desert;
+            return b;
+        }, cache.randomState().sampler());
+    }
+
     // ------------------------------------------------------------------ painting
     /** Runs first in each chunk: rock layers on walls and plateaus, dirt/grass/sand on valley floors. */
     public static final class Paint extends Feature<NoneFeatureConfiguration> {
@@ -75,6 +111,7 @@ public final class NegevFeatures {
             if (columns == null) return false;
             NegevShape shape = columns.shape();
             int x0 = ctx.origin().getX() & ~15, z0 = ctx.origin().getZ() & ~15;
+            dryRiverBiomes(level, columns, x0, z0);
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
             boolean any = false;
             for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
@@ -84,11 +121,10 @@ public final class NegevFeatures {
                 int topY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
                 pos.set(x, topY, z);
                 if (!level.getFluidState(pos).isEmpty() || !isDesert(level, pos)) continue;
-                NegevShape.Kind kind = verifiedKind(col, topY);
-                if (kind == NegevShape.Kind.VANILLA) continue;
-                NegevShape.Column view = col;
+                Ground g = ground(col, topY);
+                if (g == null) continue;
                 for (int y = topY; y >= topY - 48; y--) {
-                    NegevShape.Material m = shape.paint(x, y, z, view, topY);
+                    NegevShape.Material m = shape.paint(x, y, z, col, topY, g.kind(), g.floor());
                     if (m == null) continue;
                     pos.set(x, y, z);
                     BlockState here = level.getBlockState(pos);
@@ -105,7 +141,9 @@ public final class NegevFeatures {
     /** Valley floors: grass, dead bushes, boulders, acacia-leaf bushes, rare acacias. Plateaus: rare dead bush. Walls: rare small caves. */
     public static final class Decorate extends Feature<NoneFeatureConfiguration> {
         // per floor column
-        static final float TREE = 0.0008F, BUSH = 0.012F, BOULDER = 0.0025F, GRASS = 0.18F, DEAD_BUSH = 0.03F;
+        static final float TREE = 0.0008F, BUSH = 0.012F, BOULDER = 0.004F, GRASS = 0.18F, DEAD_BUSH = 0.03F;
+        // floor columns at the foot of a wall, and wall columns
+        static final float EDGE_BOULDER = 0.035F, SLOPE_BOULDER = 0.004F;
         // per plateau-top column
         static final float TOP_DEAD_BUSH = 0.0015F;
         // per chunk with valley walls
@@ -130,11 +168,12 @@ public final class NegevFeatures {
                 if (col.kind == NegevShape.Kind.VANILLA) continue;
                 int topY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
                 pos.set(x, topY, z);
-                if (verifiedKind(col, topY) != col.kind || !isDesert(level, pos)) continue;
+                Ground g = ground(col, topY);
+                if (g == null || !isDesert(level, pos)) continue;
                 BlockState ground = level.getBlockState(pos);
                 BlockPos above = pos.above();
                 if (!level.getBlockState(above).isAir()) continue;
-                switch (col.kind) {
+                switch (g.kind()) {
                     case FLOOR, WADI_FLOOR -> {
                         if (!(ground.is(Blocks.GRASS_BLOCK) || ground.is(Blocks.DIRT) || ground.is(Blocks.SAND))) continue;
                         float r = rnd.nextFloat();
@@ -142,7 +181,7 @@ public final class NegevFeatures {
                             tree(level, ctx, pos.immutable(), rnd);
                         } else if (r < TREE + BUSH) {
                             bush(level, above, rnd);
-                        } else if (r < TREE + BUSH + BOULDER) {
+                        } else if (r < TREE + BUSH + (atWallFoot(level, x, z, topY) ? EDGE_BOULDER : BOULDER)) {
                             boulder(level, pos.immutable(), rnd);
                         } else if (ground.is(Blocks.GRASS_BLOCK) && rnd.nextFloat() < GRASS) {
                             level.setBlock(above, Blocks.SHORT_GRASS.defaultBlockState(), Block.UPDATE_CLIENTS);
@@ -157,6 +196,7 @@ public final class NegevFeatures {
                         }
                     }
                     case SLOPE, WADI_SLOPE -> {
+                        if (rnd.nextFloat() < SLOPE_BOULDER) boulder(level, pos.immutable(), rnd);
                         slopes++;
                         if (rnd.nextInt(slopes) == 0) { slopeX = x; slopeZ = z; }   // pick one wall column at random
                     }
@@ -191,10 +231,21 @@ public final class NegevFeatures {
             }
         }
 
-        /** A small rounded boulder of sandstone or granite, half sunk into the floor. */
+        /** Is this floor column right at the foot of a wall (ground 2+ blocks higher nearby)? */
+        private static boolean atWallFoot(WorldGenLevel level, int x, int z, int topY) {
+            for (Direction d : Direction.Plane.HORIZONTAL) {
+                int h = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x + d.getStepX() * 2, z + d.getStepZ() * 2) - 1;
+                if (h - topY >= 2) return true;
+            }
+            return false;
+        }
+
+        /** A small rounded boulder, mostly limestone, else granite or sandstone, half sunk into the ground. */
         private static void boulder(WorldGenLevel level, BlockPos ground, RandomSource rnd) {
-            BlockState main = rnd.nextBoolean() ? Blocks.SANDSTONE.defaultBlockState() : Blocks.GRANITE.defaultBlockState();
-            BlockState other = main.is(Blocks.GRANITE) ? Blocks.SANDSTONE.defaultBlockState() : Blocks.GRANITE.defaultBlockState();
+            BlockState limestone = block(NegevShape.Material.LIMESTONE);
+            float pick = rnd.nextFloat();
+            BlockState main = pick < 0.55F ? limestone : pick < 0.8F ? Blocks.GRANITE.defaultBlockState() : Blocks.SANDSTONE.defaultBlockState();
+            BlockState other = main == limestone ? Blocks.GRANITE.defaultBlockState() : limestone;
             double r = 0.8 + rnd.nextDouble() * 1.0;
             BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
             for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int dy = 0; dy <= 2; dy++) {

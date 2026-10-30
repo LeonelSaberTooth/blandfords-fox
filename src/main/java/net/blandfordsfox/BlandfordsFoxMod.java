@@ -1,6 +1,12 @@
 package net.blandfordsfox;
 
+import com.mojang.serialization.MapCodec;
 import net.blandfordsfox.entity.BlandfordsFox;
+import net.blandfordsfox.world.NegevDensity;
+import net.blandfordsfox.world.NegevFeatures;
+import net.minecraft.world.level.levelgen.DensityFunction;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -25,6 +31,17 @@ public final class BlandfordsFoxMod {
 
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
+    private static final DeferredRegister<MapCodec<? extends DensityFunction>> DENSITY_FUNCTIONS =
+            DeferredRegister.create(Registries.DENSITY_FUNCTION_TYPE, MOD_ID);
+    private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
+
+    // Negev-style deserts: terrain shape, then rock layers and valley decoration
+    static {
+        DENSITY_FUNCTIONS.register("negev_terrain", () -> NegevDensity.Terrain.MAP_CODEC);
+        DENSITY_FUNCTIONS.register("negev_detail", () -> NegevDensity.Detail.MAP_CODEC);
+        FEATURES.register("negev_paint", () -> new NegevFeatures.Paint(NoneFeatureConfiguration.CODEC));
+        FEATURES.register("negev_decorate", () -> new NegevFeatures.Decorate(NoneFeatureConfiguration.CODEC));
+    }
 
     // Same settings as the vanilla fox, sized down to this smaller model.
     public static final DeferredHolder<EntityType<?>, EntityType<BlandfordsFox>> BLANDFORDS_FOX = ENTITIES.register("blandfords_fox",
@@ -42,6 +59,8 @@ public final class BlandfordsFoxMod {
     public BlandfordsFoxMod(IEventBus modBus) {
         ENTITIES.register(modBus);
         ITEMS.register(modBus);
+        DENSITY_FUNCTIONS.register(modBus);
+        FEATURES.register(modBus);
         modBus.addListener(this::attributes);
         modBus.addListener(this::spawnPlacements);
         modBus.addListener(this::creativeTabs);

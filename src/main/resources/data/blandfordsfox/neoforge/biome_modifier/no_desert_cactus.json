@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:remove_features",
+  "biomes": "minecraft:desert",
+  "features": "minecraft:patch_cactus_desert",
+  "steps": "vegetal_decoration"
+}

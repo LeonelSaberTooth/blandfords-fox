@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "minecraft:desert",
+  "features": "blandfordsfox:negev_decorate",
+  "step": "vegetal_decoration"
+}

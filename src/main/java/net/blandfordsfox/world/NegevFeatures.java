@@ -12,6 +12,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.core.QuartPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeavesBlock;
@@ -113,10 +114,13 @@ public final class NegevFeatures {
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
             if (anyDry(columns, x0, z0)) {
                 wasRiver = new boolean[256];
+                ChunkAccess chunk = level.getChunk(x0 >> 4, z0 >> 4);
                 for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
                     int x = x0 + dx, z = z0 + dz;
-                    pos.set(x, level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1, z);
-                    wasRiver[dx * 16 + dz] = columns.get(x, z).dry > 0.9 && level.getBiome(pos).is(Biomes.RIVER);
+                    int y = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
+                    // this chunk's own stored biome (the blended lookup would peek at neighbours already turned to desert)
+                    boolean river = chunk.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z)).is(Biomes.RIVER);
+                    wasRiver[dx * 16 + dz] = columns.get(x, z).dry > 0.9 && river;
                 }
                 dryRiverBiomes(level, columns, x0, z0);
             }

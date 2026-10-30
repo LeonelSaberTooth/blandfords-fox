@@ -111,10 +111,8 @@ public final class NegevShape {
     // -- one column ----------------------------------------------------------------------
     public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE, RIVER_FLOOR, RIVER_SLOPE }
 
-    /** Dried desert rivers: banks are at most this wide (blocks out from the old water's edge)... */
-    public static double RIVER_BANK_WIDTH = 6;
-    /** ...and climb at least one block per this many blocks (steeper vanilla banks are kept). */
-    public static double RIVER_BANK_RUN = 1.0;
+    /** Dried desert rivers: rock banks reach this many blocks out from the river bed. */
+    public static int RIVER_BANK_WIDTH = 5;
 
     /** Overhanging wall shapes: a slope under a limestone cliff band with a lip, or an undercut foot. */
     public static final int CAPROCK = 1, UNDERCUT = 2;
@@ -184,10 +182,6 @@ public final class NegevShape {
         public Walls walls;
         /** Floor of a small valley on the plateau top, when this column is in one (else 0). */
         public int hangingFloor;
-        /** Dried desert river: blocks from the channel's edge (<= 0 inside), or NaN if no river here. */
-        public double riverEdge = Double.NaN;
-        /** Bank surface (first air) the river carve allows here. */
-        public double riverBank;
         /** Kind of ground, for painting (highland or wadi; VANILLA elsewhere). */
         public Kind kind = Kind.VANILLA;
     }
@@ -250,25 +244,6 @@ public final class NegevShape {
         // dry rivers and lakes (rivers are their own biome, so they count separately)
         double dryArea = smooth(0.3, 0.8, c.dryShare(x, z));
         if (dryArea > 0) col.dry = dryArea * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
-        // a dried desert river becomes a valley: its own channel is the river bed, and
-        // rock-banded banks climb out of it a few blocks on each side
-        // The channel is exactly where vanilla's river would hold water (its ground below sea
-        // level), inside vanilla's river band; the banks are the next few blocks out.
-        if (col.dry > 0.9 && Math.abs(c.weirdness(x, z)) < 0.08 && c.riverShare(x, z) > 0) {
-            double vs = 128 * c.depthAtZero(x, z);
-            double edgeD;
-            if (vs < SEA_LEVEL + 0.5) {
-                edgeD = 0;
-            } else {
-                double gx = (128 * c.depthAtZero(x + 2, z) - vs) / 2, gz = (128 * c.depthAtZero(x, z + 2) - vs) / 2;
-                edgeD = (vs - SEA_LEVEL - 0.5) / Math.max(0.05, Math.sqrt(gx * gx + gz * gz));
-            }
-            if (edgeD <= RIVER_BANK_WIDTH) {
-                col.riverEdge = edgeD;
-                col.riverBank = MIN_FLOOR + edgeD / RIVER_BANK_RUN;
-                col.kind = edgeD <= 0 ? Kind.RIVER_FLOOR : Kind.RIVER_SLOPE;
-            }
-        }
         if (col.hot <= 0) return col;
 
         double vanillaSurface = 128 * c.depthAtZero(x, z);
@@ -380,7 +355,7 @@ public final class NegevShape {
                 col.wadiFloor = (int) Math.round(wf);
                 col.wadiSmooth = wf + rampSmooth(dW, WADI_MAX_DEPTH, run) + lift;
                 col.wadiExact = col.wadiFloor + rampExact(dW, WADI_MAX_DEPTH, run, stepH, jitter) + (int) Math.round(lift);
-                if (wadiW > 0.9 && (col.kind == Kind.VANILLA || col.kind == Kind.RIVER_SLOPE)) {
+                if (wadiW > 0.9 && col.kind == Kind.VANILLA) {
                     col.kind = col.wadiExact <= col.wadiFloor ? Kind.WADI_FLOOR : Kind.WADI_SLOPE;
                 }
             }
@@ -442,15 +417,21 @@ public final class NegevShape {
      */
     public Material paint(int x, int y, int z, Column col, int topY) {
         Kind kind = col.kind;
-        // dried rivers paint exactly like valleys: the channel as river bed, the banks as plain-slope rock
+        int floorY = kind == Kind.WADI_FLOOR || kind == Kind.WADI_SLOPE ? col.wadiFloor
+                : col.hangingFloor > 0 ? col.hangingFloor : col.floor;
+        return paint(x, y, z, col, topY, kind, floorY);
+    }
+
+    /** Paint as the given kind of ground with the given valley-floor height (used for dried rivers). */
+    public Material paint(int x, int y, int z, Column col, int topY, Kind kind, int floorY) {
+        // dried rivers paint exactly like valleys: the bed as river bed, the banks as plain-slope rock
+        boolean river = kind == Kind.RIVER_FLOOR || kind == Kind.RIVER_SLOPE;
         if (kind == Kind.RIVER_FLOOR) kind = Kind.FLOOR;
         else if (kind == Kind.RIVER_SLOPE) kind = Kind.SLOPE;
         if (kind == Kind.VANILLA) return null;
         boolean floorKind = kind == Kind.FLOOR || kind == Kind.WADI_FLOOR;
-        int floorY = kind == Kind.WADI_FLOOR || kind == Kind.WADI_SLOPE ? col.wadiFloor
-                : col.kind == Kind.RIVER_FLOOR || col.kind == Kind.RIVER_SLOPE ? MIN_FLOOR
-                : col.hangingFloor > 0 ? col.hangingFloor : col.floor;
         if (y < floorY - 5 || y > topY) return null;
+        if (river && kind == Kind.SLOPE) return stratum(x, y, z);
         if (floorKind) {
             // small patches: fine noise plus a per-block shake
             double p = 0.55 * patches2(x * 2.0, z * 2.0) + 0.25 * patches(x, z) + 0.35 * (hash(x, z) - 0.5);
@@ -497,10 +478,6 @@ public final class NegevShape {
         double v = vanilla;
         if (col.dry > 0) {
             v = lerp(col.dry, v, Math.max(v, (MIN_FLOOR - 0.5 - y) * K_COARSE));
-        }
-        if (!Double.isNaN(col.riverEdge)) {
-            // carve the banks of a dried river down into a slope (never builds anything up)
-            v = Math.min(v, (col.riverBank - 0.5 - y) * K_COARSE);
         }
         if (col.high > 0) {
             v = lerp(col.high, v, (col.surfSmooth - 0.5 - y) * K_COARSE);

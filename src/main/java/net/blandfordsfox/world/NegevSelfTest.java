@@ -70,7 +70,10 @@ public final class NegevSelfTest {
         n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.FLOOR && c.high >= 0.99 && c.plateau <= 10, "highland_low", out, report);
         n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.WADI_FLOOR, "dune_wadi", out, report);
         n += dump(level, columns, d, c -> c.high > 0.2 && c.high < 0.8, "highland_edge", out, report);
-        n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.RIVER_FLOOR, "dry_river", out, report);
+        var source = level.getChunkSource().getGenerator().getBiomeSource();
+        var sampler = level.getChunkSource().randomState().sampler();
+        n += dump(level, columns, d, (x, z) -> columns.get(x, z).dry > 0.95
+                && source.getNoiseBiome(x >> 2, 16, z >> 2, sampler).is(Biomes.RIVER), "dry_river", out, report);
         report.append("areas written: ").append(n).append('\n');
         Files.writeString(out.resolve("report.txt"), report);
     }
@@ -78,14 +81,22 @@ public final class NegevSelfTest {
     /** Finds a column matching want near the desert, generates 160x160 blocks around it and writes them out. */
     private static int dump(ServerLevel level, NegevColumns columns, BlockPos near, Predicate<NegevShape.Column> want,
                             String name, Path out, StringBuilder report) throws IOException {
+        return dump(level, columns, near, (x, z) -> want.test(columns.get(x, z)), name, out, report);
+    }
+
+    interface At {
+        boolean test(int x, int z);
+    }
+
+    private static int dump(ServerLevel level, NegevColumns columns, BlockPos near, At want,
+                            String name, Path out, StringBuilder report) throws IOException {
         BlockPos found = null;
         search:
         for (int r = 0; r <= 3000; r += 32) {
             for (int dx = -r; dx <= r; dx += 32) for (int dz = -r; dz <= r; dz += 32) {
                 if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
                 int x = near.getX() + dx, z = near.getZ() + dz;
-                NegevShape.Column c = columns.get(x, z);
-                if (want.test(c)) { found = new BlockPos(x, 0, z); break search; }
+                if (want.test(x, z)) { found = new BlockPos(x, 0, z); break search; }
             }
         }
         if (found == null) {

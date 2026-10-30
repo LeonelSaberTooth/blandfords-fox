@@ -109,7 +109,7 @@ public final class NegevShape {
     public static double GROW_DISTANCE = 110;
 
     // -- one column ----------------------------------------------------------------------
-    public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE, RIVER_FLOOR, RIVER_SLOPE }
+    public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE, RIVER_FLOOR, RIVER_SLOPE, RIVER_SAND }
 
     /** Dried desert rivers: rock banks reach this many blocks out from the river bed. */
     public static int RIVER_BANK_WIDTH = 5;
@@ -424,6 +424,11 @@ public final class NegevShape {
 
     /** Paint as the given kind of ground with the given valley-floor height (used for dried rivers). */
     public Material paint(int x, int y, int z, Column col, int topY, Kind kind, int floorY) {
+        // the rest of a dried river's old biome area: ordinary desert sand, like the dunes around it
+        if (kind == Kind.RIVER_SAND) {
+            if (y > topY || y < topY - 6) return null;
+            return y >= topY - 3 ? Material.SAND : Material.SANDSTONE;
+        }
         // dried rivers paint exactly like valleys: the bed as river bed, the banks as plain-slope rock
         boolean river = kind == Kind.RIVER_FLOOR || kind == Kind.RIVER_SLOPE;
         if (kind == Kind.RIVER_FLOOR) kind = Kind.FLOOR;

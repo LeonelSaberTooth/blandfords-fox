@@ -85,25 +85,29 @@ public final class NegevFeatures {
         Climate.Sampler sampler = cache.randomState().sampler();
         int m = NegevShape.RIVER_BANK_WIDTH, w = 16 + 2 * m;
         boolean[] bed = new boolean[w * w];
+        boolean[] area = new boolean[w * w];
         int[] top = new int[w * w];
-        boolean anyBed = false;
+        boolean anyArea = false;
         for (int i = 0; i < w; i++) for (int j = 0; j < w; j++) {
             int x = x0 - m + i, z = z0 - m + j;
             int t = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
             top[i * w + j] = t;
-            if (Math.abs(t + 1 - NegevShape.MIN_FLOOR) > 1 || columns.get(x, z).dry <= 0.9) continue;
+            if (columns.get(x, z).dry <= 0.9) continue;
             if (level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1 != t) continue;     // still water there
             Holder<Biome> original = source.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(t), QuartPos.fromBlock(z), sampler);
             if (!original.is(Biomes.RIVER)) continue;
+            area[i * w + j] = true;
+            anyArea = true;
+            if (Math.abs(t + 1 - NegevShape.MIN_FLOOR) > 1) continue;
             // only the middle of the river: vanilla's river biome can spread very wide near coasts
             double wv = columns.weirdness(x, z);
             double gx = (columns.weirdness(x + 2, z) - wv) / 2, gz = (columns.weirdness(x, z + 2) - wv) / 2;
             double g = Math.max(1e-5, Math.sqrt(gx * gx + gz * gz));
             double fromCentre = Math.abs(wv) / g, bandHalf = 0.05 / g;
             double bedHalf = Math.max(3, Math.min(7, 2 + 0.25 * bandHalf));
-            if (fromCentre <= bedHalf) { bed[i * w + j] = true; anyBed = true; }
+            if (fromCentre <= bedHalf) bed[i * w + j] = true;
         }
-        if (!anyBed) return null;
+        if (!anyArea) return null;
         NegevShape.Kind[] out = new NegevShape.Kind[256];
         for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
             int i = dx + m, j = dz + m;
@@ -117,6 +121,7 @@ public final class NegevFeatures {
                     if (bed[(i + a) * w + (j + b)]) { k = NegevShape.Kind.RIVER_SLOPE; break search; }
                 }
             }
+            if (k == null && area[i * w + j]) k = NegevShape.Kind.RIVER_SAND;
             out[dx * 16 + dz] = k;
         }
         return out;
@@ -171,7 +176,8 @@ public final class NegevFeatures {
                 if (!level.getFluidState(pos).isEmpty() || !isDesert(level, pos)) continue;
                 NegevShape.Kind kind = groundKind(col, topY, river, dx, dz);
                 if (kind == null) continue;
-                boolean isRiver = kind == NegevShape.Kind.RIVER_FLOOR || kind == NegevShape.Kind.RIVER_SLOPE;
+                boolean isRiver = kind == NegevShape.Kind.RIVER_FLOOR || kind == NegevShape.Kind.RIVER_SLOPE
+                        || kind == NegevShape.Kind.RIVER_SAND;
                 for (int y = topY; y >= topY - 48; y--) {
                     NegevShape.Material m = isRiver ? shape.paint(x, y, z, col, topY, kind, NegevShape.MIN_FLOOR)
                             : shape.paint(x, y, z, col, topY);

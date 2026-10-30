@@ -67,6 +67,7 @@ public final class NegevShape {
     double wadiN(double x, double z)    { return ch(mid, 2, 0.4, warpX(x, z), warpZ(x, z)); }
     double floorN(double x, double z)   { return ch(mid, 3, 1.0, x, z); }
     double cliffN(double x, double z)   { return ch(mid, 4, 1.6, x, z); }
+    double terraceN(double x, double z) { return ch(big, 5, 4.0, x, z); }
     double stepN(double x, double z)    { return ch(small, 0, 1.0, x, z); }
     double hillsN(double x, double z)   { return ch(small, 1, 1.0, x, z); }
     /** Fine detail used when painting: rock-band wobble and surface patches. */
@@ -83,6 +84,10 @@ public final class NegevShape {
     public static double MAIN_FLOOR_MIN = 2.5, MAIN_FLOOR_MAX = 12, SIDE_FLOOR_MIN = 1.0, SIDE_FLOOR_MAX = 4;
     /** Horizontal blocks per block of rise on stepped walls, and on cliffs. */
     public static double RUN_MIN = 0.8, RUN_MAX = 1.5, CLIFF_RUN = 0.12;
+    /** Horizontal blocks per block of rise on plain (non-terraced) slopes. */
+    public static double SLOPE_RUN_MIN = 1.0, SLOPE_RUN_MAX = 2.2;
+    /** Terrace noise above this makes a wall terraced: about 15% of walls. */
+    public static double TERRACE_THRESHOLD = 0.34;
     /** Cliff noise above this makes a wall a cliff (rare). */
     public static double CLIFF_THRESHOLD = 0.42;
     /** Share of dune country that has a wadi line, via gate noise above this. */
@@ -115,6 +120,8 @@ public final class NegevShape {
         public int wadiFloor;
         /** 0..1 how much low ground is lifted out of the water. */
         public double dry;
+        /** Whether this spot's walls are terraces (or cliffs) rather than a plain slope. */
+        public boolean terraced;
         /** Kind of ground, for painting (highland or wadi; VANILLA elsewhere). */
         public Kind kind = Kind.VANILLA;
     }
@@ -170,11 +177,16 @@ public final class NegevShape {
         col.floor = (int) Math.round(floorY);
 
         // wall style for this spot
-        double cliff = cliffN(x, z);
-        double run = cliff > CLIFF_THRESHOLD ? CLIFF_RUN
-                : RUN_MIN + (RUN_MAX - RUN_MIN) * to01(stepN(x, z) * 0.8);
+        // ~85% of walls are plain slopes (one block up every `run` blocks), ~15% are terraces
+        // of 2-4 block steps, and a few are near-vertical cliffs
+        boolean cliff = cliffN(x, z) > CLIFF_THRESHOLD;
+        boolean terraced = terraceN(x, z) > TERRACE_THRESHOLD;
+        double run = cliff ? CLIFF_RUN
+                : terraced ? RUN_MIN + (RUN_MAX - RUN_MIN) * to01(stepN(x, z) * 0.8)
+                : SLOPE_RUN_MIN + (SLOPE_RUN_MAX - SLOPE_RUN_MIN) * to01(stepN(x, z) * 0.8);
         double s = stepN(x * 0.5 + 911, z * 0.5 - 377);
-        int stepH = s > 0.15 ? 3 : 2;
+        int stepH = !(terraced || cliff) ? 1 : s > 0.15 ? 3 : 2;
+        col.terraced = terraced || cliff;
         double jitter = 0.5 + 0.35 * hillsN(x + 4000, z);
 
         // ---- highlands
@@ -194,7 +206,7 @@ public final class NegevShape {
             // side branches only inside the plateau, not as moats along its foot
             double edgeRun = Math.max(run, 1.0) * 2.5;                             // outer edges climb gently
             double sm = Math.min(Math.min(rampSmooth(dA, total, run), rampSmooth(dB, total, run)), rampSmooth(dE, total, edgeRun));
-            int sh = total > 16 ? stepH + 1 : stepH;                               // taller walls, taller steps
+            int sh = stepH > 1 && total > 16 ? stepH + 1 : stepH;                  // taller walls, taller steps
             int topAbs = (int) Math.round(floorY + total);                       // plateau top, absolute
             double cap = topAbs - col.floor;
             int ex = Math.min(Math.min(rampExact(dA, cap, run, sh, jitter), rampExact(dB, cap, run, sh, jitter)),
@@ -240,7 +252,7 @@ public final class NegevShape {
     }
 
     // -- painting ------------------------------------------------------------------------
-    public enum Material { SANDSTONE, GRANITE, PACKED_MUD, SAND, DIRT, GRASS }
+    public enum Material { SANDSTONE, GRANITE, PACKED_MUD, LIMESTONE, SAND, DIRT, GRASS }
 
     /** Rock layers: sandstone with thin bands of granite and packed mud, gently wavy. */
     public Material stratum(int x, int y, int z) {
@@ -251,6 +263,7 @@ public final class NegevShape {
         if (r == 0) return Material.GRANITE;
         if (r == 1 && region > -0.1) return Material.GRANITE;            // often two blocks thick
         if (r == period / 2 + 1) return Material.PACKED_MUD;
+        if (r == period - 1 || (r == period - 2 && region < 0.1)) return Material.LIMESTONE;
         return Material.SANDSTONE;
     }
 
@@ -279,14 +292,13 @@ public final class NegevShape {
         }
         if (y == topY) {
             if (kind == Kind.SLOPE || kind == Kind.WADI_SLOPE) {
-                // ledges: often capped with granite where a granite band runs out
+                // plain slopes show the rock bands as stripes across the surface
+                if (!col.terraced) return stratum(x, y, z);
+                // terrace ledges: often capped with granite where a granite band runs out
                 if (patches(x + 100, z - 100) > 0.12 || stratum(x, y, z) == Material.GRANITE) return Material.GRANITE;
                 return Material.SANDSTONE;
             }
-            double p2 = patches2(x, z);
-            if (p2 > 0.45) return Material.SAND;
-            if (p2 < -0.55) return Material.GRANITE;
-            return Material.SANDSTONE;
+            return Material.LIMESTONE;                                    // plateau tops: always limestone
         }
         return stratum(x, y, z);
     }

@@ -30,7 +30,7 @@ public class Voxels {
                 StringBuilder sb = new StringBuilder().append(topY).append(' ');
                 for (int y = topY; y > topY - 40; y--) {
                     NegevShape.Material m = shape.paint(x, y, z, c, topY);
-                    sb.append(m == null ? (y >= topY - 3 ? 'a' : 'b') : switch (m) { case SAND -> 'a'; case SANDSTONE -> 'S'; case GRANITE -> 'G'; case PACKED_MUD -> 'P'; case DIRT -> 'D'; case GRASS -> 'R'; });
+                    sb.append(m == null ? (y >= topY - 3 ? 'a' : 'b') : switch (m) { case SAND -> 'a'; case SANDSTONE -> 'S'; case GRANITE -> 'G'; case PACKED_MUD -> 'P'; case LIMESTONE -> 'l'; case DIRT -> 'D'; case GRASS -> 'R'; });
                 }
                 w.println(sb);
             }

@@ -41,6 +41,7 @@ public final class NegevFeatures {
             case SANDSTONE -> Blocks.SANDSTONE.defaultBlockState();
             case GRANITE -> Blocks.GRANITE.defaultBlockState();
             case PACKED_MUD -> Blocks.PACKED_MUD.defaultBlockState();
+            case LIMESTONE -> Blocks.STRIPPED_OAK_WOOD.defaultBlockState();   // stand-in for limestone
             case SAND -> Blocks.SAND.defaultBlockState();
             case DIRT -> Blocks.DIRT.defaultBlockState();
             case GRASS -> Blocks.GRASS_BLOCK.defaultBlockState();

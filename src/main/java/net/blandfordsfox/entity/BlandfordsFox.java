@@ -71,16 +71,16 @@ public class BlandfordsFox extends Fox implements GeoEntity {
 
     // ------------------------------------------------------------- gaits & speed
     //
-    // Each moving animation has a ground speed: how fast its paws travel backwards
-    // while they're on the ground, measured from the keyframes as GeckoLib plays
-    // them. The animations always play at their original speed; instead the fox
-    // moves at exactly that ground speed, so a paw that touches the ground stays
-    // put until it lifts. (Checked in a simulation: paws drift under 0.6 px.)
+    // Each moving gait has a movement speed and an animation playback speed,
+    // chosen in the Fox Gait Lab page (paws checked against moving ground there).
 
-    /** Blocks per second for an adult. */
-    static final double WALK_SPEED = 6.71 / 16;     // WALK from the .bbmodel, 0.42 blocks/s
-    static final double RUN_SPEED = 47.34 / 16;     // RUN from the .bbmodel, 2.96 blocks/s
-    static final double STALK_SPEED = 3.333 / 16;   // STALK from tools/convert_model.py, 0.21 blocks/s
+    /** Movement in blocks per second for an adult, and animation playback speed, per gait. */
+    static final double WALK_SPEED = 0.419;
+    static final float WALK_PLAYBACK = 1.10F;
+    static final double RUN_SPEED = 3.010;
+    static final float RUN_PLAYBACK = 1.15F;
+    static final double STALK_SPEED = 0.208;
+    static final float STALK_PLAYBACK = 1.0F;
 
     /** Vanilla AI asks for a speed multiplier; at or above this the fox runs instead of walks. */
     private static final double RUN_FROM_MULTIPLIER = 1.15;
@@ -135,6 +135,7 @@ public class BlandfordsFox extends Fox implements GeoEntity {
     }
 
     private PlayState pickAnimation(AnimationState<BlandfordsFox> state) {
+        state.setControllerSpeed(1.0F);
         if (isSleeping()) return state.setAndContinue(SLEEP);
         if ((isPouncing() && !onGround()) || isFaceplanted()) return state.setAndContinue(POUNCE);
         if (isSitting()) return state.setAndContinue(SIT);
@@ -143,7 +144,11 @@ public class BlandfordsFox extends Fox implements GeoEntity {
         double v = groundSpeed / size;   // in adult terms
 
         if (isCrouching()) {
-            return state.setAndContinue(v > STALK_SPEED * 0.4 ? STALK : CROUCH);
+            if (v > STALK_SPEED * 0.4) {
+                state.setControllerSpeed(STALK_PLAYBACK);
+                return state.setAndContinue(STALK);
+            }
+            return state.setAndContinue(CROUCH);
         }
         if (v < WALK_SPEED * 0.3) {
             showingRun = false;
@@ -151,6 +156,7 @@ public class BlandfordsFox extends Fox implements GeoEntity {
         }
         // switch gaits with a little overlap so it doesn't flicker between them
         showingRun = showingRun ? v > 1.0 : v > 1.4;
+        state.setControllerSpeed(showingRun ? RUN_PLAYBACK : WALK_PLAYBACK);
         return state.setAndContinue(showingRun ? RUN : WALK);
     }
 

@@ -29,15 +29,13 @@ public final class NegevShape {
         double desertShare(int x, int z);
         /** 0..1: the same, counting rivers that run through hot desert climate as desert too. */
         double dryShare(int x, int z);
-        /** 0..1: share of nearby ground that is river running through hot desert climate. */
-        double riverShare(int x, int z);
         /** The overworld "depth" at y = 0; vanilla's surface sits near 128 * this. */
         double depthAtZero(int x, int z);
     }
 
     public static final int SEA_LEVEL = 63;
-    /** Lowest a valley floor or dry channel may sit: just above the sea, so valleys meet the water. */
-    public static final int MIN_FLOOR = 64;
+    /** Lowest a valley floor or dry channel may sit, so no aquifer water fills it. */
+    public static final int MIN_FLOOR = 65;
 
     private final Noise big, mid, small, fine;
 
@@ -50,7 +48,7 @@ public final class NegevShape {
 
     // -- channels: one noise sampled at different offsets and scales gives independent fields
     private static final double[][] OFF = {{0, 0}, {10301.5, -7731.25}, {-5413.75, 12007.5}, {20111.25, 3399.5}, {-17771.5, -15523.75},
-            {7919.25, 23117.5}, {-29303.5, 4441.75}, {13331.75, -26987.25}, {-8111.5, -31337.75}};
+            {7919.25, 23117.5}, {-29303.5, 4441.75}};
 
     private static double ch(Noise n, int k, double mult, double x, double z) {
         return n.at(x * mult + OFF[k][0], z * mult + OFF[k][1]);
@@ -66,11 +64,7 @@ public final class NegevShape {
     private double warpZ(double x, double z) { return z + 70 * ch(mid, 6, 0.8, x, z); }
     double valleyA(double x, double z)  { return ch(mid, 0, 0.45, warpX(x, z), warpZ(x, z)); }
     double valleyB(double x, double z)  { return ch(mid, 1, 0.9, warpX(x, z), warpZ(x, z)); }
-    double wadiN(double x, double z)    { return ch(mid, 2, 0.7, warpX(x, z), warpZ(x, z)); }
-    /** Small valleys cut into the plateau top: frequent, narrow, 5-9 blocks deep. */
-    double valleyC(double x, double z)  { return ch(mid, 7, 1.7, warpX(x, z), warpZ(x, z)); }
-    double smallGate(double x, double z) { return ch(big, 7, 3.0, x, z); }
-    double wallStyleN(double x, double z) { return ch(big, 8, 5.0, x, z); }
+    double wadiN(double x, double z)    { return ch(mid, 2, 0.4, warpX(x, z), warpZ(x, z)); }
     double floorN(double x, double z)   { return ch(mid, 3, 1.0, x, z); }
     double cliffN(double x, double z)   { return ch(mid, 4, 1.6, x, z); }
     double terraceN(double x, double z) { return ch(big, 5, 4.0, x, z); }
@@ -97,7 +91,7 @@ public final class NegevShape {
     /** Cliff noise above this makes a wall a cliff (rare). */
     public static double CLIFF_THRESHOLD = 0.42;
     /** Share of dune country that has a wadi line, via gate noise above this. */
-    public static double WADI_GATE = -0.05;
+    public static double WADI_GATE = 0.12;
     public static double WADI_MAX_DEPTH = 12;
     /** Dry-river gate: noise above this dries rivers and lakes (~90% of desert country). */
     public static double DRY_GATE = -0.4;
@@ -105,56 +99,7 @@ public final class NegevShape {
     public static double GROW_DISTANCE = 110;
 
     // -- one column ----------------------------------------------------------------------
-    public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE, DRY_RIVER }
-
-    /** Wall shapes: plain slope, terraces, a slope under a limestone cap with a lip, an undercut foot. */
-    public static final int PLAIN = 0, TERRACE = 1, CAPROCK = 2, UNDERCUT = 3;
-
-    /** Exact wall geometry of a highland column, checked block by block (allows overhangs). */
-    public static final class Walls {
-        final double[] t = new double[4];      // distance past each valley's floor edge
-        final int[] base = new int[4];         // that valley's floor height (first air)
-        final double[] run = new double[4];
-        final int[] style = new int[4];
-        int n;
-        public int capAbs;                     // plateau top (first air)
-        int stepH, capH, undercutH;
-        double jitter;
-
-        void add(double t, int base, double run, int style) {
-            this.t[n] = t; this.base[n] = base; this.run[n] = run; this.style[n] = style; n++;
-        }
-
-        private double face(int i, int yRel) {
-            double run = this.run[i];
-            int capRel = capAbs - base[i];
-            switch (style[i]) {
-                case TERRACE: return (Math.floorDiv(yRel, stepH) + 1 - jitter) * stepH * run;
-                case CAPROCK: {
-                    int low = Math.max(1, capRel - capH);
-                    if (yRel < low) return (yRel + 1 - jitter) * run;
-                    double top = (low + 1 - jitter) * run + 0.3;
-                    return yRel >= capRel - 1 ? top - 0.7 : top;              // lip overhangs the cliff slightly
-                }
-                case UNDERCUT: {
-                    if (yRel < undercutH) return 0.6 + (undercutH - yRel) * 0.45; // recessed foot, slight overhang
-                    return 0.6 + (yRel - undercutH + 1 - jitter) * run;
-                }
-                default: return (yRel + 1 - jitter) * run;
-            }
-        }
-
-        /** Is the block at absolute height y rock? */
-        public boolean solid(int y) {
-            if (y >= capAbs) return false;
-            for (int i = 0; i < n; i++) {
-                int yRel = y - base[i];
-                if (yRel < 0) continue;
-                if (t[i] <= 0 || t[i] < face(i, yRel)) return false;
-            }
-            return true;
-        }
-    }
+    public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE }
 
     public static final class Column {
         /** 0..1 how strongly this column is desert climate. */
@@ -177,12 +122,6 @@ public final class NegevShape {
         public double dry;
         /** Whether this spot's walls are terraces (or cliffs) rather than a plain slope. */
         public boolean terraced;
-        /** Exact highland walls, or null outside the highlands. */
-        public Walls walls;
-        /** 0..1 how much desert river is nearby (for dried rivers painted as valleys). */
-        public double river;
-        /** Floor of a small valley on the plateau top, when this column sits in one (else 0). */
-        public int hangingFloor;
         /** Kind of ground, for painting (highland or wadi; VANILLA elsewhere). */
         public Kind kind = Kind.VANILLA;
     }
@@ -228,11 +167,7 @@ public final class NegevShape {
         col.hot = smooth(0.55, 0.95, c.desertShare(x, z));
         // dry rivers and lakes (rivers are their own biome, so they count separately)
         double dryArea = smooth(0.3, 0.8, c.dryShare(x, z));
-        if (dryArea > 0) {
-            col.dry = dryArea * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
-            col.river = c.riverShare(x, z);
-            if (col.dry > 0.5 && col.river > 0.02) col.kind = Kind.DRY_RIVER;
-        }
+        if (dryArea > 0) col.dry = dryArea * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
         if (col.hot <= 0) return col;
 
         double vanillaSurface = 128 * c.depthAtZero(x, z);
@@ -246,8 +181,6 @@ public final class NegevShape {
         // of 2-4 block steps, and a few are near-vertical cliffs
         boolean cliff = cliffN(x, z) > CLIFF_THRESHOLD;
         boolean terraced = terraceN(x, z) > TERRACE_THRESHOLD;
-        double ws = wallStyleN(x, z);
-        int style = terraced || cliff ? TERRACE : ws > 0.25 ? UNDERCUT : ws > 0.04 ? CAPROCK : PLAIN;
         double run = cliff ? CLIFF_RUN
                 : terraced ? RUN_MIN + (RUN_MAX - RUN_MIN) * to01(stepN(x, z) * 0.8)
                 : SLOPE_RUN_MIN + (SLOPE_RUN_MAX - SLOPE_RUN_MIN) * to01(stepN(x, z) * 0.8);
@@ -270,49 +203,23 @@ public final class NegevShape {
             double dA = distToZero(this::valleyA, x, z, valleyA(x, z)) - wA;
             double dB = distToZero(this::valleyB, x, z, valleyB(x, z)) - wB;
             double dE = edge;
+            // side branches only inside the plateau, not as moats along its foot
             double edgeRun = Math.max(run, 1.0) * 2.5;                             // outer edges climb gently
+            double sm = Math.min(Math.min(rampSmooth(dA, total, run), rampSmooth(dB, total, run)), rampSmooth(dE, total, edgeRun));
             int sh = stepH > 1 && total > 16 ? stepH + 1 : stepH;                  // taller walls, taller steps
             int topAbs = (int) Math.round(floorY + total);                       // plateau top, absolute
             double cap = topAbs - col.floor;
-
-            Walls w = new Walls();
-            w.capAbs = topAbs;
-            w.stepH = sh;
-            w.jitter = jitter;
-            w.capH = 3 + (int) Math.round(to01(hillsN(x + 900, z)) * 2);         // 3-5 block limestone cliff band
-            w.undercutH = 2 + (int) Math.round(to01(hillsN(x - 900, z)));        // 2-3 block recessed foot
-            w.add(dA, col.floor, run, style);
-            w.add(dB, col.floor, run, style);
-            w.add(dE, col.floor, edgeRun, PLAIN);
-            double sm = Math.min(Math.min(rampSmooth(dA, total, run), rampSmooth(dB, total, run)), rampSmooth(dE, total, edgeRun));
-
-            // small valleys on the plateau top, 5-9 blocks deep
-            double depthC = 5 + 4 * to01(plateau(x + 700, z));
-            if (cap >= depthC + 3 && smallGate(x, z) > -0.15) {
-                double wC = 1.0 + 2.5 * to01(widthN(x - 7000, z));
-                double dC = distToZero(this::valleyC, x, z, valleyC(x, z)) - wC;
-                int baseC = topAbs - (int) Math.round(depthC);
-                w.add(dC, baseC, run, style);
-                sm = Math.min(sm, (baseC - floorY) + rampSmooth(dC, depthC, run));
-                col.hangingFloor = baseC;
-            }
-
-            int top = col.floor;                                                  // first air above the rock
-            for (int y = topAbs - 1; y >= col.floor; y--) {
-                if (w.solid(y)) { top = y + 1; break; }
-            }
-            // Near the edge of the desert the plateau blends gradually into vanilla terrain;
-            // the exact walls only apply once the shape fully replaces vanilla.
-            col.high = smooth(0.0, 1.0, highW);
+            int ex = Math.min(Math.min(rampExact(dA, cap, run, sh, jitter), rampExact(dB, cap, run, sh, jitter)),
+                    rampExact(dE, cap, edgeRun, sh, jitter));
+            // Near the edge of the desert (or of the highlands) the plateau sinks towards the
+            // floor instead of being blended with vanilla terrain, which would leave thin
+            // floating crusts over air. The shape fully replaces vanilla once highW > 0.35.
+            col.high = smooth(0.0, 0.35, highW);
             col.plateau = (int) Math.round(cap);
             col.surfSmooth = floorY + sm * highW;
-            col.surfExact = top;
-            col.walls = highW > 0.97 ? w : null;
-            if (highW > 0.97) {
-                col.kind = top <= col.floor ? Kind.FLOOR
-                        : top >= topAbs ? Kind.TOP
-                        : col.hangingFloor > 0 && top == col.hangingFloor ? Kind.FLOOR
-                        : Kind.SLOPE;
+            col.surfExact = col.floor + (int) Math.round(ex * highW);
+            if (highW > 0.6) {
+                col.kind = ex <= 0 ? Kind.FLOOR : ex >= col.plateau ? Kind.TOP : Kind.SLOPE;
             }
         }
 
@@ -320,7 +227,7 @@ public final class NegevShape {
         double gate = smooth(WADI_GATE, WADI_GATE + 0.1, wadiGate(x, z));
         double wadiW = col.hot * (1 - highW) * gate;
         if (wadiW > 0) {
-            double half = 1.0 + 2.5 * to01(widthN(x - 3000, z));
+            double half = 1.5 + 3.0 * to01(widthN(x - 3000, z));
             double dW = distToZero(this::wadiN, x, z, wadiN(x, z)) - half;
             if (dW < WADI_MAX_DEPTH * RUN_MAX + 2) {
                 double wf = Math.max(MIN_FLOOR, vanillaSurface - 1);
@@ -330,7 +237,7 @@ public final class NegevShape {
                 col.wadiFloor = (int) Math.round(wf);
                 col.wadiSmooth = wf + rampSmooth(dW, WADI_MAX_DEPTH, run) + lift;
                 col.wadiExact = col.wadiFloor + rampExact(dW, WADI_MAX_DEPTH, run, stepH, jitter) + (int) Math.round(lift);
-                if (wadiW > 0.9 && (col.kind == Kind.VANILLA || col.kind == Kind.DRY_RIVER)) {
+                if (wadiW > 0.9 && col.kind == Kind.VANILLA) {
                     col.kind = col.wadiExact <= col.wadiFloor ? Kind.WADI_FLOOR : Kind.WADI_SLOPE;
                 }
             }
@@ -347,43 +254,17 @@ public final class NegevShape {
     // -- painting ------------------------------------------------------------------------
     public enum Material { SANDSTONE, GRANITE, PACKED_MUD, LIMESTONE, SAND, DIRT, GRASS }
 
-    /**
-     * Rock layers: an irregular stack of limestone, sandstone, granite and packed mud with
-     * varying thicknesses (no fixed repeat), level like real strata, gently wavy, and shifted
-     * up or down from place to place so neighbouring walls don't show the identical sequence.
-     */
-    private Material[] layers;
-
-    private Material[] layers() {
-        Material[] l = layers;
-        if (l != null) return l;
-        l = new Material[768];
-        long seed = Double.doubleToLongBits(big.at(1234.5, -987.25)) ^ 0x5DEECE66DL;
-        java.util.Random r = new java.util.Random(seed);
-        Material last = null;
-        int i = 0;
-        while (i < l.length) {
-            Material m;
-            do {
-                double p = r.nextDouble();
-                m = p < 0.46 ? Material.LIMESTONE : p < 0.66 ? Material.SANDSTONE : p < 0.84 ? Material.GRANITE : Material.PACKED_MUD;
-            } while (m == last);
-            int thick = switch (m) {
-                case LIMESTONE -> 1 + r.nextInt(3);
-                case SANDSTONE -> 1 + r.nextInt(2);
-                case GRANITE -> r.nextInt(3) == 0 ? 2 : 1;
-                default -> 1;
-            };
-            for (int k = 0; k < thick && i < l.length; k++) l[i++] = m;
-            last = m;
-        }
-        return layers = l;
-    }
-
+    /** Rock layers: sandstone with thin bands of granite and packed mud, gently wavy. */
     public Material stratum(int x, int y, int z) {
-        int shift = (int) Math.round(7 * big.at(x * 2.0 + 777, z * 2.0 - 555));   // slow up/down drift
-        int yy = y + (int) Math.round(1.6 * wobble(x, z)) + shift;
-        return layers()[Math.floorMod(yy + 256, 768)];
+        double region = big.at(x * 3 + 777, z * 3 - 555);
+        int period = 5 + (int) Math.floor(3 * to01(region));            // 5..7 blocks per repeat
+        int yy = y + (int) Math.round(1.6 * wobble(x, z));
+        int r = Math.floorMod(yy, period);
+        if (r == 0) return Material.GRANITE;
+        if (r == 1 && region > -0.1) return Material.GRANITE;            // often two blocks thick
+        if (r == period / 2 + 1) return Material.PACKED_MUD;
+        if (r == period - 1 || (r == period - 2 && region < 0.1)) return Material.LIMESTONE;
+        return Material.SANDSTONE;
     }
 
     /**
@@ -391,16 +272,11 @@ public final class NegevShape {
      * Returns null where the block should be left as it is.
      */
     public Material paint(int x, int y, int z, Column col, int topY) {
-        int floorY = col.kind == Kind.WADI_FLOOR || col.kind == Kind.WADI_SLOPE ? col.wadiFloor : col.floor;
-        return paint(x, y, z, col, topY, col.kind, floorY);
-    }
-
-    public Material paint(int x, int y, int z, Column col, int topY, Kind kind, int floorY) {
-        if (kind == Kind.VANILLA || kind == Kind.DRY_RIVER) return null;
+        Kind kind = col.kind;
+        if (kind == Kind.VANILLA) return null;
         boolean floorKind = kind == Kind.FLOOR || kind == Kind.WADI_FLOOR;
+        int floorY = kind == Kind.WADI_FLOOR || kind == Kind.WADI_SLOPE ? col.wadiFloor : col.floor;
         if (y < floorY - 5 || y > topY) return null;
-        // the top few blocks under the plateau top are limestone: the "roof" over the walls
-        if (col.walls != null && !floorKind && y >= col.walls.capAbs - 3) return Material.LIMESTONE;
         if (floorKind) {
             // small patches: fine noise plus a per-block shake
             double p = 0.55 * patches2(x * 2.0, z * 2.0) + 0.25 * patches(x, z) + 0.35 * (hash(x, z) - 0.5);
@@ -458,14 +334,11 @@ public final class NegevShape {
     /** Exact block-by-block terraces, applied near the surface on top of the final density. */
     public static double detail(Column col, double y, double fin) {
         double v = fin;
-        if (col.walls != null) {
-            // exact walls, block by block (overhangs allowed), from the valley floor to the plateau top
-            int yi = (int) Math.floor(y);
-            if (yi >= col.floor - 1 && yi <= col.walls.capAbs) {
-                v = col.walls.solid(yi) ? K_DETAIL : -K_DETAIL;
-            } else if (yi < col.floor - 1 && yi >= col.floor - 1 - SEALED) {
-                v = Math.max(v, K_DETAIL);                                // no cave openings just under the floor
-            }
+        if (col.high > 0) {
+            double lo = Math.min(col.surfSmooth, col.surfExact) - 2, hi = Math.max(col.surfSmooth, col.surfExact) + 2;
+            if (y >= lo && y <= hi) v = lerp(col.high, v, (col.surfExact - 0.5 - y) * K_DETAIL);
+            // no cave openings just under the surface: they left 2-block roofs over air or water
+            else if (y < lo && y >= lo - SEALED) v = lerp(col.high, v, Math.max(v, (col.surfExact - 0.5 - y) * K_DETAIL));
         }
         if (col.wadi > 0) {
             double lo = Math.min(col.wadiSmooth, col.wadiExact) - 2, hi = Math.max(col.wadiSmooth, col.wadiExact) + 2;

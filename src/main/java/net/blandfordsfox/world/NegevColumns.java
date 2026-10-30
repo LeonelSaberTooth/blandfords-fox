@@ -109,28 +109,24 @@ public final class NegevColumns {
         return d;
     }
 
-    private static final double RADIUS = 40;   // blocks over which the desert edge fades out
-
-    /** Tent-weighted share of nearby cells that are desert (and/or hot river). */
-    private double share(int x, int z, boolean desert, boolean rivers) {
+    /** Tent-weighted share of cells within 24 blocks whose type is at least minType's kind. */
+    private double share(int x, int z, boolean countRivers) {
         int cx = Math.floorDiv(x, CELL), cz = Math.floorDiv(z, CELL);
-        int r = (int) Math.ceil(RADIUS / CELL);
         double sum = 0, wsum = 0;
-        for (int i = -r; i <= r; i++) for (int j = -r; j <= r; j++) {
+        for (int i = -3; i <= 3; i++) for (int j = -3; j <= 3; j++) {
             double dx = (cx + i) * CELL + CELL / 2.0 - x, dz = (cz + j) * CELL + CELL / 2.0 - z;
-            double w = Math.max(0, 1 - Math.abs(dx) / RADIUS) * Math.max(0, 1 - Math.abs(dz) / RADIUS);
+            double w = Math.max(0, 1 - Math.abs(dx) / 24.0) * Math.max(0, 1 - Math.abs(dz) / 24.0);
             if (w <= 0) continue;
             wsum += w;
             byte c = desertCell(cx + i, cz + j);
-            if ((desert && c == DESERT) || (rivers && c == HOT_RIVER)) sum += w;
+            if (c == DESERT || (countRivers && c == HOT_RIVER)) sum += w;
         }
         return wsum > 0 ? sum / wsum : 0;
     }
 
     private final NegevShape.Climate climate = new NegevShape.Climate() {
-        public double desertShare(int x, int z) { return share(x, z, true, false); }
-        public double dryShare(int x, int z) { return share(x, z, true, true); }
-        public double riverShare(int x, int z) { return share(x, z, false, true); }
+        public double desertShare(int x, int z) { return share(x, z, false); }
+        public double dryShare(int x, int z) { return share(x, z, true); }
         public double depthAtZero(int x, int z) { return depth.compute(new DensityFunction.SinglePointContext(x, 0, z)); }
     };
 

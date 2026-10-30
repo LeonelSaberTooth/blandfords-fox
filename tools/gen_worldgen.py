@@ -53,10 +53,10 @@ for name, step_heightmap in (('negev_paint', 'WORLD_SURFACE_WG'), ('negev_decora
         "placement": [{"type": "minecraft:heightmap", "heightmap": step_heightmap}]})
 
 write('blandfordsfox/neoforge/biome_modifier/negev_paint.json', {
-    "type": "neoforge:add_features", "biomes": ["minecraft:desert", "minecraft:river"],
+    "type": "neoforge:add_features", "biomes": "minecraft:desert",
     "features": "blandfordsfox:negev_paint", "step": "raw_generation"})
 write('blandfordsfox/neoforge/biome_modifier/negev_decorate.json', {
-    "type": "neoforge:add_features", "biomes": ["minecraft:desert", "minecraft:river"],
+    "type": "neoforge:add_features", "biomes": "minecraft:desert",
     "features": "blandfordsfox:negev_decorate", "step": "vegetal_decoration"})
 write('blandfordsfox/neoforge/biome_modifier/no_desert_cactus.json', {
     "type": "neoforge:remove_features", "biomes": "minecraft:desert",
@@ -66,7 +66,7 @@ write('blandfordsfox/worldgen/placed_feature/negev_repaint.json', {
     "feature": "blandfordsfox:negev_paint",
     "placement": [{"type": "minecraft:heightmap", "heightmap": "WORLD_SURFACE_WG"}]})
 write('blandfordsfox/neoforge/biome_modifier/negev_repaint.json', {
-    "type": "neoforge:add_features", "biomes": ["minecraft:desert", "minecraft:river"],
+    "type": "neoforge:add_features", "biomes": "minecraft:desert",
     "features": "blandfordsfox:negev_repaint", "step": "underground_decoration"})
 write('blandfordsfox/neoforge/biome_modifier/no_desert_flowers.json', {
     "type": "neoforge:remove_features", "biomes": "minecraft:desert",

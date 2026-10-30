@@ -13,7 +13,6 @@ public class Voxels {
         NegevShape.Climate hot = new NegevShape.Climate() {
             public double desertShare(int x, int z) { return 1.0; }
             public double dryShare(int x, int z) { return 1.0; }
-            public double riverShare(int x, int z) { return 0.0; }
             public double depthAtZero(int x, int z) { return (68 + 4 * base.at(x, z)) / 128.0; }
         };
         try (PrintWriter w = new PrintWriter(new BufferedWriter(new FileWriter(args[4])))) {
@@ -26,12 +25,10 @@ public class Voxels {
                 if (c.high > 0) top = top + (c.surfExact - top) * c.high;
                 if (c.wadi > 0.5) top = Math.min(top, c.wadiExact);
                 int topY = (int) Math.round(top) - 1;   // top solid block
-                if (c.walls != null) topY = c.surfExact - 1;
                 if (c.kind.name().startsWith("WADI") && topY + 1 != c.wadiExact) c.kind = NegevShape.Kind.VANILLA;
                 if (c.high > 0 && c.high <= 0.5) c.kind = NegevShape.Kind.VANILLA;
                 StringBuilder sb = new StringBuilder().append(topY).append(' ');
                 for (int y = topY; y > topY - 40; y--) {
-                    if (c.walls != null && y >= c.floor && !c.walls.solid(y)) { sb.append('.'); continue; }
                     NegevShape.Material m = shape.paint(x, y, z, c, topY);
                     sb.append(m == null ? (y >= topY - 3 ? 'a' : 'b') : switch (m) { case SAND -> 'a'; case SANDSTONE -> 'S'; case GRANITE -> 'G'; case PACKED_MUD -> 'P'; case LIMESTONE -> 'l'; case DIRT -> 'D'; case GRASS -> 'R'; });
                 }

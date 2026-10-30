@@ -366,11 +366,12 @@ public final class NegevShape {
             Material m;
             do {
                 double p = r.nextDouble();
-                m = p < 0.38 ? Material.LIMESTONE : p < 0.62 ? Material.SANDSTONE : p < 0.84 ? Material.GRANITE : Material.PACKED_MUD;
+                m = p < 0.46 ? Material.LIMESTONE : p < 0.66 ? Material.SANDSTONE : p < 0.84 ? Material.GRANITE : Material.PACKED_MUD;
             } while (m == last);
             int thick = switch (m) {
                 case LIMESTONE -> 1 + r.nextInt(3);
-                case SANDSTONE, GRANITE -> 1 + r.nextInt(2);
+                case SANDSTONE -> 1 + r.nextInt(2);
+                case GRANITE -> r.nextInt(3) == 0 ? 2 : 1;
                 default -> 1;
             };
             for (int k = 0; k < thick && i < l.length; k++) l[i++] = m;

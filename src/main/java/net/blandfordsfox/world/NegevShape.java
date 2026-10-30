@@ -48,7 +48,7 @@ public final class NegevShape {
 
     // -- channels: one noise sampled at different offsets and scales gives independent fields
     private static final double[][] OFF = {{0, 0}, {10301.5, -7731.25}, {-5413.75, 12007.5}, {20111.25, 3399.5}, {-17771.5, -15523.75},
-            {7919.25, 23117.5}, {-29303.5, 4441.75}};
+            {7919.25, 23117.5}, {-29303.5, 4441.75}, {13331.75, -26987.25}};
 
     private static double ch(Noise n, int k, double mult, double x, double z) {
         return n.at(x * mult + OFF[k][0], z * mult + OFF[k][1]);
@@ -68,6 +68,9 @@ public final class NegevShape {
     double floorN(double x, double z)   { return ch(mid, 3, 1.0, x, z); }
     double cliffN(double x, double z)   { return ch(mid, 4, 1.6, x, z); }
     double terraceN(double x, double z) { return ch(big, 5, 4.0, x, z); }
+    /** Small valleys cut into the plateau top: frequent, narrow, 5-9 blocks deep. */
+    double valleyC(double x, double z)  { return ch(mid, 7, 1.7, warpX(x, z), warpZ(x, z)); }
+    double smallGate(double x, double z) { return ch(big, 7, 3.0, x, z); }
     double wallStyleN(double x, double z) { return ch(big, 6, 5.0, x, z); }
     double stepN(double x, double z)    { return ch(small, 0, 1.0, x, z); }
     double hillsN(double x, double z)   { return ch(small, 1, 1.0, x, z); }
@@ -170,6 +173,8 @@ public final class NegevShape {
         public boolean terraced;
         /** Exact overhanging walls, where this spot has that wall style (else null). */
         public Walls walls;
+        /** Floor of a small valley on the plateau top, when this column is in one (else 0). */
+        public int hangingFloor;
         /** Kind of ground, for painting (highland or wadi; VANILLA elsewhere). */
         public Kind kind = Kind.VANILLA;
     }
@@ -279,6 +284,24 @@ public final class NegevShape {
             double cap = topAbs - col.floor;
             int ex = Math.min(Math.min(wallExact(dA, cap, run, sh, jitter, cliffH), wallExact(dB, cap, run, sh, jitter, cliffH)),
                     rampExact(dE, cap, edgeRun, sh, jitter));
+
+            // small valleys, 5-9 blocks deep, cut into the plateau top
+            boolean inSmall = false;
+            int depthC = (int) Math.min(5 + Math.round(4 * to01(plateau(x + 700, z))), Math.round(cap) - 2);
+            if (depthC >= 4 && smallGate(x, z) > -0.2) {
+                double wC = 1.5 + 2.5 * to01(widthN(x - 7000, z));
+                double dC = distToZero(this::valleyC, x, z, valleyC(x, z)) - wC;
+                if (dC < depthC * Math.max(run, 1) + 2) {
+                    int baseRel = (int) Math.round(cap) - depthC;
+                    int exC = baseRel + wallExact(dC, depthC, run, stepH, jitter, Math.min(cliffH, depthC));
+                    sm = Math.min(sm, baseRel + wallSmooth(dC, depthC, run, Math.min(cliffH, depthC)));
+                    if (exC < ex) {
+                        ex = exC;
+                        inSmall = true;
+                        if (exC == baseRel) col.hangingFloor = col.floor + baseRel;
+                    }
+                }
+            }
             // Near the edge of the desert (or of the highlands) the plateau sinks towards the
             // floor instead of being blended with vanilla terrain, which would leave thin
             // floating crusts over air. The shape fully replaces vanilla once highW > 0.35.
@@ -288,7 +311,7 @@ public final class NegevShape {
             col.surfExact = col.floor + (int) Math.round(ex * highW);
             // only where the plateau is at full height: in the fade zone heights are scaled down,
             // and unscaled overhang walls there would stand up as sheer steps
-            if (overhang != 0 && highW >= 0.97) {
+            if (overhang != 0 && highW >= 0.97 && !inSmall) {
                 Walls w = new Walls();
                 w.capAbs = topAbs;
                 w.floor = col.floor;
@@ -306,8 +329,9 @@ public final class NegevShape {
                 ex = top - col.floor;
             }
             if (highW > 0.6) {
-                col.kind = ex <= 0 ? Kind.FLOOR : ex >= col.plateau ? Kind.TOP : Kind.SLOPE;
+                col.kind = ex <= 0 || col.hangingFloor > 0 ? Kind.FLOOR : ex >= col.plateau ? Kind.TOP : Kind.SLOPE;
             }
+            if (highW < 0.97) col.hangingFloor = 0;
         }
 
         // ---- single wadis through the dunes
@@ -388,7 +412,8 @@ public final class NegevShape {
         Kind kind = col.kind;
         if (kind == Kind.VANILLA) return null;
         boolean floorKind = kind == Kind.FLOOR || kind == Kind.WADI_FLOOR;
-        int floorY = kind == Kind.WADI_FLOOR || kind == Kind.WADI_SLOPE ? col.wadiFloor : col.floor;
+        int floorY = kind == Kind.WADI_FLOOR || kind == Kind.WADI_SLOPE ? col.wadiFloor
+                : col.hangingFloor > 0 ? col.hangingFloor : col.floor;
         if (y < floorY - 5 || y > topY) return null;
         if (floorKind) {
             // small patches: fine noise plus a per-block shake

@@ -144,6 +144,8 @@ def made_here():
         'tail': {'rotation': [5, 0, 0]},
     })
 
+    stalk = make_stalk()
+
     # POUNCE: stretched out in the air; the renderer tilts the whole fox along its jump.
     pounce = static({
         'left_arm': {'rotation': [65, 0, 0]}, 'right_arm': {'rotation': [65, 0, 0]},
@@ -152,7 +154,54 @@ def made_here():
         'ear_left': {'rotation': [25, 0, 0]}, 'ear_right': {'rotation': [25, 0, 0]},
         'tail': {'rotation': [-15, 0, 0]},
     }, length=0.2, loop='hold_on_last_frame')
-    return {'idle': idle, 'sit': sit, 'crouch': crouch, 'pounce': pounce}
+    return {'idle': idle, 'sit': sit, 'crouch': crouch, 'stalk': stalk, 'pounce': pounce}
+
+
+# STALK: creeping forward while crouched. Each paw is placed on the ground and
+# held there while the body slides over it (legs extend or shorten slightly along
+# their own length to stay planted), then lifted and swung forward.
+STALK_LEN = 1.2          # seconds per cycle
+STALK_STRIDE = 3.0       # px each paw travels per cycle
+STALK_STANCE = 0.75      # share of the cycle a paw is on the ground
+STALK_SPEED = STALK_STRIDE / (STALK_LEN * STALK_STANCE)   # px/s over the ground
+
+
+def make_stalk():
+    h = 3.0                                    # leg pivots sit 3 px up once the body is 1 px lower
+    legs = {'left_leg': (0.0, 1.5), 'left_arm': (0.25, -1.5),     # (phase, centre z of the paw)
+            'right_leg': (0.5, 1.5), 'right_arm': (0.75, -1.5)}
+    n = 24
+    bones = {'body': {'position': wave(STALK_LEN, n, lambda p: [0, -1.0 + 0.12 * math.cos(4 * math.pi * p), 0])},
+             'head': {'position': {'0.0': {'vector': [0, -0.3, -0.5]}},
+                      'rotation': wave(STALK_LEN, n, lambda p: [-12 + 1.0 * math.sin(4 * math.pi * p), 0, 0])},
+             'ear_left': {'rotation': {'0.0': {'vector': [-15, 0, 0]}}},
+             'ear_right': {'rotation': {'0.0': {'vector': [-15, 0, 0]}}},
+             'tail': {'rotation': wave(STALK_LEN, n, lambda p: [4, 3 * math.sin(2 * math.pi * p), 0])}}
+
+    def paw(phase, centre, p):
+        q = (p - phase) % 1.0
+        if q < STALK_STANCE:                          # planted: moves back at ground speed
+            k = q / STALK_STANCE
+            return centre - STALK_STRIDE / 2 + STALK_STRIDE * k, 0.0
+        k = (q - STALK_STANCE) / (1 - STALK_STANCE)   # swinging forward, lifted
+        k2 = 0.5 - 0.5 * math.cos(math.pi * k)
+        return centre + STALK_STRIDE / 2 - STALK_STRIDE * k2, 0.9 * math.sin(math.pi * k)
+
+    for leg, (phase, centre) in legs.items():
+        rot, pos = {}, {}
+        for i in range(n + 1):
+            p = i / n
+            z, lift = paw(phase, centre, p)
+            bob = 0.12 * math.cos(4 * math.pi * p)
+            dy = -(h + bob) + lift                    # paw relative to the leg pivot
+            d = math.hypot(z, dy)
+            a = math.degrees(math.atan2(-z, -dy))     # +X swings the paw forward (-z)
+            shift = d - 4.0
+            t = f"{r(STALK_LEN * p)}"
+            rot[t] = {'vector': [r(a), 0, 0], 'lerp_mode': 'catmullrom'}
+            pos[t] = {'vector': [0, r(shift * dy / d), r(shift * z / d)], 'lerp_mode': 'catmullrom'}
+        bones[leg] = {'rotation': rot, 'position': pos}
+    return {'loop': True, 'animation_length': STALK_LEN, 'bones': bones}
 
 
 def main():

@@ -32,14 +32,23 @@ public class BlandfordsFoxRenderer extends GeoEntityRenderer<BlandfordsFox> {
         super.scaleModelForRender(widthScale, heightScale, poseStack, fox, model, isReRender, partialTick, packedLight, packedOverlay);
     }
 
-    /** Same as vanilla's FoxRenderer: tilt the whole fox along its arc while pouncing. */
+    /**
+     * Like vanilla's FoxRenderer, tilt the fox along its arc while pouncing, but only
+     * while it's in the air (or stuck nose-first in snow), and about the middle of its
+     * body rather than its feet. Vanilla tilts about the feet, which on landing left
+     * the front half of this model pitched down into the ground.
+     */
     @Override
     protected void applyRotations(BlandfordsFox fox, PoseStack poseStack, float ageInTicks, float rotationYaw,
                                   float partialTick, float nativeScale) {
         super.applyRotations(fox, poseStack, ageInTicks, rotationYaw, partialTick, nativeScale);
-        if (fox.isPouncing() || fox.isFaceplanted()) {
-            float pitch = -Mth.lerp(partialTick, fox.xRotO, fox.getXRot());
+        boolean airborne = fox.isPouncing() && !fox.onGround();
+        if (airborne || fox.isFaceplanted()) {
+            float pitch = Mth.clamp(-Mth.lerp(partialTick, fox.xRotO, fox.getXRot()), -45F, 45F);
+            float mid = fox.getBbHeight() * 0.5F / nativeScale;
+            poseStack.translate(0, mid, 0);
             poseStack.mulPose(Axis.XP.rotationDegrees(pitch));
+            poseStack.translate(0, -mid, 0);
         }
     }
 

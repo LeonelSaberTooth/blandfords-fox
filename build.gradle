@@ -35,6 +35,13 @@ neoForge {
     runs {
         client { client() }
         server { server(); programArgument '--nogui' }
+        // Generates desert valleys in a fresh world, writes them out and stops (see NegevSelfTest)
+        selftest {
+            server()
+            programArgument '--nogui'
+            gameDirectory = project.file('run-selftest')
+            systemProperty 'blandfordsfox.selftest', 'selftest'
+        }
     }
 
     mods {

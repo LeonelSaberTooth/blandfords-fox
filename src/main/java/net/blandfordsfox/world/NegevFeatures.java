@@ -40,6 +40,17 @@ public final class NegevFeatures {
         return level.getBiome(pos).is(Biomes.DESERT);
     }
 
+    /**
+     * Desert (or dried river) by this chunk's own stored biome. The blended lookup peeks at
+     * neighbouring chunks, which may not have had their dried rivers turned to desert yet,
+     * and that left unpainted lines along chunk edges.
+     */
+    static boolean desertHere(WorldGenLevel level, BlockPos pos, NegevShape.Column col) {
+        Holder<Biome> b = level.getChunk(pos.getX() >> 4, pos.getZ() >> 4)
+                .getNoiseBiome(QuartPos.fromBlock(pos.getX()), QuartPos.fromBlock(pos.getY()), QuartPos.fromBlock(pos.getZ()));
+        return b.is(Biomes.DESERT) || (col.dry > 0.9 && b.is(Biomes.RIVER));
+    }
+
     static BlockState block(NegevShape.Material m) {
         return switch (m) {
             case SANDSTONE -> Blocks.SANDSTONE.defaultBlockState();
@@ -132,7 +143,7 @@ public final class NegevFeatures {
                 if (col.kind == NegevShape.Kind.VANILLA && !oldRiver) continue;
                 int topY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
                 pos.set(x, topY, z);
-                if (!level.getFluidState(pos).isEmpty() || !isDesert(level, pos)) continue;
+                if (!level.getFluidState(pos).isEmpty() || !desertHere(level, pos, col)) continue;
                 NegevShape.Kind kind = groundKind(col, topY);
                 if (kind == null && oldRiver) kind = NegevShape.Kind.RIVER_SAND;
                 if (kind == null) continue;
@@ -185,7 +196,7 @@ public final class NegevFeatures {
                 int topY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
                 pos.set(x, topY, z);
                 NegevShape.Kind kind = groundKind(col, topY);
-                if (kind == null || !isDesert(level, pos)) continue;
+                if (kind == null || !desertHere(level, pos, col)) continue;
                 BlockState ground = level.getBlockState(pos);
                 BlockPos above = pos.above();
                 if (!level.getBlockState(above).isAir()) continue;

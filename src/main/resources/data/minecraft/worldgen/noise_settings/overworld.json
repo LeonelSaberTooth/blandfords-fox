@@ -177,8 +177,18 @@
         "shift_y": 0.0,
         "shift_z": "minecraft:shift_z"
       },
+      "vegetation": {
+        "type": "minecraft:shifted_noise",
+        "noise": "minecraft:vegetation",
+        "xz_scale": 0.25,
+        "y_scale": 0.0,
+        "shift_x": "minecraft:shift_x",
+        "shift_y": 0.0,
+        "shift_z": "minecraft:shift_z"
+      },
       "continents": "minecraft:overworld/continents",
       "erosion": "minecraft:overworld/erosion",
+      "ridges": "minecraft:overworld/ridges",
       "depth": "minecraft:overworld/depth",
       "noise_big": "blandfordsfox:negev_big",
       "noise_mid": "blandfordsfox:negev_mid",

@@ -19,14 +19,17 @@ public final class NegevDensity {
     private NegevDensity() {}
 
     /** Shared fields: vanilla climate inputs and four seeded noises. */
-    public record Inputs(DensityFunction temperature, DensityFunction continents, DensityFunction erosion, DensityFunction depth,
+    public record Inputs(DensityFunction temperature, DensityFunction vegetation, DensityFunction continents, DensityFunction erosion,
+                         DensityFunction ridges, DensityFunction depth,
                          DensityFunction.NoiseHolder big, DensityFunction.NoiseHolder mid,
                          DensityFunction.NoiseHolder small, DensityFunction.NoiseHolder fine) {
 
         static final MapCodec<Inputs> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 DensityFunction.HOLDER_HELPER_CODEC.fieldOf("temperature").forGetter(Inputs::temperature),
+                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("vegetation").forGetter(Inputs::vegetation),
                 DensityFunction.HOLDER_HELPER_CODEC.fieldOf("continents").forGetter(Inputs::continents),
                 DensityFunction.HOLDER_HELPER_CODEC.fieldOf("erosion").forGetter(Inputs::erosion),
+                DensityFunction.HOLDER_HELPER_CODEC.fieldOf("ridges").forGetter(Inputs::ridges),
                 DensityFunction.HOLDER_HELPER_CODEC.fieldOf("depth").forGetter(Inputs::depth),
                 DensityFunction.NoiseHolder.CODEC.fieldOf("noise_big").forGetter(Inputs::big),
                 DensityFunction.NoiseHolder.CODEC.fieldOf("noise_mid").forGetter(Inputs::mid),
@@ -35,12 +38,12 @@ public final class NegevDensity {
         ).apply(i, Inputs::new));
 
         Inputs map(DensityFunction.Visitor v) {
-            return new Inputs(temperature.mapAll(v), continents.mapAll(v), erosion.mapAll(v), depth.mapAll(v),
+            return new Inputs(temperature.mapAll(v), vegetation.mapAll(v), continents.mapAll(v), erosion.mapAll(v), ridges.mapAll(v), depth.mapAll(v),
                     v.visitNoise(big), v.visitNoise(mid), v.visitNoise(small), v.visitNoise(fine));
         }
 
         NegevColumns columns() {
-            return NegevColumns.of(temperature, continents, erosion, depth, big, mid, small, fine);
+            return NegevColumns.of(temperature, vegetation, continents, erosion, ridges, depth, big, mid, small, fine);
         }
     }
 

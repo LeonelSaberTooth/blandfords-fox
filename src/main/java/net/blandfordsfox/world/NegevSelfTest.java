@@ -95,7 +95,7 @@ public final class NegevSelfTest {
         // generate the chunks fully (features included)
         for (int cx = (x0 >> 4) - 1; cx <= ((x0 + size) >> 4) + 1; cx++)
             for (int cz = (z0 >> 4) - 1; cz <= ((z0 + size) >> 4) + 1; cz++) level.getChunk(cx, cz);
-        int deserts = 0, painted = 0;
+        int deserts = 0, painted = 0, shapedHere = 0, verified = 0;
         try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(out.resolve(name + ".txt")))) {
             w.println(size + " " + x0 + " " + z0);
             BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
@@ -108,13 +108,21 @@ public final class NegevSelfTest {
                 }
                 NegevShape.Column c = columns.get(x, z);
                 sb.append(' ').append(c.kind.ordinal());
+                sb.append(' ').append(c.surfExact).append(' ').append(Math.round(c.high * 100)).append(' ').append(c.floor)
+                        .append(' ').append(c.wadiExact).append(' ').append(Math.round(c.wadi * 100));
+                if (c.kind != NegevShape.Kind.VANILLA) {
+                    shapedHere++;
+                    int solidTop = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+                    if (NegevFeatures.verifiedKind(c, solidTop) == c.kind) verified++;
+                }
                 if (level.getBiome(p.set(x, top, z)).is(Biomes.DESERT)) { sb.append(" d"); deserts++; } else sb.append(" -");
                 if (c.kind != NegevShape.Kind.VANILLA) painted++;
                 w.println(sb);
             }
         }
         report.append(name).append(": centre ").append(found.getX()).append(' ').append(found.getZ())
-                .append(", desert columns ").append(deserts).append(", shaped columns ").append(painted).append('\n');
+                .append(", desert columns ").append(deserts).append(", shaped columns ").append(painted)
+                .append(", ground where expected ").append(verified).append('/').append(shapedHere).append('\n');
         return 1;
     }
 

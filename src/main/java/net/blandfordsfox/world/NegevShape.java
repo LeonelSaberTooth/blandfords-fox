@@ -25,9 +25,8 @@ public final class NegevShape {
 
     /** Vanilla's climate at a column. */
     public interface Climate {
-        double temperature(int x, int z);
-        double continents(int x, int z);
-        double erosion(int x, int z);
+        /** 0..1: how much of the area around this column vanilla makes desert (smoothly weighted). */
+        double desertShare(int x, int z);
         /** The overworld "depth" at y = 0; vanilla's surface sits near 128 * this. */
         double depthAtZero(int x, int z);
     }
@@ -150,8 +149,7 @@ public final class NegevShape {
 
     public Column column(int x, int z, Climate c) {
         Column col = new Column();
-        double t = c.temperature(x, z), cont = c.continents(x, z), ero = c.erosion(x, z);
-        col.hot = smooth(0.55, 0.62, t) * smooth(-0.11, -0.03, cont) * smooth(-0.375, -0.30, ero);
+        col.hot = smooth(0.55, 0.95, c.desertShare(x, z));
         if (col.hot <= 0) return col;
 
         double vanillaSurface = 128 * c.depthAtZero(x, z);

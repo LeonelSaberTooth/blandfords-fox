@@ -86,9 +86,9 @@ public final class NegevFeatures {
         return k == NegevShape.Kind.VANILLA ? null : k;
     }
 
-    static boolean anyRiver(NegevColumns columns, int x0, int z0) {
+    static boolean anyDry(NegevColumns columns, int x0, int z0) {
         for (int dx = 0; dx < 16; dx += 3) for (int dz = 0; dz < 16; dz += 3) {
-            if (columns.get(x0 + dx, z0 + dz).river > 0) return true;
+            if (columns.get(x0 + dx, z0 + dz).dry > 0.9) return true;
         }
         return false;
     }
@@ -107,17 +107,30 @@ public final class NegevFeatures {
             if (columns == null) return false;
             NegevShape shape = columns.shape();
             int x0 = ctx.origin().getX() & ~15, z0 = ctx.origin().getZ() & ~15;
-            if (anyRiver(columns, x0, z0)) dryRiverBiomes(level, columns, x0, z0);
+            // old river ground that has been dried: remember it before its biome becomes desert,
+            // so the parts outside the new river valley get desert sand instead of river grass
+            boolean[] wasRiver = null;
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            if (anyDry(columns, x0, z0)) {
+                wasRiver = new boolean[256];
+                for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
+                    int x = x0 + dx, z = z0 + dz;
+                    pos.set(x, level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1, z);
+                    wasRiver[dx * 16 + dz] = columns.get(x, z).dry > 0.9 && level.getBiome(pos).is(Biomes.RIVER);
+                }
+                dryRiverBiomes(level, columns, x0, z0);
+            }
             boolean any = false;
             for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
                 int x = x0 + dx, z = z0 + dz;
                 NegevShape.Column col = columns.get(x, z);
-                if (col.kind == NegevShape.Kind.VANILLA) continue;
+                boolean oldRiver = wasRiver != null && wasRiver[dx * 16 + dz];
+                if (col.kind == NegevShape.Kind.VANILLA && !oldRiver) continue;
                 int topY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
                 pos.set(x, topY, z);
                 if (!level.getFluidState(pos).isEmpty() || !isDesert(level, pos)) continue;
                 NegevShape.Kind kind = groundKind(col, topY);
+                if (kind == null && oldRiver) kind = NegevShape.Kind.RIVER_SAND;
                 if (kind == null) continue;
                 boolean isRiver = kind == NegevShape.Kind.RIVER_FLOOR || kind == NegevShape.Kind.RIVER_SLOPE
                         || kind == NegevShape.Kind.RIVER_SAND;

@@ -111,8 +111,8 @@ public final class NegevShape {
     // -- one column ----------------------------------------------------------------------
     public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE, RIVER_FLOOR, RIVER_SLOPE, RIVER_SAND }
 
-    /** Dried desert rivers: rock banks reach this many blocks out from the river bed. */
-    public static int RIVER_BANK_WIDTH = 5;
+    /** Dried desert rivers: banks climb one block per this many blocks out from the river bed. */
+    public static double RIVER_BANK_RUN = 1.3;
 
     /** Overhanging wall shapes: a slope under a limestone cliff band with a lip, or an undercut foot. */
     public static final int CAPROCK = 1, UNDERCUT = 2;
@@ -182,6 +182,11 @@ public final class NegevShape {
         public Walls walls;
         /** Floor of a small valley on the plateau top, when this column is in one (else 0). */
         public int hangingFloor;
+        /** Dried desert river: 0..1 how much its valley shape applies, and the surface it wants. */
+        public double river;
+        public double riverSurface;
+        /** Height of the river valley's banks above its bed (where they meet the dunes). */
+        public double riverBankH;
         /** Kind of ground, for painting (highland or wadi; VANILLA elsewhere). */
         public Kind kind = Kind.VANILLA;
     }
@@ -244,6 +249,10 @@ public final class NegevShape {
         // dry rivers and lakes (rivers are their own biome, so they count separately)
         double dryArea = smooth(0.3, 0.8, c.dryShare(x, z));
         if (dryArea > 0) col.dry = dryArea * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
+        // A dried desert river becomes a valley like the others: a narrow river bed down the
+        // middle of vanilla's river, banks of layered rock climbing out of it, and the top of
+        // the banks meeting the dunes where vanilla's river band ends.
+        if (col.dry > 0.9 && c.riverShare(x, z) > 0) riverValley(x, z, c, col);
         if (col.hot <= 0) return col;
 
         double vanillaSurface = 128 * c.depthAtZero(x, z);
@@ -272,7 +281,7 @@ public final class NegevShape {
         // ---- highlands
         double h = highland(x, z) - HIGHLAND_THRESHOLD;
         double edge = h / Math.max(1e-4, gradLen(this::highland, x, z, h + HIGHLAND_THRESHOLD));   // + inside, blocks
-        double highW = col.hot * smooth(-6, 0, edge);
+        double highW = col.hot * smooth(-6, 0, edge) * (1 - col.river);
         if (highW > 0) {
             double total = PLATEAU_MIN + (PLATEAU_MAX - PLATEAU_MIN) * to01(plateau(x, z));
             // the plateau starts low where it meets the dunes and rises the further in you go
@@ -343,7 +352,7 @@ public final class NegevShape {
 
         // ---- single wadis through the dunes
         double gate = smooth(WADI_GATE, WADI_GATE + 0.1, wadiGate(x, z));
-        double wadiW = col.hot * (1 - highW) * gate;
+        double wadiW = col.hot * (1 - highW) * gate * (1 - col.river);
         if (wadiW > 0) {
             double half = 1.5 + 3.0 * to01(widthN(x - 3000, z));
             double dW = distToZero(this::wadiN, x, z, wadiN(x, z)) - half;
@@ -361,6 +370,29 @@ public final class NegevShape {
             }
         }
         return col;
+    }
+
+    private void riverValley(int x, int z, Climate c, Column col) {
+        double w = c.weirdness(x, z);
+        if (Math.abs(w) > 0.12) return;
+        double gx = (c.weirdness(x + 2, z) - w) / 2, gz = (c.weirdness(x, z + 2) - w) / 2;
+        double g = Math.max(1e-5, Math.sqrt(gx * gx + gz * gz));
+        double fromCentre = Math.abs(w) / g;                  // blocks from the river's centre line
+        double bandHalf = 0.05 / g;                           // vanilla's river band, half width
+        if (fromCentre > bandHalf + 4) return;
+        double bedHalf = Math.max(3, Math.min(7, 2 + 0.25 * bandHalf));
+        // dune height where the band ends: sample vanilla's ground a little past the band edge
+        double nx = gx / g * Math.signum(w), nz = gz / g * Math.signum(w);
+        double out = bandHalf - fromCentre + 4;
+        double dune = 128 * c.depthAtZero((int) Math.round(x + nx * out), (int) Math.round(z + nz * out)) + 1;
+        double bankH = Math.max(3, Math.min(14, dune - MIN_FLOOR));
+        col.riverBankH = bankH;
+        col.riverSurface = MIN_FLOOR + Math.min(bankH, Math.max(0, fromCentre - bedHalf) / RIVER_BANK_RUN);
+        col.river = smooth(bandHalf + 4, bandHalf - 3, fromCentre);
+        if (col.river > 0.5) {
+            col.kind = fromCentre <= bedHalf ? Kind.RIVER_FLOOR
+                    : col.riverSurface < MIN_FLOOR + bankH - 0.5 ? Kind.RIVER_SLOPE : Kind.RIVER_SAND;
+        }
     }
 
     private static double gradLen(Noise2 f, double x, double z, double value) {
@@ -483,6 +515,9 @@ public final class NegevShape {
         double v = vanilla;
         if (col.dry > 0) {
             v = lerp(col.dry, v, Math.max(v, (MIN_FLOOR - 0.5 - y) * K_COARSE));
+        }
+        if (col.river > 0) {
+            v = lerp(col.river, v, (col.riverSurface - 0.5 - y) * K_COARSE);
         }
         if (col.high > 0) {
             v = lerp(col.high, v, (col.surfSmooth - 0.5 - y) * K_COARSE);

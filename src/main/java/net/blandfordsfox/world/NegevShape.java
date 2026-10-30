@@ -286,7 +286,9 @@ public final class NegevShape {
             col.plateau = (int) Math.round(cap);
             col.surfSmooth = floorY + sm * highW;
             col.surfExact = col.floor + (int) Math.round(ex * highW);
-            if (overhang != 0 && col.high >= 1) {
+            // only where the plateau is at full height: in the fade zone heights are scaled down,
+            // and unscaled overhang walls there would stand up as sheer steps
+            if (overhang != 0 && highW >= 0.97) {
                 Walls w = new Walls();
                 w.capAbs = topAbs;
                 w.floor = col.floor;

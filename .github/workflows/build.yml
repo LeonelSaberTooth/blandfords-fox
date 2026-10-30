@@ -21,9 +21,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build
+        shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew build --stacktrace
+          set -o pipefail
+          ./gradlew build --stacktrace 2>&1 | tee build.log
+
+      - name: Publish the build log if it failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete build-log --yes --cleanup-tag || true
+          gh release create build-log build.log --prerelease --title "Failed build log" --notes "Output of the last failed build."
+
 
       - name: Keep the jar with this run
         uses: actions/upload-artifact@v4

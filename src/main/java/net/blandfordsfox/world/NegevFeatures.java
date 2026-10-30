@@ -42,6 +42,31 @@ public final class NegevFeatures {
         return level.getBiome(pos).is(Biomes.DESERT);
     }
 
+    static BlockState block(NegevShape.Material m) {
+        return switch (m) {
+            case SANDSTONE -> Blocks.SANDSTONE.defaultBlockState();
+            case GRANITE -> Blocks.GRANITE.defaultBlockState();
+            case PACKED_MUD -> Blocks.PACKED_MUD.defaultBlockState();
+            case LIMESTONE -> Blocks.STRIPPED_OAK_WOOD.defaultBlockState();   // stand-in for limestone
+            case SAND -> Blocks.SAND.defaultBlockState();
+            case DIRT -> Blocks.DIRT.defaultBlockState();
+            case GRASS -> Blocks.GRASS_BLOCK.defaultBlockState();
+        };
+    }
+
+    /** The column's kind, but only if the ground really is where the shape put it. */
+    static NegevShape.Kind verifiedKind(NegevShape.Column col, int topY) {
+        NegevShape.Kind k = col.kind;
+        switch (k) {
+            case FLOOR, SLOPE, TOP -> { if (Math.abs(topY + 1 - col.surfExact) > 1) return NegevShape.Kind.VANILLA; }
+            case WADI_FLOOR -> { if (topY + 1 != col.wadiExact) return NegevShape.Kind.VANILLA; }
+            // wadi walls: the carved terrace, or the dune left standing above it
+            case WADI_SLOPE -> { if (topY + 1 < col.wadiExact || topY < col.wadiFloor) return NegevShape.Kind.VANILLA; }
+            default -> { }
+        }
+        return k;
+    }
+
     // ------------------------------------------------------------------ dried rivers
     /**
      * Dried desert rivers, read from the real terrain of one chunk (plus a margin): the bed is

@@ -111,6 +111,10 @@ public final class NegevColumns {
 
     /** Tent-weighted share of cells within 24 blocks whose type is at least minType's kind. */
     private double share(int x, int z, boolean countRivers) {
+        return share(x, z, true, countRivers);
+    }
+
+    private double share(int x, int z, boolean desert, boolean countRivers) {
         int cx = Math.floorDiv(x, CELL), cz = Math.floorDiv(z, CELL);
         double sum = 0, wsum = 0;
         for (int i = -3; i <= 3; i++) for (int j = -3; j <= 3; j++) {
@@ -119,7 +123,7 @@ public final class NegevColumns {
             if (w <= 0) continue;
             wsum += w;
             byte c = desertCell(cx + i, cz + j);
-            if (c == DESERT || (countRivers && c == HOT_RIVER)) sum += w;
+            if ((desert && c == DESERT) || (countRivers && c == HOT_RIVER)) sum += w;
         }
         return wsum > 0 ? sum / wsum : 0;
     }
@@ -127,6 +131,8 @@ public final class NegevColumns {
     private final NegevShape.Climate climate = new NegevShape.Climate() {
         public double desertShare(int x, int z) { return share(x, z, false); }
         public double dryShare(int x, int z) { return share(x, z, true); }
+        public double riverShare(int x, int z) { return share(x, z, false, true); }
+        public double weirdness(int x, int z) { return ridges.compute(new DensityFunction.SinglePointContext(x, 0, z)); }
         public double depthAtZero(int x, int z) { return depth.compute(new DensityFunction.SinglePointContext(x, 0, z)); }
     };
 

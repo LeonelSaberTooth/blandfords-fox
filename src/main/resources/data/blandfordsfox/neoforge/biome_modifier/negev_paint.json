@@ -1,6 +1,9 @@
 {
   "type": "neoforge:add_features",
-  "biomes": "minecraft:desert",
+  "biomes": [
+    "minecraft:desert",
+    "minecraft:river"
+  ],
   "features": "blandfordsfox:negev_paint",
   "step": "raw_generation"
 }

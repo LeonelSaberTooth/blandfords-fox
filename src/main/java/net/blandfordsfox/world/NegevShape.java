@@ -278,6 +278,8 @@ public final class NegevShape {
     /** Blocks-to-density scale for the smooth shape (close to vanilla's terrain slope). */
     static final double K_COARSE = 0.15;
     static final double K_DETAIL = 0.1;
+    /** Blocks under the shaped surface where caves are filled in. */
+    static final int SEALED = 8;
 
     /** The smooth terrain that replaces vanilla's "sloped cheese" (interpolated, caves work). */
     public static double coarse(Column col, double y, double vanilla) {
@@ -300,10 +302,13 @@ public final class NegevShape {
         if (col.high > 0) {
             double lo = Math.min(col.surfSmooth, col.surfExact) - 2, hi = Math.max(col.surfSmooth, col.surfExact) + 2;
             if (y >= lo && y <= hi) v = lerp(col.high, v, (col.surfExact - 0.5 - y) * K_DETAIL);
+            // no cave openings just under the surface: they left 2-block roofs over air or water
+            else if (y < lo && y >= lo - SEALED) v = lerp(col.high, v, Math.max(v, (col.surfExact - 0.5 - y) * K_DETAIL));
         }
         if (col.wadi > 0) {
             double lo = Math.min(col.wadiSmooth, col.wadiExact) - 2, hi = Math.max(col.wadiSmooth, col.wadiExact) + 2;
             if (y >= lo && y <= hi) v = lerp(col.wadi, v, Math.min(v, (col.wadiExact - 0.5 - y) * K_DETAIL));
+            else if (y < lo && y >= lo - SEALED && v < 0) v = lerp(col.wadi, v, (col.wadiExact - 0.5 - y) * K_DETAIL);
         }
         return v;
     }

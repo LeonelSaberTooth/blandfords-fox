@@ -52,7 +52,9 @@ public final class NegevFeatures {
         NegevShape.Kind k = col.kind;
         switch (k) {
             case FLOOR, SLOPE, TOP -> { if (Math.abs(topY + 1 - col.surfExact) > 1) return NegevShape.Kind.VANILLA; }
-            case WADI_FLOOR, WADI_SLOPE -> { if (topY + 1 != col.wadiExact) return NegevShape.Kind.VANILLA; }
+            case WADI_FLOOR -> { if (topY + 1 != col.wadiExact) return NegevShape.Kind.VANILLA; }
+            // wadi walls: the carved terrace, or the dune left standing above it
+            case WADI_SLOPE -> { if (topY + 1 < col.wadiExact || topY < col.wadiFloor) return NegevShape.Kind.VANILLA; }
             default -> { }
         }
         return k;
@@ -102,7 +104,7 @@ public final class NegevFeatures {
     /** Valley floors: grass, dead bushes, boulders, acacia-leaf bushes, rare acacias. Plateaus: rare dead bush. Walls: rare small caves. */
     public static final class Decorate extends Feature<NoneFeatureConfiguration> {
         // per floor column
-        static final float TREE = 0.00025F, BUSH = 0.0018F, BOULDER = 0.0025F, GRASS = 0.18F, DEAD_BUSH = 0.03F;
+        static final float TREE = 0.0008F, BUSH = 0.012F, BOULDER = 0.0025F, GRASS = 0.18F, DEAD_BUSH = 0.03F;
         // per plateau-top column
         static final float TOP_DEAD_BUSH = 0.0015F;
         // per chunk with valley walls

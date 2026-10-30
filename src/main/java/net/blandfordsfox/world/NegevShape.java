@@ -27,6 +27,8 @@ public final class NegevShape {
     public interface Climate {
         /** 0..1: how much of the area around this column vanilla makes desert (smoothly weighted). */
         double desertShare(int x, int z);
+        /** 0..1: the same, counting rivers that run through hot desert climate as desert too. */
+        double dryShare(int x, int z);
         /** The overworld "depth" at y = 0; vanilla's surface sits near 128 * this. */
         double depthAtZero(int x, int z);
     }
@@ -45,7 +47,8 @@ public final class NegevShape {
     }
 
     // -- channels: one noise sampled at different offsets and scales gives independent fields
-    private static final double[][] OFF = {{0, 0}, {10301.5, -7731.25}, {-5413.75, 12007.5}, {20111.25, 3399.5}, {-17771.5, -15523.75}};
+    private static final double[][] OFF = {{0, 0}, {10301.5, -7731.25}, {-5413.75, 12007.5}, {20111.25, 3399.5}, {-17771.5, -15523.75},
+            {7919.25, 23117.5}, {-29303.5, 4441.75}};
 
     private static double ch(Noise n, int k, double mult, double x, double z) {
         return n.at(x * mult + OFF[k][0], z * mult + OFF[k][1]);
@@ -56,9 +59,12 @@ public final class NegevShape {
     double widthN(double x, double z)   { return ch(big, 2, 2.0, x, z); }
     double wadiGate(double x, double z) { return ch(big, 3, 2.0, x, z); }
     double dryGate(double x, double z)  { return ch(big, 4, 1.5, x, z); }
-    double valleyA(double x, double z)  { return ch(mid, 0, 1.0, x, z); }
-    double valleyB(double x, double z)  { return ch(mid, 1, 1.8, x, z); }
-    double wadiN(double x, double z)    { return ch(mid, 2, 1.0, x, z); }
+    // valleys follow zero lines of these; low frequency for long valleys, warped so they meander
+    private double warpX(double x, double z) { return x + 70 * ch(mid, 5, 0.8, x, z); }
+    private double warpZ(double x, double z) { return z + 70 * ch(mid, 6, 0.8, x, z); }
+    double valleyA(double x, double z)  { return ch(mid, 0, 0.45, warpX(x, z), warpZ(x, z)); }
+    double valleyB(double x, double z)  { return ch(mid, 1, 0.9, warpX(x, z), warpZ(x, z)); }
+    double wadiN(double x, double z)    { return ch(mid, 2, 0.4, warpX(x, z), warpZ(x, z)); }
     double floorN(double x, double z)   { return ch(mid, 3, 1.0, x, z); }
     double cliffN(double x, double z)   { return ch(mid, 4, 1.6, x, z); }
     double stepN(double x, double z)    { return ch(small, 0, 1.0, x, z); }
@@ -82,8 +88,10 @@ public final class NegevShape {
     /** Share of dune country that has a wadi line, via gate noise above this. */
     public static double WADI_GATE = 0.12;
     public static double WADI_MAX_DEPTH = 12;
-    /** Dry-river gate: noise above this dries rivers (~60% of desert). */
-    public static double DRY_GATE = -0.08;
+    /** Dry-river gate: noise above this dries rivers and lakes (~90% of desert country). */
+    public static double DRY_GATE = -0.4;
+    /** Distance into the highlands (blocks) over which plateaus grow to full height. */
+    public static double GROW_DISTANCE = 110;
 
     // -- one column ----------------------------------------------------------------------
     public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE }
@@ -150,12 +158,12 @@ public final class NegevShape {
     public Column column(int x, int z, Climate c) {
         Column col = new Column();
         col.hot = smooth(0.55, 0.95, c.desertShare(x, z));
+        // dry rivers and lakes (rivers are their own biome, so they count separately)
+        double dryArea = smooth(0.3, 0.8, c.dryShare(x, z));
+        if (dryArea > 0) col.dry = dryArea * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
         if (col.hot <= 0) return col;
 
         double vanillaSurface = 128 * c.depthAtZero(x, z);
-
-        // dry rivers and lakes
-        col.dry = col.hot * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
 
         // valley floor height: near vanilla ground, never low enough for water
         double floorY = Math.max(MIN_FLOOR, Math.min(95, vanillaSurface + 1.5 * floorN(x, z)));
@@ -175,6 +183,8 @@ public final class NegevShape {
         double highW = col.hot * smooth(-6, 0, edge);
         if (highW > 0) {
             double total = PLATEAU_MIN + (PLATEAU_MAX - PLATEAU_MIN) * to01(plateau(x, z));
+            // the plateau starts low where it meets the dunes and rises the further in you go
+            total = PLATEAU_MIN * 0.6 + (total - PLATEAU_MIN * 0.6) * smooth(0, GROW_DISTANCE, edge);
             total += 1.5 * hillsN(x, z);                                         // gentle hills on top
             double wA = MAIN_FLOOR_MIN + (MAIN_FLOOR_MAX - MAIN_FLOOR_MIN) * to01(widthN(x, z));
             double wB = SIDE_FLOOR_MIN + (SIDE_FLOOR_MAX - SIDE_FLOOR_MIN) * to01(widthN(x + 5000, z));
@@ -182,12 +192,13 @@ public final class NegevShape {
             double dB = distToZero(this::valleyB, x, z, valleyB(x, z)) - wB;
             double dE = edge;
             // side branches only inside the plateau, not as moats along its foot
-            double sm = Math.min(Math.min(rampSmooth(dA, total, run), rampSmooth(dB, total, run)), rampSmooth(dE, total, run));
+            double edgeRun = Math.max(run, 1.0) * 2.5;                             // outer edges climb gently
+            double sm = Math.min(Math.min(rampSmooth(dA, total, run), rampSmooth(dB, total, run)), rampSmooth(dE, total, edgeRun));
             int sh = total > 16 ? stepH + 1 : stepH;                               // taller walls, taller steps
             int topAbs = (int) Math.round(floorY + total);                       // plateau top, absolute
             double cap = topAbs - col.floor;
             int ex = Math.min(Math.min(rampExact(dA, cap, run, sh, jitter), rampExact(dB, cap, run, sh, jitter)),
-                    rampExact(dE, cap, run, sh, jitter));
+                    rampExact(dE, cap, edgeRun, sh, jitter));
             // Near the edge of the desert (or of the highlands) the plateau sinks towards the
             // floor instead of being blended with vanilla terrain, which would leave thin
             // floating crusts over air. The shape fully replaces vanilla once highW > 0.35.
@@ -195,7 +206,7 @@ public final class NegevShape {
             col.plateau = (int) Math.round(cap);
             col.surfSmooth = floorY + sm * highW;
             col.surfExact = col.floor + (int) Math.round(ex * highW);
-            if (highW > 0.9) {
+            if (highW > 0.6) {
                 col.kind = ex <= 0 ? Kind.FLOOR : ex >= col.plateau ? Kind.TOP : Kind.SLOPE;
             }
         }
@@ -234,11 +245,11 @@ public final class NegevShape {
     /** Rock layers: sandstone with thin bands of granite and packed mud, gently wavy. */
     public Material stratum(int x, int y, int z) {
         double region = big.at(x * 3 + 777, z * 3 - 555);
-        int period = 6 + (int) Math.floor(4 * to01(region));            // 6..9 blocks between granite bands
+        int period = 5 + (int) Math.floor(3 * to01(region));            // 5..7 blocks per repeat
         int yy = y + (int) Math.round(1.6 * wobble(x, z));
         int r = Math.floorMod(yy, period);
         if (r == 0) return Material.GRANITE;
-        if (r == 1 && region > 0.15) return Material.GRANITE;
+        if (r == 1 && region > -0.1) return Material.GRANITE;            // often two blocks thick
         if (r == period / 2 + 1) return Material.PACKED_MUD;
         return Material.SANDSTONE;
     }
@@ -254,10 +265,16 @@ public final class NegevShape {
         int floorY = kind == Kind.WADI_FLOOR || kind == Kind.WADI_SLOPE ? col.wadiFloor : col.floor;
         if (y < floorY - 5 || y > topY) return null;
         if (floorKind) {
-            double p = patches(x, z) + 0.35 * patches2(x, z);
-            Material top = p > 0.2 ? Material.GRASS : p < -0.08 ? Material.SAND : Material.DIRT;
+            // small patches: fine noise plus a per-block shake
+            double p = 0.55 * patches2(x * 2.0, z * 2.0) + 0.25 * patches(x, z) + 0.35 * (hash(x, z) - 0.5);
+            Material top = p > 0.12 ? Material.GRASS : p < -0.1 ? Material.SAND : Material.DIRT;
             if (y == topY) return top;
             if (y >= topY - 3) return top == Material.SAND ? Material.SAND : Material.DIRT;
+            return stratum(x, y, z);
+        }
+        if (kind == Kind.WADI_SLOPE && topY + 1 > col.wadiExact) {
+            // dune above the carved wadi wall: keep its sand cap, layer the rock under it
+            if (y >= topY - 2) return null;
             return stratum(x, y, z);
         }
         if (y == topY) {
@@ -272,6 +289,12 @@ public final class NegevShape {
             return Material.SANDSTONE;
         }
         return stratum(x, y, z);
+    }
+
+    private static double hash(int x, int z) {
+        long h = x * 0x9E3779B97F4A7C15L ^ z * 0xC2B2AE3D27D4EB4FL;
+        h ^= (h >>> 31); h *= 0xBF58476D1CE4E5B9L; h ^= (h >>> 29);
+        return (h >>> 11) * 0x1.0p-53;
     }
 
     // -- densities -----------------------------------------------------------------------
@@ -308,7 +331,6 @@ public final class NegevShape {
         if (col.wadi > 0) {
             double lo = Math.min(col.wadiSmooth, col.wadiExact) - 2, hi = Math.max(col.wadiSmooth, col.wadiExact) + 2;
             if (y >= lo && y <= hi) v = lerp(col.wadi, v, Math.min(v, (col.wadiExact - 0.5 - y) * K_DETAIL));
-            else if (y < lo && y >= lo - SEALED && v < 0) v = lerp(col.wadi, v, (col.wadiExact - 0.5 - y) * K_DETAIL);
         }
         return v;
     }

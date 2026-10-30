@@ -61,4 +61,14 @@ write('blandfordsfox/neoforge/biome_modifier/negev_decorate.json', {
 write('blandfordsfox/neoforge/biome_modifier/no_desert_cactus.json', {
     "type": "neoforge:remove_features", "biomes": "minecraft:desert",
     "features": "minecraft:patch_cactus_desert", "steps": "vegetal_decoration"})
+# paint again after ores, which otherwise stamp stone, dirt and ore blobs into the rock bands
+write('blandfordsfox/worldgen/placed_feature/negev_repaint.json', {
+    "feature": "blandfordsfox:negev_paint",
+    "placement": [{"type": "minecraft:heightmap", "heightmap": "WORLD_SURFACE_WG"}]})
+write('blandfordsfox/neoforge/biome_modifier/negev_repaint.json', {
+    "type": "neoforge:add_features", "biomes": "minecraft:desert",
+    "features": "blandfordsfox:negev_repaint", "step": "underground_decoration"})
+write('blandfordsfox/neoforge/biome_modifier/no_desert_flowers.json', {
+    "type": "neoforge:remove_features", "biomes": "minecraft:desert",
+    "features": "minecraft:flower_default", "steps": "vegetal_decoration"})
 print('ok')

@@ -12,6 +12,7 @@ public class Voxels {
         NegevShape shape = new NegevShape(big::at, mid::at, small::at, fine::at);
         NegevShape.Climate hot = new NegevShape.Climate() {
             public double desertShare(int x, int z) { return 1.0; }
+            public double dryShare(int x, int z) { return 1.0; }
             public double depthAtZero(int x, int z) { return (68 + 4 * base.at(x, z)) / 128.0; }
         };
         try (PrintWriter w = new PrintWriter(new BufferedWriter(new FileWriter(args[4])))) {

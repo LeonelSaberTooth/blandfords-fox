@@ -1,0 +1,9 @@
+{
+  "feature": "blandfordsfox:negev_paint",
+  "placement": [
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "WORLD_SURFACE_WG"
+    }
+  ]
+}

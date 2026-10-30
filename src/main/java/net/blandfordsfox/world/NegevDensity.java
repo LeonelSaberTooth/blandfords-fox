@@ -74,7 +74,7 @@ public final class NegevDensity {
         public double compute(FunctionContext ctx) {
             NegevShape.Column col = columns().get(ctx.blockX(), ctx.blockZ());
             double vanilla = input.compute(ctx);
-            if (col.hot <= 0) return vanilla;
+            if (col.hot <= 0 && col.dry <= 0) return vanilla;
             return NegevShape.coarse(col, ctx.blockY(), vanilla);
         }
 
@@ -134,7 +134,7 @@ public final class NegevDensity {
         public double compute(FunctionContext ctx) {
             double fin = input.compute(ctx);
             NegevShape.Column col = columns().get(ctx.blockX(), ctx.blockZ());
-            if (col.hot <= 0) return fin;
+            if (col.hot <= 0 && col.dry <= 0) return fin;
             return NegevShape.detail(col, ctx.blockY(), fin);
         }
 

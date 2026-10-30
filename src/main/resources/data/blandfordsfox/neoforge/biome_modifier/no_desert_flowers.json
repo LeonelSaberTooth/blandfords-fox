@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:remove_features",
+  "biomes": "minecraft:desert",
+  "features": "minecraft:flower_default",
+  "steps": "vegetal_decoration"
+}

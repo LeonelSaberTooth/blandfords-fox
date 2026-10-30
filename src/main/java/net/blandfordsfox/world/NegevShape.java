@@ -90,6 +90,8 @@ public final class NegevShape {
     public static double TERRACE_THRESHOLD = 0.34;
     /** Cliff noise above this makes a wall a cliff (rare). */
     public static double CLIFF_THRESHOLD = 0.42;
+    /** A cliff is near-vertical for at most this many blocks; above that the wall slopes. */
+    public static int CLIFF_MAX = 7;
     /** Share of dune country that has a wadi line, via gate noise above this. */
     public static double WADI_GATE = 0.12;
     public static double WADI_MAX_DEPTH = 12;
@@ -156,6 +158,22 @@ public final class NegevShape {
         return Math.min(total, t / run);
     }
 
+    /** A wall: plain or terraced ramp, or (cliffH > 0) a short near-vertical cliff with a slope above it. */
+    private static double wallSmooth(double t, double total, double run, int cliffH) {
+        if (cliffH <= 0) return rampSmooth(t, total, run);
+        if (t <= 0) return 0;
+        double c = Math.min(cliffH, t / CLIFF_RUN);
+        return Math.min(total, c + Math.max(0, t - cliffH * CLIFF_RUN) / run);
+    }
+
+    private static int wallExact(double t, double total, double run, int stepH, double jitter, int cliffH) {
+        if (cliffH <= 0) return rampExact(t, total, run, stepH, jitter);
+        if (t <= 0) return 0;
+        int c = (int) Math.min(cliffH, Math.floor(t / CLIFF_RUN + jitter));
+        int above = (int) Math.max(0, Math.floor((t - cliffH * CLIFF_RUN) / run + jitter));
+        return (int) Math.min(Math.round(total), c + (c >= cliffH ? above : 0));
+    }
+
     private static int rampExact(double t, double total, double run, int stepH, double jitter) {
         if (t <= 0) return 0;
         int steps = (int) Math.floor(t / (stepH * run) + jitter);
@@ -181,12 +199,13 @@ public final class NegevShape {
         // of 2-4 block steps, and a few are near-vertical cliffs
         boolean cliff = cliffN(x, z) > CLIFF_THRESHOLD;
         boolean terraced = terraceN(x, z) > TERRACE_THRESHOLD;
-        double run = cliff ? CLIFF_RUN
-                : terraced ? RUN_MIN + (RUN_MAX - RUN_MIN) * to01(stepN(x, z) * 0.8)
-                : SLOPE_RUN_MIN + (SLOPE_RUN_MAX - SLOPE_RUN_MIN) * to01(stepN(x, z) * 0.8);
+        double slopeRun = SLOPE_RUN_MIN + (SLOPE_RUN_MAX - SLOPE_RUN_MIN) * to01(stepN(x, z) * 0.8);
+        double run = terraced ? RUN_MIN + (RUN_MAX - RUN_MIN) * to01(stepN(x, z) * 0.8) : slopeRun;
         double s = stepN(x * 0.5 + 911, z * 0.5 - 377);
-        int stepH = !(terraced || cliff) ? 1 : s > 0.15 ? 3 : 2;
-        col.terraced = terraced || cliff;
+        int stepH = !terraced ? 1 : s > 0.15 ? 3 : 2;
+        col.terraced = terraced;
+        // cliffs: a near-vertical face 4-7 blocks tall at the foot of the wall, plain slope above
+        int cliffH = cliff ? 4 + (int) Math.round(to01(hillsN(x + 300, z)) * (CLIFF_MAX - 4)) : 0;
         double jitter = 0.5 + 0.35 * hillsN(x + 4000, z);
 
         // ---- highlands
@@ -205,11 +224,11 @@ public final class NegevShape {
             double dE = edge;
             // side branches only inside the plateau, not as moats along its foot
             double edgeRun = Math.max(run, 1.0) * 2.5;                             // outer edges climb gently
-            double sm = Math.min(Math.min(rampSmooth(dA, total, run), rampSmooth(dB, total, run)), rampSmooth(dE, total, edgeRun));
+            double sm = Math.min(Math.min(wallSmooth(dA, total, run, cliffH), wallSmooth(dB, total, run, cliffH)), rampSmooth(dE, total, edgeRun));
             int sh = stepH > 1 && total > 16 ? stepH + 1 : stepH;                  // taller walls, taller steps
             int topAbs = (int) Math.round(floorY + total);                       // plateau top, absolute
             double cap = topAbs - col.floor;
-            int ex = Math.min(Math.min(rampExact(dA, cap, run, sh, jitter), rampExact(dB, cap, run, sh, jitter)),
+            int ex = Math.min(Math.min(wallExact(dA, cap, run, sh, jitter, cliffH), wallExact(dB, cap, run, sh, jitter, cliffH)),
                     rampExact(dE, cap, edgeRun, sh, jitter));
             // Near the edge of the desert (or of the highlands) the plateau sinks towards the
             // floor instead of being blended with vanilla terrain, which would leave thin
@@ -255,16 +274,42 @@ public final class NegevShape {
     public enum Material { SANDSTONE, GRANITE, PACKED_MUD, LIMESTONE, SAND, DIRT, GRASS }
 
     /** Rock layers: sandstone with thin bands of granite and packed mud, gently wavy. */
+    /**
+     * Rock layers: an irregular stack of limestone, sandstone, granite and packed mud with
+     * varying thicknesses (no fixed repeat), level like real strata, gently wavy, and drifting
+     * up or down from place to place so neighbouring walls don't show the identical sequence.
+     */
+    private Material[] layers;
+
+    private Material[] layers() {
+        Material[] l = layers;
+        if (l != null) return l;
+        l = new Material[768];
+        java.util.Random r = new java.util.Random(Double.doubleToLongBits(big.at(1234.5, -987.25)) ^ 0x5DEECE66DL);
+        Material last = null;
+        int i = 0;
+        while (i < l.length) {
+            Material m;
+            do {
+                double p = r.nextDouble();
+                m = p < 0.46 ? Material.LIMESTONE : p < 0.66 ? Material.SANDSTONE : p < 0.84 ? Material.GRANITE : Material.PACKED_MUD;
+            } while (m == last);
+            int thick = switch (m) {
+                case LIMESTONE -> 1 + r.nextInt(3);
+                case SANDSTONE -> 1 + r.nextInt(2);
+                case GRANITE -> r.nextInt(3) == 0 ? 2 : 1;
+                default -> 1;
+            };
+            for (int k = 0; k < thick && i < l.length; k++) l[i++] = m;
+            last = m;
+        }
+        return layers = l;
+    }
+
     public Material stratum(int x, int y, int z) {
-        double region = big.at(x * 3 + 777, z * 3 - 555);
-        int period = 5 + (int) Math.floor(3 * to01(region));            // 5..7 blocks per repeat
-        int yy = y + (int) Math.round(1.6 * wobble(x, z));
-        int r = Math.floorMod(yy, period);
-        if (r == 0) return Material.GRANITE;
-        if (r == 1 && region > -0.1) return Material.GRANITE;            // often two blocks thick
-        if (r == period / 2 + 1) return Material.PACKED_MUD;
-        if (r == period - 1 || (r == period - 2 && region < 0.1)) return Material.LIMESTONE;
-        return Material.SANDSTONE;
+        int shift = (int) Math.round(7 * big.at(x * 2.0 + 777, z * 2.0 - 555));   // slow up/down drift
+        int yy = y + (int) Math.round(1.6 * wobble(x, z)) + shift;
+        return layers()[Math.floorMod(yy + 256, 768)];
     }
 
     /**

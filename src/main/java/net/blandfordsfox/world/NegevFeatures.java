@@ -105,7 +105,9 @@ public final class NegevFeatures {
     /** Valley floors: grass, dead bushes, boulders, acacia-leaf bushes, rare acacias. Plateaus: rare dead bush. Walls: rare small caves. */
     public static final class Decorate extends Feature<NoneFeatureConfiguration> {
         // per floor column
-        static final float TREE = 0.0008F, BUSH = 0.012F, BOULDER = 0.0025F, GRASS = 0.18F, DEAD_BUSH = 0.03F;
+        static final float TREE = 0.0008F, BUSH = 0.012F, BOULDER = 0.004F, GRASS = 0.18F, DEAD_BUSH = 0.03F;
+        // floor columns at the foot of a wall, and wall columns
+        static final float EDGE_BOULDER = 0.03F, SLOPE_BOULDER = 0.003F;
         // per plateau-top column
         static final float TOP_DEAD_BUSH = 0.0015F;
         // per chunk with valley walls
@@ -142,7 +144,7 @@ public final class NegevFeatures {
                             tree(level, ctx, pos.immutable(), rnd);
                         } else if (r < TREE + BUSH) {
                             bush(level, above, rnd);
-                        } else if (r < TREE + BUSH + BOULDER) {
+                        } else if (r < TREE + BUSH + (atWallFoot(level, x, z, topY) ? EDGE_BOULDER : BOULDER)) {
                             boulder(level, pos.immutable(), rnd);
                         } else if (ground.is(Blocks.GRASS_BLOCK) && rnd.nextFloat() < GRASS) {
                             level.setBlock(above, Blocks.SHORT_GRASS.defaultBlockState(), Block.UPDATE_CLIENTS);
@@ -157,6 +159,7 @@ public final class NegevFeatures {
                         }
                     }
                     case SLOPE, WADI_SLOPE -> {
+                        if (rnd.nextFloat() < SLOPE_BOULDER) boulder(level, pos.immutable(), rnd);
                         slopes++;
                         if (rnd.nextInt(slopes) == 0) { slopeX = x; slopeZ = z; }   // pick one wall column at random
                     }
@@ -191,10 +194,21 @@ public final class NegevFeatures {
             }
         }
 
-        /** A small rounded boulder of sandstone or granite, half sunk into the floor. */
+        /** Is this floor column right at the foot of a wall (ground 2+ blocks higher nearby)? */
+        private static boolean atWallFoot(WorldGenLevel level, int x, int z, int topY) {
+            for (Direction d : Direction.Plane.HORIZONTAL) {
+                int h = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x + d.getStepX() * 2, z + d.getStepZ() * 2) - 1;
+                if (h - topY >= 2) return true;
+            }
+            return false;
+        }
+
+        /** A small rounded boulder, mostly limestone, else granite or sandstone, half sunk into the ground. */
         private static void boulder(WorldGenLevel level, BlockPos ground, RandomSource rnd) {
-            BlockState main = rnd.nextBoolean() ? Blocks.SANDSTONE.defaultBlockState() : Blocks.GRANITE.defaultBlockState();
-            BlockState other = main.is(Blocks.GRANITE) ? Blocks.SANDSTONE.defaultBlockState() : Blocks.GRANITE.defaultBlockState();
+            BlockState limestone = block(NegevShape.Material.LIMESTONE);
+            float pick = rnd.nextFloat();
+            BlockState main = pick < 0.55F ? limestone : pick < 0.8F ? Blocks.GRANITE.defaultBlockState() : Blocks.SANDSTONE.defaultBlockState();
+            BlockState other = main == limestone ? Blocks.GRANITE.defaultBlockState() : limestone;
             double r = 0.8 + rnd.nextDouble() * 1.0;
             BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
             for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int dy = 0; dy <= 2; dy++) {

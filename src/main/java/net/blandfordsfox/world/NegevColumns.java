@@ -136,6 +136,11 @@ public final class NegevColumns {
         public double depthAtZero(int x, int z) { return depth.compute(new DensityFunction.SinglePointContext(x, 0, z)); }
     };
 
+    /** Vanilla's weirdness ("ridges") at a column: rivers follow its zero line. */
+    public double weirdness(int x, int z) {
+        return ridges.compute(new DensityFunction.SinglePointContext(x, 0, z));
+    }
+
     public NegevShape.Column get(int x, int z) {
         long key = ((long) x << 32) ^ (z & 0xffffffffL);
         NegevShape.Column col = cache.get(key);

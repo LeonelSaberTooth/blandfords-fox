@@ -94,7 +94,14 @@ public final class NegevFeatures {
             if (Math.abs(t + 1 - NegevShape.MIN_FLOOR) > 1 || columns.get(x, z).dry <= 0.9) continue;
             if (level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1 != t) continue;     // still water there
             Holder<Biome> original = source.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(t), QuartPos.fromBlock(z), sampler);
-            if (original.is(Biomes.RIVER)) { bed[i * w + j] = true; anyBed = true; }
+            if (!original.is(Biomes.RIVER)) continue;
+            // only the middle of the river: vanilla's river biome can spread very wide near coasts
+            double wv = columns.weirdness(x, z);
+            double gx = (columns.weirdness(x + 2, z) - wv) / 2, gz = (columns.weirdness(x, z + 2) - wv) / 2;
+            double g = Math.max(1e-5, Math.sqrt(gx * gx + gz * gz));
+            double fromCentre = Math.abs(wv) / g, bandHalf = 0.05 / g;
+            double bedHalf = Math.max(3, Math.min(7, 2 + 0.25 * bandHalf));
+            if (fromCentre <= bedHalf) { bed[i * w + j] = true; anyBed = true; }
         }
         if (!anyBed) return null;
         NegevShape.Kind[] out = new NegevShape.Kind[256];

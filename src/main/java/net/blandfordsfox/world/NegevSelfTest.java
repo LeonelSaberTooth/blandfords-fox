@@ -56,7 +56,8 @@ public final class NegevSelfTest {
         ServerLevel level = server.overworld();
         NegevColumns columns = NegevFeatures.columnsFor(level);
         StringBuilder report = new StringBuilder();
-        report.append("negev columns wired: ").append(columns != null).append('\n');
+        report.append("negev columns wired: ").append(columns != null)
+                .append(", final density class: ").append(level.getChunkSource().randomState().router().finalDensity().getClass().getName()).append('\n');
         Pair<BlockPos, Holder<Biome>> desert = level.findClosestBiome3d(h -> h.is(Biomes.DESERT), BlockPos.ZERO.atY(64), 12000, 32, 64);
         report.append("nearest desert: ").append(desert == null ? "none" : desert.getFirst().toShortString()).append('\n');
         if (columns == null || desert == null) {

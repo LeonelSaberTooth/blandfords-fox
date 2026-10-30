@@ -1,6 +1,10 @@
 package net.blandfordsfox.world;
 
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.levelgen.DensityFunction;
+import net.minecraft.world.level.levelgen.synth.NormalNoise;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -12,6 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class NegevColumns {
     private static final Map<Object, NegevColumns> BY_NOISE = new WeakHashMap<>();
+    public static final ResourceKey<NormalNoise.NoiseParameters> BIG_NOISE =
+            ResourceKey.create(Registries.NOISE, ResourceLocation.fromNamespaceAndPath("blandfordsfox", "negev_big"));
 
     final DensityFunction temperature, continents, erosion, depth;
     final NegevShape shape;
@@ -39,6 +45,13 @@ public final class NegevColumns {
         }
         synchronized (BY_NOISE) {
             return BY_NOISE.computeIfAbsent(key, k -> new NegevColumns(temperature, continents, erosion, depth, big, mid, small, fine));
+        }
+    }
+
+    /** The instance wired to this world's "negev_big" noise, if the terrain has been set up. */
+    public static NegevColumns forNoise(Object bigNoise) {
+        synchronized (BY_NOISE) {
+            return BY_NOISE.get(bigNoise);
         }
     }
 

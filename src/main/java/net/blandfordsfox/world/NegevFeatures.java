@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.DensityFunction;
+import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
@@ -27,8 +27,9 @@ public final class NegevFeatures {
     @Nullable
     static NegevColumns columnsFor(WorldGenLevel level) {
         if (!(level.getLevel().getChunkSource() instanceof ServerChunkCache cache)) return null;
-        DensityFunction fin = cache.randomState().router().finalDensity();
-        return fin instanceof NegevDensity.Detail d ? d.columns() : null;
+        RandomState rs = cache.randomState();
+        if (rs.router().finalDensity() instanceof NegevDensity.Detail d) return d.columns();
+        return NegevColumns.forNoise(rs.getOrCreateNoise(NegevColumns.BIG_NOISE));
     }
 
     static boolean isDesert(WorldGenLevel level, BlockPos pos) {

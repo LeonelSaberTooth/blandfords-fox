@@ -82,7 +82,9 @@ public final class NegevDensity {
 
         @Override
         public DensityFunction mapAll(Visitor visitor) {
-            return visitor.apply(new Terrain(input.mapAll(visitor), inputs.map(visitor)));
+            Terrain t = new Terrain(input.mapAll(visitor), inputs.map(visitor));
+            t.columns();   // registers this world's columns so the painting features can find them
+            return visitor.apply(t);
         }
 
         @Override
@@ -140,7 +142,9 @@ public final class NegevDensity {
 
         @Override
         public DensityFunction mapAll(Visitor visitor) {
-            return visitor.apply(new Detail(input.mapAll(visitor), inputs.map(visitor)));
+            Detail d = new Detail(input.mapAll(visitor), inputs.map(visitor));
+            d.columns();
+            return visitor.apply(d);
         }
 
         @Override

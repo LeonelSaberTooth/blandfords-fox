@@ -68,6 +68,7 @@ public final class NegevShape {
     double floorN(double x, double z)   { return ch(mid, 3, 1.0, x, z); }
     double cliffN(double x, double z)   { return ch(mid, 4, 1.6, x, z); }
     double terraceN(double x, double z) { return ch(big, 5, 4.0, x, z); }
+    double wallStyleN(double x, double z) { return ch(big, 6, 5.0, x, z); }
     double stepN(double x, double z)    { return ch(small, 0, 1.0, x, z); }
     double hillsN(double x, double z)   { return ch(small, 1, 1.0, x, z); }
     /** Fine detail used when painting: rock-band wobble and surface patches. */
@@ -103,6 +104,49 @@ public final class NegevShape {
     // -- one column ----------------------------------------------------------------------
     public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE }
 
+    /** Overhanging wall shapes: a slope under a limestone cliff band with a lip, or an undercut foot. */
+    public static final int CAPROCK = 1, UNDERCUT = 2;
+
+    /** Exact geometry of an overhanging highland wall, checked block by block. */
+    public static final class Walls {
+        final double[] t = new double[3];
+        final double[] run = new double[3];
+        final boolean[] shaped = new boolean[3];
+        int n;
+        public int capAbs, floor;
+        int style, capH, undercutH;
+        double jitter;
+
+        void add(double t, double run, boolean shaped) {
+            this.t[n] = t; this.run[n] = run; this.shaped[n] = shaped; n++;
+        }
+
+        private double face(int i, int yRel) {
+            double run = this.run[i];
+            if (!shaped[i]) return (yRel + 1 - jitter) * run;
+            int capRel = capAbs - floor;
+            if (style == CAPROCK) {
+                int low = Math.max(1, capRel - capH);
+                if (yRel < low) return (yRel + 1 - jitter) * run;
+                double top = (low + 1 - jitter) * run + 0.3;
+                return yRel >= capRel - 1 ? top - 0.7 : top;                   // lip overhangs the cliff slightly
+            }
+            if (yRel < undercutH) return 0.6 + (undercutH - yRel) * 0.45;     // recessed foot, slight overhang
+            return 0.6 + (yRel - undercutH + 1 - jitter) * run;
+        }
+
+        /** Is the block at absolute height y rock? */
+        public boolean solid(int y) {
+            if (y >= capAbs) return false;
+            int yRel = y - floor;
+            if (yRel < 0) return true;
+            for (int i = 0; i < n; i++) {
+                if (t[i] <= 0 || t[i] < face(i, yRel)) return false;
+            }
+            return true;
+        }
+    }
+
     public static final class Column {
         /** 0..1 how strongly this column is desert climate. */
         public double hot;
@@ -124,6 +168,8 @@ public final class NegevShape {
         public double dry;
         /** Whether this spot's walls are terraces (or cliffs) rather than a plain slope. */
         public boolean terraced;
+        /** Exact overhanging walls, where this spot has that wall style (else null). */
+        public Walls walls;
         /** Kind of ground, for painting (highland or wadi; VANILLA elsewhere). */
         public Kind kind = Kind.VANILLA;
     }
@@ -206,6 +252,9 @@ public final class NegevShape {
         col.terraced = terraced;
         // cliffs: a near-vertical face 4-7 blocks tall at the foot of the wall, plain slope above
         int cliffH = cliff ? 4 + (int) Math.round(to01(hillsN(x + 300, z)) * (CLIFF_MAX - 4)) : 0;
+        // of the plain slopes, about a quarter have a limestone "roof" and a fifth an undercut foot
+        double ws = wallStyleN(x, z);
+        int overhang = terraced || cliff ? 0 : ws > 0.25 ? UNDERCUT : ws > 0.04 ? CAPROCK : 0;
         double jitter = 0.5 + 0.35 * hillsN(x + 4000, z);
 
         // ---- highlands
@@ -237,6 +286,23 @@ public final class NegevShape {
             col.plateau = (int) Math.round(cap);
             col.surfSmooth = floorY + sm * highW;
             col.surfExact = col.floor + (int) Math.round(ex * highW);
+            if (overhang != 0 && col.high >= 1) {
+                Walls w = new Walls();
+                w.capAbs = topAbs;
+                w.floor = col.floor;
+                w.style = overhang;
+                w.jitter = jitter;
+                w.capH = 3 + (int) Math.round(to01(hillsN(x + 900, z)) * 2);      // 3-5 block cliff band
+                w.undercutH = 2 + (int) Math.round(to01(hillsN(x - 900, z)));     // 2-3 block recessed foot
+                w.add(dA, run, true);
+                w.add(dB, run, true);
+                w.add(dE, edgeRun, false);
+                int top = col.floor;
+                for (int y = topAbs - 1; y >= col.floor; y--) if (w.solid(y)) { top = y + 1; break; }
+                col.walls = w;
+                col.surfExact = top;
+                ex = top - col.floor;
+            }
             if (highW > 0.6) {
                 col.kind = ex <= 0 ? Kind.FLOOR : ex >= col.plateau ? Kind.TOP : Kind.SLOPE;
             }
@@ -330,6 +396,8 @@ public final class NegevShape {
             if (y >= topY - 3) return top == Material.SAND ? Material.SAND : Material.DIRT;
             return stratum(x, y, z);
         }
+        // the top few blocks under the plateau top are limestone: the "roof" over the walls
+        if ((kind == Kind.SLOPE || kind == Kind.TOP) && y >= col.floor + col.plateau - 3) return Material.LIMESTONE;
         if (kind == Kind.WADI_SLOPE && topY + 1 > col.wadiExact) {
             // dune above the carved wadi wall: keep its sand cap, layer the rock under it
             if (y >= topY - 2) return null;
@@ -379,6 +447,13 @@ public final class NegevShape {
     /** Exact block-by-block terraces, applied near the surface on top of the final density. */
     public static double detail(Column col, double y, double fin) {
         double v = fin;
+        if (col.walls != null) {
+            // overhanging walls, block by block, from the valley floor to the plateau top
+            int yi = (int) Math.floor(y);
+            if (yi >= col.floor - 1 && yi <= col.walls.capAbs) return col.walls.solid(yi) ? K_DETAIL : -K_DETAIL;
+            if (yi < col.floor - 1 && yi >= col.floor - 1 - SEALED) return Math.max(v, K_DETAIL);
+            return v;
+        }
         if (col.high > 0) {
             double lo = Math.min(col.surfSmooth, col.surfExact) - 2, hi = Math.max(col.surfSmooth, col.surfExact) + 2;
             if (y >= lo && y <= hi) v = lerp(col.high, v, (col.surfExact - 0.5 - y) * K_DETAIL);

@@ -111,10 +111,10 @@ public final class NegevShape {
     // -- one column ----------------------------------------------------------------------
     public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE, RIVER_FLOOR, RIVER_SLOPE }
 
-    /** Dried desert rivers: banks climb one block per this many blocks out from the channel. */
-    public static double RIVER_BANK_RUN = 1.4;
-    /** ...up to at most this many blocks above the river bed. */
-    public static int RIVER_BANK_MAX = 12;
+    /** Dried desert rivers: banks are at most this wide (blocks out from the old water's edge)... */
+    public static double RIVER_BANK_WIDTH = 6;
+    /** ...and climb at least one block per this many blocks (steeper vanilla banks are kept). */
+    public static double RIVER_BANK_RUN = 1.0;
 
     /** Overhanging wall shapes: a slope under a limestone cliff band with a lip, or an undercut foot. */
     public static final int CAPROCK = 1, UNDERCUT = 2;
@@ -252,14 +252,20 @@ public final class NegevShape {
         if (dryArea > 0) col.dry = dryArea * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
         // a dried desert river becomes a valley: its own channel is the river bed, and
         // rock-banded banks climb out of it a few blocks on each side
-        if (col.dry > 0.9 && c.riverShare(x, z) > 0) {
-            double w = c.weirdness(x, z);
-            double gx = (c.weirdness(x + 2, z) - w) / 2, gz = (c.weirdness(x, z + 2) - w) / 2;
-            double g = Math.max(1e-5, Math.sqrt(gx * gx + gz * gz));
-            double edgeD = (Math.abs(w) - 0.05) / g;                             // blocks out from the channel
-            if (edgeD < RIVER_BANK_MAX * RIVER_BANK_RUN + 1) {
+        // The channel is exactly where vanilla's river would hold water (its ground below sea
+        // level), inside vanilla's river band; the banks are the next few blocks out.
+        if (col.dry > 0.9 && Math.abs(c.weirdness(x, z)) < 0.08 && c.riverShare(x, z) > 0) {
+            double vs = 128 * c.depthAtZero(x, z);
+            double edgeD;
+            if (vs < SEA_LEVEL + 0.5) {
+                edgeD = 0;
+            } else {
+                double gx = (128 * c.depthAtZero(x + 2, z) - vs) / 2, gz = (128 * c.depthAtZero(x, z + 2) - vs) / 2;
+                edgeD = (vs - SEA_LEVEL - 0.5) / Math.max(0.05, Math.sqrt(gx * gx + gz * gz));
+            }
+            if (edgeD <= RIVER_BANK_WIDTH) {
                 col.riverEdge = edgeD;
-                col.riverBank = MIN_FLOOR + Math.max(0, edgeD) / RIVER_BANK_RUN;
+                col.riverBank = MIN_FLOOR + edgeD / RIVER_BANK_RUN;
                 col.kind = edgeD <= 0 ? Kind.RIVER_FLOOR : Kind.RIVER_SLOPE;
             }
         }

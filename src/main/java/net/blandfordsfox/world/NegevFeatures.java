@@ -50,14 +50,15 @@ public final class NegevFeatures {
     static void dryRiverBiomes(WorldGenLevel level, NegevColumns columns, int x0, int z0) {
         boolean any = false;
         for (int dx = 1; dx < 16 && !any; dx += 3) for (int dz = 1; dz < 16 && !any; dz += 3) {
-            any = !Double.isNaN(columns.get(x0 + dx, z0 + dz).riverEdge);
+            NegevShape.Column c = columns.get(x0 + dx, z0 + dz);
+            any = !Double.isNaN(c.riverEdge) || (c.dry > 0.9 && c.hot > 0);
         }
         if (!any || !(level.getLevel().getChunkSource() instanceof ServerChunkCache cache)) return;
         ChunkAccess chunk = level.getChunk(x0 >> 4, z0 >> 4);
         Holder<Biome> desert = level.registryAccess().registryOrThrow(Registries.BIOME).getHolderOrThrow(Biomes.DESERT);
         chunk.fillBiomesFromNoise((qx, qy, qz, sampler) -> {
             Holder<Biome> b = chunk.getNoiseBiome(qx, qy, qz);
-            if (b.is(Biomes.RIVER) && !Double.isNaN(columns.get((qx << 2) + 2, (qz << 2) + 2).riverEdge)) return desert;
+            if (b.is(Biomes.RIVER) && columns.get((qx << 2) + 2, (qz << 2) + 2).dry > 0.9) return desert;
             return b;
         }, cache.randomState().sampler());
     }
@@ -84,7 +85,7 @@ public final class NegevFeatures {
             case WADI_SLOPE -> { if (topY + 1 < col.wadiExact || topY < col.wadiFloor) return NegevShape.Kind.VANILLA; }
             // dried rivers: the bed at river-bed height, banks between it and the carved slope
             case RIVER_FLOOR -> { if (Math.abs(topY + 1 - NegevShape.MIN_FLOOR) > 1) return NegevShape.Kind.VANILLA; }
-            case RIVER_SLOPE -> { if (topY + 1 <= NegevShape.MIN_FLOOR || topY + 1 > col.riverBank + 1.5) return NegevShape.Kind.VANILLA; }
+            case RIVER_SLOPE -> { if (topY + 1 <= NegevShape.MIN_FLOOR) return NegevShape.Kind.VANILLA; }
             default -> { }
         }
         return k;

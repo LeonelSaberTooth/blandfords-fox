@@ -10,7 +10,7 @@ import com.mojang.datafixers.util.Pair;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.biome.Climate;
-import net.minecraft.world.level.biome.OverworldBiomeBuilder;
+import net.minecraft.world.level.biome.MultiNoiseBiomeSourceParameterList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,9 +77,7 @@ public final class NegevColumns {
     private static Climate.ParameterList<ResourceKey<Biome>> overworldBiomes() {
         Climate.ParameterList<ResourceKey<Biome>> list = overworldBiomes;
         if (list == null) {
-            List<Pair<Climate.ParameterPoint, ResourceKey<Biome>>> points = new ArrayList<>();
-            new OverworldBiomeBuilder().addBiomes(points::add);
-            overworldBiomes = list = new Climate.ParameterList<>(points);
+            overworldBiomes = list = MultiNoiseBiomeSourceParameterList.Preset.OVERWORLD.provider().apply(key -> key);
         }
         return list;
     }

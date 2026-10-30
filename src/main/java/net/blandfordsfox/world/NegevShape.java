@@ -188,11 +188,14 @@ public final class NegevShape {
             double cap = topAbs - col.floor;
             int ex = Math.min(Math.min(rampExact(dA, cap, run, sh, jitter), rampExact(dB, cap, run, sh, jitter)),
                     rampExact(dE, cap, run, sh, jitter));
-            col.high = highW;
+            // Near the edge of the desert (or of the highlands) the plateau sinks towards the
+            // floor instead of being blended with vanilla terrain, which would leave thin
+            // floating crusts over air. The shape fully replaces vanilla once highW > 0.35.
+            col.high = smooth(0.0, 0.35, highW);
             col.plateau = (int) Math.round(cap);
-            col.surfSmooth = floorY + sm;
-            col.surfExact = col.floor + ex;
-            if (highW > 0.5) {
+            col.surfSmooth = floorY + sm * highW;
+            col.surfExact = col.floor + (int) Math.round(ex * highW);
+            if (highW > 0.9) {
                 col.kind = ex <= 0 ? Kind.FLOOR : ex >= col.plateau ? Kind.TOP : Kind.SLOPE;
             }
         }
@@ -205,11 +208,13 @@ public final class NegevShape {
             double dW = distToZero(this::wadiN, x, z, wadiN(x, z)) - half;
             if (dW < WADI_MAX_DEPTH * RUN_MAX + 2) {
                 double wf = Math.max(MIN_FLOOR, vanillaSurface - 1);
-                col.wadi = wadiW;
+                // fades out by getting shallower, not by blending densities
+                double lift = (1 - wadiW) * 40;
+                col.wadi = smooth(0.0, 0.35, wadiW);
                 col.wadiFloor = (int) Math.round(wf);
-                col.wadiSmooth = wf + rampSmooth(dW, WADI_MAX_DEPTH, run);
-                col.wadiExact = col.wadiFloor + rampExact(dW, WADI_MAX_DEPTH, run, stepH, jitter);
-                if (wadiW > 0.5 && col.kind == Kind.VANILLA) {
+                col.wadiSmooth = wf + rampSmooth(dW, WADI_MAX_DEPTH, run) + lift;
+                col.wadiExact = col.wadiFloor + rampExact(dW, WADI_MAX_DEPTH, run, stepH, jitter) + (int) Math.round(lift);
+                if (wadiW > 0.9 && col.kind == Kind.VANILLA) {
                     col.kind = col.wadiExact <= col.wadiFloor ? Kind.WADI_FLOOR : Kind.WADI_SLOPE;
                 }
             }
@@ -250,7 +255,7 @@ public final class NegevShape {
         if (y < floorY - 5 || y > topY) return null;
         if (floorKind) {
             double p = patches(x, z) + 0.35 * patches2(x, z);
-            Material top = p > 0.18 ? Material.GRASS : p < -0.22 ? Material.SAND : Material.DIRT;
+            Material top = p > 0.2 ? Material.GRASS : p < -0.08 ? Material.SAND : Material.DIRT;
             if (y == topY) return top;
             if (y >= topY - 3) return top == Material.SAND ? Material.SAND : Material.DIRT;
             return stratum(x, y, z);

@@ -12,8 +12,17 @@ import software.bernie.geckolib.model.data.EntityModelData;
 
 /** Loads geo/entity/blandfords_fox.geo.json, its animations and texture. */
 public class BlandfordsFoxModel extends DefaultedEntityGeoModel<BlandfordsFox> {
+    private static final ResourceLocation SLEEPING =
+            ResourceLocation.fromNamespaceAndPath(BlandfordsFoxMod.MOD_ID, "textures/entity/blandfords_fox_sleeping.png");
+
     public BlandfordsFoxModel() {
         super(ResourceLocation.fromNamespaceAndPath(BlandfordsFoxMod.MOD_ID, "blandfords_fox"), false);
+    }
+
+    /** Eyes closed while asleep. */
+    @Override
+    public ResourceLocation getTextureResource(BlandfordsFox fox) {
+        return fox.isSleeping() ? SLEEPING : super.getTextureResource(fox);
     }
 
     /**

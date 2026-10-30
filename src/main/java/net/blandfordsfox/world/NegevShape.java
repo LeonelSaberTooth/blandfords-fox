@@ -331,6 +331,9 @@ public final class NegevShape {
         if (col.wadi > 0) {
             double lo = Math.min(col.wadiSmooth, col.wadiExact) - 2, hi = Math.max(col.wadiSmooth, col.wadiExact) + 2;
             if (y >= lo && y <= hi) v = lerp(col.wadi, v, Math.min(v, (col.wadiExact - 0.5 - y) * K_DETAIL));
+            // fill caves under the wadi floor (only below floor level, so nothing is built above the ground)
+            else if (col.wadi >= 0.99 && v < 0 && y < col.wadiFloor - 0.5 && y >= col.wadiFloor - SEALED)
+                v = (col.wadiFloor - 0.5 - y) * K_DETAIL;
         }
         return v;
     }

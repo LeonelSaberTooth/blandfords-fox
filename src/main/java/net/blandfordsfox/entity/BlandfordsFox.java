@@ -71,31 +71,31 @@ public class BlandfordsFox extends Fox implements GeoEntity {
 
     // ------------------------------------------------------------- gaits & speed
     //
-    // Each moving animation has a ground speed: how fast its planted paws sweep
-    // backwards, measured from the keyframes (blocks per second at 1x playback,
-    // for an adult). The fox moves at a speed chosen for each gait, and on the
-    // client the animation is played back at (actual speed / ground speed), so
-    // the paws stay planted even while it speeds up, slows down or turns.
+    // Each moving animation has a ground speed: how fast its paws travel backwards
+    // while they're on the ground, measured from the keyframes as GeckoLib plays
+    // them. The animations always play at their original speed; instead the fox
+    // moves at exactly that ground speed, so a paw that touches the ground stays
+    // put until it lifts. (Checked in a simulation: paws drift under 0.6 px.)
 
-    static final double WALK_GROUND = 6.6 / 16;    // WALK from the .bbmodel
-    static final double RUN_GROUND = 40.0 / 16;    // RUN from the .bbmodel
-    static final double STALK_GROUND = 3.33 / 16;  // STALK, made in tools/convert_model.py
-
-    /** How fast it actually travels in each gait, blocks per second. */
-    static final double WALK_SPEED = WALK_GROUND * 1.75;   // unhurried trot, ~0.7 blocks/s
-    static final double RUN_SPEED = RUN_GROUND * 1.5;      // fleeing, chasing: ~3.75 blocks/s
-    static final double STALK_SPEED = STALK_GROUND * 1.5;  // creeping up on prey, ~0.3 blocks/s
+    /** Blocks per second for an adult. */
+    static final double WALK_SPEED = 6.71 / 16;     // WALK from the .bbmodel, 0.42 blocks/s
+    static final double RUN_SPEED = 47.34 / 16;     // RUN from the .bbmodel, 2.96 blocks/s
+    static final double STALK_SPEED = 3.333 / 16;   // STALK from tools/convert_model.py, 0.21 blocks/s
 
     /** Vanilla AI asks for a speed multiplier; at or above this the fox runs instead of walks. */
     private static final double RUN_FROM_MULTIPLIER = 1.15;
 
     /**
-     * A mob on flat ground ends up moving at about 31.9 * s^2 blocks per second,
-     * where s is the value MoveControl passes to setSpeed (friction 0.6 ground,
-     * since it is both the movement input and the speed factor). Solve for s.
+     * On flat ground a mob ends up covering 44.05 * s^2 blocks per second, where s is
+     * the value MoveControl passes to setSpeed (it is both the forward input and the
+     * speed factor; the 0.6-friction drag settles at 1/(1 - 0.546) times the push).
      */
     private static float inputFor(double blocksPerSecond) {
-        return (float) Math.sqrt(blocksPerSecond / 31.9);
+        return (float) Math.sqrt(blocksPerSecond / 44.05);
+    }
+
+    private double sizeScale() {
+        return isBaby() ? 0.5 : 1.0;   // cubs are drawn at half size, so their paws cover half the ground
     }
 
     /**
@@ -106,11 +106,9 @@ public class BlandfordsFox extends Fox implements GeoEntity {
     public void setSpeed(float speed) {
         if (speed > 0 && !level().isClientSide) {
             double attribute = getAttributeValue(Attributes.MOVEMENT_SPEED);
-            double base = getAttributeBaseValue(Attributes.MOVEMENT_SPEED);
             double multiplier = attribute > 0 ? speed / attribute : 1;
             double gait = isCrouching() ? STALK_SPEED : multiplier >= RUN_FROM_MULTIPLIER ? RUN_SPEED : WALK_SPEED;
-            // keep potions and other speed modifiers working, in proportion
-            speed = inputFor(gait) * (float) (base > 0 ? attribute / base : 1);
+            speed = inputFor(gait * sizeScale());
         }
         super.setSpeed(speed);
     }
@@ -137,38 +135,23 @@ public class BlandfordsFox extends Fox implements GeoEntity {
     }
 
     private PlayState pickAnimation(AnimationState<BlandfordsFox> state) {
-        state.setControllerSpeed(1.0F);
-
         if (isSleeping()) return state.setAndContinue(SLEEP);
         if ((isPouncing() && !onGround()) || isFaceplanted()) return state.setAndContinue(POUNCE);
         if (isSitting()) return state.setAndContinue(SIT);
 
-        double size = isBaby() ? 0.5 : 1.0;    // cubs are drawn at half size, so their paws cover half the ground
-        double v = groundSpeed;
+        double size = sizeScale();
+        double v = groundSpeed / size;   // in adult terms
 
         if (isCrouching()) {
-            if (v < 0.04) return state.setAndContinue(CROUCH);
-            state.setControllerSpeed(rate(v, STALK_GROUND * size, 0.4, 3.0));
-            return state.setAndContinue(STALK);
+            return state.setAndContinue(v > STALK_SPEED * 0.4 ? STALK : CROUCH);
         }
-
-        if (v < 0.06) {
+        if (v < WALK_SPEED * 0.3) {
             showingRun = false;
             return state.setAndContinue(IDLE);
         }
         // switch gaits with a little overlap so it doesn't flicker between them
-        double walkTop = 1.6 * size, runBottom = 1.2 * size;
-        showingRun = showingRun ? v > runBottom : v > walkTop;
-        if (showingRun) {
-            state.setControllerSpeed(rate(v, RUN_GROUND * size, 0.5, 2.2));
-            return state.setAndContinue(RUN);
-        }
-        state.setControllerSpeed(rate(v, WALK_GROUND * size, 0.4, 4.0));
-        return state.setAndContinue(WALK);
-    }
-
-    private static float rate(double speed, double ground, double lo, double hi) {
-        return (float) Math.max(lo, Math.min(hi, speed / ground));
+        showingRun = showingRun ? v > 1.0 : v > 1.4;
+        return state.setAndContinue(showingRun ? RUN : WALK);
     }
 
     @Override

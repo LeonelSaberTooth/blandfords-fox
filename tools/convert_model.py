@@ -97,6 +97,18 @@ def from_bbmodel(a, j):
     return out
 
 
+def to_bedrock(anim):
+    """Everything above is written in Blockbench's own convention (the numbers in its
+    keyframe panel). Blockbench's export flips rotation X and Y and position X for the
+    file, and GeckoLib flips them back when it loads it; do the same flip here, or
+    every pose comes out mirrored in game (sit tipping nose-down into the ground,
+    walk paws moving the wrong way)."""
+    for ch in anim['bones'].values():
+        for channel, flip in (('rotation', (-1, -1, 1)), ('position', (-1, 1, 1))):
+            for k in ch.get(channel, {}).values():
+                k['vector'] = [r(v * f) for v, f in zip(k['vector'], flip)]
+
+
 def static(pose, length=1.0, loop=True):
     """A held pose: {bone: {channel: [x,y,z]}}."""
     return {'loop': loop, 'animation_length': length,
@@ -170,7 +182,7 @@ def make_stalk():
     h = 3.0                                    # leg pivots sit 3 px up once the body is 1 px lower
     legs = {'left_leg': (0.0, 1.5), 'left_arm': (0.25, -1.5),     # (phase, centre z of the paw)
             'right_leg': (0.5, 1.5), 'right_arm': (0.75, -1.5)}
-    n = 24
+    n = 48
     bones = {'body': {'position': wave(STALK_LEN, n, lambda p: [0, -1.0 + 0.12 * math.cos(4 * math.pi * p), 0])},
              'head': {'position': {'0.0': {'vector': [0, -0.3, -0.5]}},
                       'rotation': wave(STALK_LEN, n, lambda p: [-12 + 1.0 * math.sin(4 * math.pi * p), 0, 0])},
@@ -218,6 +230,8 @@ def main():
     for need in ('walk', 'run', 'sleep'):
         assert need in anims, f'{need} missing from the .bbmodel'
     anims.update(made_here())
+    for a in anims.values():
+        to_bedrock(a)
     out = {'format_version': '1.8.0',
            'animations': {f'animation.{NAME}.{k}': v for k, v in anims.items()}}
     json.dump(out, open(os.path.join(ASSETS, 'animations', 'entity', NAME + '.animation.json'), 'w'), indent=1)

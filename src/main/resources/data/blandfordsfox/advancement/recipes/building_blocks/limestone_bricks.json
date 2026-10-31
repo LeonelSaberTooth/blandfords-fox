@@ -1,0 +1,38 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_limestone": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "blandfordsfox:limestone",
+              "blandfordsfox:limestone_bricks"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_limestone"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "blandfordsfox:limestone_brick_slab",
+      "blandfordsfox:limestone_brick_slab_from_limestone_bricks_stonecutting",
+      "blandfordsfox:limestone_brick_slab_from_limestone_stonecutting",
+      "blandfordsfox:limestone_brick_stairs",
+      "blandfordsfox:limestone_brick_stairs_from_limestone_bricks_stonecutting",
+      "blandfordsfox:limestone_brick_stairs_from_limestone_stonecutting",
+      "blandfordsfox:limestone_brick_wall",
+      "blandfordsfox:limestone_brick_wall_from_limestone_bricks_stonecutting",
+      "blandfordsfox:limestone_brick_wall_from_limestone_stonecutting",
+      "blandfordsfox:limestone_bricks",
+      "blandfordsfox:limestone_bricks_from_limestone_stonecutting"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "blandfordsfox:block/limestone_brick_slab"
+    },
+    "type=double": {
+      "model": "blandfordsfox:block/limestone_bricks"
+    },
+    "type=top": {
+      "model": "blandfordsfox:block/limestone_brick_slab_top"
+    }
+  }
+}

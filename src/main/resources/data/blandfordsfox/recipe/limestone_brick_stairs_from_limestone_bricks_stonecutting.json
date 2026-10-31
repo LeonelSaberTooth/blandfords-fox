@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": {
+    "item": "blandfordsfox:limestone_bricks"
+  },
+  "result": {
+    "count": 1,
+    "id": "blandfordsfox:limestone_brick_stairs"
+  }
+}

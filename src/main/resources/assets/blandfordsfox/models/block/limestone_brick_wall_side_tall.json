@@ -1,0 +1,7 @@
+{
+  "parent": "blandfordsfox:block/template_limestone_wall_side_tall",
+  "textures": {
+    "wall": "blandfordsfox:block/limestone_bricks",
+    "top": "blandfordsfox:block/limestone"
+  }
+}

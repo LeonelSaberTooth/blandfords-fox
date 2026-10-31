@@ -12,5 +12,9 @@
   "entity.blandfordsfox.onager": "Onager",
   "item.blandfordsfox.onager_spawn_egg": "Onager Spawn Egg",
   "entity.blandfordsfox.partridge": "Partridge",
-  "item.blandfordsfox.partridge_spawn_egg": "Partridge Spawn Egg"
+  "item.blandfordsfox.partridge_spawn_egg": "Partridge Spawn Egg",
+  "block.blandfordsfox.limestone_bricks": "Limestone Bricks",
+  "block.blandfordsfox.limestone_brick_stairs": "Limestone Brick Stairs",
+  "block.blandfordsfox.limestone_brick_slab": "Limestone Brick Slab",
+  "block.blandfordsfox.limestone_brick_wall": "Limestone Brick Wall"
 }

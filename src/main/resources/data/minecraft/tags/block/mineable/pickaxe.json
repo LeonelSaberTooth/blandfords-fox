@@ -1,5 +1,9 @@
 {
   "values": [
-    "blandfordsfox:limestone"
+    "blandfordsfox:limestone",
+    "blandfordsfox:limestone_bricks",
+    "blandfordsfox:limestone_brick_stairs",
+    "blandfordsfox:limestone_brick_slab",
+    "blandfordsfox:limestone_brick_wall"
   ]
 }

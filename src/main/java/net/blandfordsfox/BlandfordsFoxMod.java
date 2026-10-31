@@ -23,7 +23,10 @@ import net.minecraft.util.ColorRGBA;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.ColoredFallingBlock;
+import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.level.block.WallBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import net.minecraft.world.level.material.MapColor;
@@ -57,6 +60,20 @@ public final class BlandfordsFoxMod {
                     .instrument(NoteBlockInstrument.SNARE).strength(0.6F).sound(SoundType.GRAVEL)));
     public static final DeferredItem<BlockItem> LIMESTONE_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE);
     public static final DeferredItem<BlockItem> LIMESTONE_GRAVEL_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_GRAVEL);
+
+    /** Like stone bricks: 2x2 limestone makes 4; stairs, slab and wall like any bricks. */
+    public static final DeferredBlock<Block> LIMESTONE_BRICKS = BLOCKS.registerSimpleBlock("limestone_bricks",
+            BlockBehaviour.Properties.ofFullCopy(Blocks.STONE_BRICKS).mapColor(MapColor.SAND));
+    public static final DeferredBlock<StairBlock> LIMESTONE_BRICK_STAIRS = BLOCKS.register("limestone_brick_stairs",
+            () -> new StairBlock(LIMESTONE_BRICKS.get().defaultBlockState(), BlockBehaviour.Properties.ofFullCopy(LIMESTONE_BRICKS.get())));
+    public static final DeferredBlock<SlabBlock> LIMESTONE_BRICK_SLAB = BLOCKS.register("limestone_brick_slab",
+            () -> new SlabBlock(BlockBehaviour.Properties.ofFullCopy(LIMESTONE_BRICKS.get())));
+    public static final DeferredBlock<WallBlock> LIMESTONE_BRICK_WALL = BLOCKS.register("limestone_brick_wall",
+            () -> new WallBlock(BlockBehaviour.Properties.ofFullCopy(LIMESTONE_BRICKS.get()).forceSolidOn()));
+    public static final DeferredItem<BlockItem> LIMESTONE_BRICKS_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICKS);
+    public static final DeferredItem<BlockItem> LIMESTONE_BRICK_STAIRS_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_STAIRS);
+    public static final DeferredItem<BlockItem> LIMESTONE_BRICK_SLAB_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_SLAB);
+    public static final DeferredItem<BlockItem> LIMESTONE_BRICK_WALL_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_WALL);
     private static final DeferredRegister<MapCodec<? extends DensityFunction>> DENSITY_FUNCTIONS =
             DeferredRegister.create(Registries.DENSITY_FUNCTION_TYPE, MOD_ID);
     private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
@@ -180,6 +197,13 @@ public final class BlandfordsFoxMod {
         if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
             event.accept(LIMESTONE_ITEM);
             event.accept(LIMESTONE_GRAVEL_ITEM);
+        }
+        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
+            event.accept(LIMESTONE_ITEM);
+            event.accept(LIMESTONE_BRICKS_ITEM);
+            event.accept(LIMESTONE_BRICK_STAIRS_ITEM);
+            event.accept(LIMESTONE_BRICK_SLAB_ITEM);
+            event.accept(LIMESTONE_BRICK_WALL_ITEM);
         }
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
             event.accept(SPAWN_EGG);

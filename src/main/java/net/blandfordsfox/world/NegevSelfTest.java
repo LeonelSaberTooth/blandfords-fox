@@ -77,6 +77,7 @@ public final class NegevSelfTest {
         hyenaTest(level, d, report);
         animalTest(level, d, box, report);
         partridgeTest(level, d, report);
+        brickTest(level, report);
         report.append("caracals: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.CARACAL.get(), box, e -> true).size())
                 .append(", blandford's foxes: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.BLANDFORDS_FOX.get(), box, e -> true).size())
                 .append('\n');
@@ -327,6 +328,40 @@ public final class NegevSelfTest {
                 }
             }
         return near;
+    }
+
+    /** The limestone brick recipes, drops and tags. */
+    private static void brickTest(ServerLevel level, StringBuilder report) {
+        try {
+            var rm = level.getServer().getRecipeManager();
+            long ours = rm.getRecipes().stream().filter(r -> r.id().getNamespace().equals(BlandfordsFoxMod.MOD_ID)).count();
+            var stone = new net.minecraft.world.item.ItemStack(BlandfordsFoxMod.LIMESTONE_ITEM.get());
+            var input = net.minecraft.world.item.crafting.CraftingInput.of(2, 2, java.util.List.of(stone.copy(), stone.copy(), stone.copy(), stone.copy()));
+            String made = rm.getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, input, level)
+                    .map(h -> h.value().assemble(input, level.registryAccess()))
+                    .map(st -> st.getCount() + " " + BuiltInRegistries.ITEM.getKey(st.getItem())).orElse("nothing");
+            var bricks = new net.minecraft.world.item.ItemStack(BlandfordsFoxMod.LIMESTONE_BRICKS_ITEM.get());
+            var row = net.minecraft.world.item.crafting.CraftingInput.of(3, 1, java.util.List.of(bricks.copy(), bricks.copy(), bricks.copy()));
+            String slabs = rm.getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, row, level)
+                    .map(h -> h.value().assemble(row, level.registryAccess()))
+                    .map(st -> st.getCount() + " " + BuiltInRegistries.ITEM.getKey(st.getItem())).orElse("nothing");
+            long cuts = rm.getRecipesFor(net.minecraft.world.item.crafting.RecipeType.STONECUTTING,
+                    new net.minecraft.world.item.crafting.SingleRecipeInput(stone), level).size();
+            boolean wallTag = BlandfordsFoxMod.LIMESTONE_BRICK_WALL.get().defaultBlockState().is(net.minecraft.tags.BlockTags.WALLS);
+            boolean pick = BlandfordsFoxMod.LIMESTONE_BRICKS.get().defaultBlockState().is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE);
+            var loot = level.getServer().reloadableRegistries();
+            int tables = 0;
+            for (String n : new String[] {"limestone_bricks", "limestone_brick_stairs", "limestone_brick_slab", "limestone_brick_wall"}) {
+                var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE,
+                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(BlandfordsFoxMod.MOD_ID, "blocks/" + n));
+                if (loot.getLootTable(key) != net.minecraft.world.level.storage.loot.LootTable.EMPTY) tables++;
+            }
+            report.append("bricks: ").append(ours).append(" mod recipes, 2x2 limestone makes ").append(made)
+                    .append(", 3 bricks in a row make ").append(slabs).append(", stonecutter options for limestone ").append(cuts)
+                    .append(", wall in #walls ").append(wallTag).append(", pickaxe ").append(pick).append(", loot tables ").append(tables).append("/4\n");
+        } catch (Throwable t) {
+            report.append("brick test failed: ").append(t).append('\n');
+        }
     }
 
     private static String watchFlight(ServerLevel level, net.blandfordsfox.entity.Partridge bird, int max) {

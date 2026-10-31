@@ -166,7 +166,7 @@ public class Partridge extends Chicken implements GeoEntity {
     static final class FlushGoal extends Goal {
         private final Partridge bird;
         private Vec3 dir = Vec3.ZERO;
-        private int ticks, flightTicks, stuck;
+        private int ticks, flightTicks, stuck, landingStart;
 
         FlushGoal(Partridge bird) {
             this.bird = bird;
@@ -224,7 +224,10 @@ public class Partridge extends Chicken implements GeoEntity {
 
         @Override
         public boolean canContinueToUse() {
-            return bird.isAlive() && !bird.isInWater() && (bird.getFlight() == FLYING || !bird.onGround() || ticks < 3);
+            if (!bird.isAlive() || bird.isInWater()) return false;
+            if (bird.getFlight() == FLYING) return true;
+            // gliding in: until it touches down (or catches on vines, or takes too long)
+            return ticks < 3 || (!bird.onGround() && !bird.onClimbable() && ticks - landingStart < 60);
         }
 
         @Override
@@ -251,6 +254,7 @@ public class Partridge extends Chicken implements GeoEntity {
                 if ((ticks >= flightTicks && !overFluid) || ticks >= FLIGHT_LIMIT) {
                     bird.setFlight(LANDING);
                     bird.setNoGravity(false);
+                    landingStart = ticks;
                 }
             } else {
                 // glide in: carry on forward, slowing, and come down gently

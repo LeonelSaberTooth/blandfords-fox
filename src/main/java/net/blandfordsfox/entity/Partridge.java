@@ -255,7 +255,7 @@ public class Partridge extends Chicken implements GeoEntity {
             } else {
                 // glide in: carry on forward, slowing, and come down gently
                 Vec3 v = bird.getDeltaMovement();
-                bird.setDeltaMovement(v.x * 0.88, Math.max(v.y, -0.18), v.z * 0.88);
+                bird.setDeltaMovement(v.x * 0.88, Math.max(v.y - 0.04, -0.3), v.z * 0.88);
             }
         }
 

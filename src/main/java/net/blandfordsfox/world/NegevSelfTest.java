@@ -168,6 +168,20 @@ public final class NegevSelfTest {
                     .append(", tamed with rotten flesh after ").append(tries).append(" tries (tame=").append(h.isTame()).append(")")
                     .append(", hurt-by-target goals ").append(hurtGoals).append('\n');
             h.discard();
+
+            // a wild hyena should fall asleep by day and wake at night
+            net.blandfordsfox.entity.Hyena w = net.blandfordsfox.BlandfordsFoxMod.HYENA.get().create(level);
+            w.moveTo(near.getX() + 30.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, near.getX() + 30, near.getZ()), near.getZ() + 0.5, 0, 0);
+            level.addFreshEntity(w);
+            level.setDayTime(6000);
+            level.updateSkyBrightness();
+            boolean sleptByDay = false;
+            for (int i = 0; i < 1200 && !sleptByDay; i++) { w.tick(); sleptByDay = w.isHyenaSleeping(); }
+            level.setDayTime(18000);
+            level.updateSkyBrightness();
+            for (int i = 0; i < 100; i++) w.tick();
+            report.append("hyena: fell asleep by day ").append(sleptByDay).append(", awake at night ").append(!w.isHyenaSleeping()).append('\n');
+            w.discard();
         } catch (Throwable t) {
             report.append("hyena test failed: ").append(t).append('\n');
         }

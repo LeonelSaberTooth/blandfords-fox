@@ -1,0 +1,10 @@
+{
+  "type": "neoforge:add_spawns",
+  "biomes": "#blandfordsfox:spawns_partridge",
+  "spawners": {
+    "type": "blandfordsfox:partridge",
+    "weight": 6,
+    "minCount": 2,
+    "maxCount": 4
+  }
+}

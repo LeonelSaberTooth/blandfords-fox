@@ -17,6 +17,7 @@ public final class ClientSetup {
         event.registerEntityRenderer(BlandfordsFoxMod.HYENA.get(), HyenaRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.HARE.get(), HareRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.ONAGER.get(), OnagerRenderer::new);
+        event.registerEntityRenderer(BlandfordsFoxMod.PARTRIDGE.get(), PartridgeRenderer::new);
     }
 
     @SubscribeEvent

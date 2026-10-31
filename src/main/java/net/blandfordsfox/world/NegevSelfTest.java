@@ -76,6 +76,7 @@ public final class NegevSelfTest {
         net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(d).inflate(1500, 200, 1500);
         hyenaTest(level, d, report);
         animalTest(level, d, box, report);
+        partridgeTest(level, d, report);
         report.append("caracals: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.CARACAL.get(), box, e -> true).size())
                 .append(", blandford's foxes: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.BLANDFORDS_FOX.get(), box, e -> true).size())
                 .append('\n');
@@ -256,6 +257,83 @@ public final class NegevSelfTest {
         } catch (Throwable t) {
             report.append("animal test failed: ").append(t).append('\n');
         }
+    }
+
+    /** Walks a player up to a partridge and watches it flush: when, how fast, how high, how far. */
+    private static void partridgeTest(ServerLevel level, BlockPos near, StringBuilder report) {
+        net.minecraft.server.level.ServerPlayer player = null;
+        boolean added = false;
+        try {
+            report.append("partridge: drops ").append(BlandfordsFoxMod.PARTRIDGE.get().create(level).getLootTable().location())
+                    .append(", spawned nearby ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Partridge.class,
+                            new net.minecraft.world.phys.AABB(near).inflate(200, 200, 200), e -> true).size()).append('\n');
+            player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+            int bx = near.getX() + 12, bz = near.getZ() + 12;
+            net.blandfordsfox.entity.Partridge bird = BlandfordsFoxMod.PARTRIDGE.get().create(level);
+            bird.moveTo(bx + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz), bz + 0.5, 0, 0);
+            level.addFreshEntity(bird);
+            for (int i = 0; i < 20; i++) { bird.tickCount++; bird.tick(); }
+            player.moveTo(bird.getX() - 4, bird.getY(), bird.getZ(), -90, 0);
+            level.addNewPlayer(player);
+            added = true;
+            report.append("partridge, player 4 blocks away: ").append(watchFlight(level, bird, 300)).append('\n');
+
+            // with seeds in hand it should stay put
+            for (int i = 0; i < 80; i++) { bird.tickCount++; bird.tick(); }
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.WHEAT_SEEDS));
+            player.moveTo(bird.getX() - 2, bird.getY(), bird.getZ(), -90, 0);
+            boolean flew = false;
+            for (int i = 0; i < 60 && !flew; i++) { bird.tickCount++; bird.tick(); flew = bird.getFlight() != 0; }
+            report.append("partridge, player with seeds 2 blocks away: flew ").append(flew).append('\n');
+            bird.discard();
+        } catch (Throwable t) {
+            report.append("partridge test failed: ").append(t).append('\n');
+        } finally {
+            if (added) try { level.removePlayerImmediately(player, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED); } catch (Throwable ignored) {}
+        }
+        try {
+            // hit by a zombie: it should fly off too
+            int bx = near.getX() - 12, bz = near.getZ() - 12;
+            net.blandfordsfox.entity.Partridge bird = BlandfordsFoxMod.PARTRIDGE.get().create(level);
+            bird.moveTo(bx + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz), bz + 0.5, 0, 0);
+            level.addFreshEntity(bird);
+            for (int i = 0; i < 20; i++) { bird.tickCount++; bird.tick(); }
+            var zombie = net.minecraft.world.entity.EntityType.ZOMBIE.create(level);
+            zombie.moveTo(bird.getX() + 1.5, bird.getY(), bird.getZ(), 0, 0);
+            bird.hurt(level.damageSources().mobAttack(zombie), 0.5F);
+            report.append("partridge, hit by a zombie: ").append(watchFlight(level, bird, 300)).append('\n');
+            bird.discard();
+        } catch (Throwable t) {
+            report.append("partridge hit test failed: ").append(t).append('\n');
+        }
+    }
+
+    private static String watchFlight(ServerLevel level, net.blandfordsfox.entity.Partridge bird, int max) {
+        int takeoff = -1, flying = 0, landing = 0, t = 0;
+        double flyDist = 0, maxH = 0, sumH = 0;
+        net.minecraft.world.phys.Vec3 start = null;
+        for (; t < max; t++) {
+            double x0 = bird.getX(), z0 = bird.getZ();
+            bird.tickCount++;
+            bird.tick();
+            int f = bird.getFlight();
+            if (f != 0 && takeoff < 0) { takeoff = t; start = new net.minecraft.world.phys.Vec3(x0, bird.getY(), z0); }
+            double ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING, net.minecraft.util.Mth.floor(bird.getX()), net.minecraft.util.Mth.floor(bird.getZ()));
+            if (f == 1) {
+                flying++;
+                flyDist += Math.hypot(bird.getX() - x0, bird.getZ() - z0);
+                double h = bird.getY() - ground;
+                maxH = Math.max(maxH, h);
+                sumH += h;
+            } else if (f == 2) landing++;
+            if (takeoff >= 0 && f == 0) break;
+        }
+        if (takeoff < 0) return "did not fly in " + max + " ticks";
+        return String.format(java.util.Locale.ROOT,
+                "took off after %d ticks, flew %d ticks at %.1f blocks/s, %.1f blocks above the ground on average (max %.1f), glided in %d ticks, landed %s %.1f blocks away",
+                takeoff, flying, flying > 0 ? flyDist / flying * 20 : 0, flying > 0 ? sumH / flying : 0, maxH, landing,
+                bird.getFlight() == 0 && bird.onGround() ? "on the ground" : "NOT YET", start == null ? 0 : start.distanceTo(bird.position()));
     }
 
     private static String name(net.minecraft.world.entity.Entity e) {

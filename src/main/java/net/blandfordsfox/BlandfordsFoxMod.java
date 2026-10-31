@@ -6,6 +6,7 @@ import net.blandfordsfox.entity.Caracal;
 import net.blandfordsfox.entity.Hare;
 import net.blandfordsfox.entity.Hyena;
 import net.blandfordsfox.entity.Onager;
+import net.blandfordsfox.entity.Partridge;
 import net.blandfordsfox.world.NegevDensity;
 import net.blandfordsfox.world.NegevFeatures;
 import net.minecraft.world.level.levelgen.DensityFunction;
@@ -128,6 +129,18 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<Item> ONAGER_SPAWN_EGG = ITEMS.register("onager_spawn_egg",
             () -> new DeferredSpawnEggItem(ONAGER, 0xD2B48C, 0x5C4632, new Item.Properties()));
 
+    // Chicken settings, sized to the partridge model.
+    public static final DeferredHolder<EntityType<?>, EntityType<Partridge>> PARTRIDGE = ENTITIES.register("partridge",
+            () -> EntityType.Builder.of(Partridge::new, MobCategory.CREATURE)
+                    .sized(0.45F, 0.65F)
+                    .eyeHeight(0.55F)
+                    .passengerAttachments(0.6F)
+                    .clientTrackingRange(10)
+                    .build(MOD_ID + ":partridge"));
+
+    public static final DeferredItem<Item> PARTRIDGE_SPAWN_EGG = ITEMS.register("partridge_spawn_egg",
+            () -> new DeferredSpawnEggItem(PARTRIDGE, 0xB5A48A, 0x7A4A36, new Item.Properties()));
+
     public BlandfordsFoxMod(IEventBus modBus) {
         ENTITIES.register(modBus);
         BLOCKS.register(modBus);
@@ -145,6 +158,7 @@ public final class BlandfordsFoxMod {
         event.put(HYENA.get(), Hyena.createAttributes().build());
         event.put(HARE.get(), Hare.createAttributes().build());
         event.put(ONAGER.get(), Onager.createBaseChestedHorseAttributes().build());
+        event.put(PARTRIDGE.get(), Partridge.createAttributes().build());
     }
 
     private void spawnPlacements(RegisterSpawnPlacementsEvent event) {
@@ -158,6 +172,8 @@ public final class BlandfordsFoxMod {
                 Hare::checkHareSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
         event.register(ONAGER.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 Onager::checkOnagerSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
+        event.register(PARTRIDGE.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                Partridge::checkPartridgeSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
     }
 
     private void creativeTabs(BuildCreativeModeTabContentsEvent event) {
@@ -171,6 +187,7 @@ public final class BlandfordsFoxMod {
             event.accept(HYENA_SPAWN_EGG);
             event.accept(HARE_SPAWN_EGG);
             event.accept(ONAGER_SPAWN_EGG);
+            event.accept(PARTRIDGE_SPAWN_EGG);
         }
     }
 }

@@ -74,6 +74,20 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<BlockItem> LIMESTONE_BRICK_STAIRS_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_STAIRS);
     public static final DeferredItem<BlockItem> LIMESTONE_BRICK_SLAB_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_SLAB);
     public static final DeferredItem<BlockItem> LIMESTONE_BRICK_WALL_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_WALL);
+
+    /** Like mossy stone bricks: limestone bricks with a vine or a moss block. */
+    public static final DeferredBlock<Block> MOSSY_LIMESTONE_BRICKS = BLOCKS.registerSimpleBlock("mossy_limestone_bricks",
+            BlockBehaviour.Properties.ofFullCopy(Blocks.MOSSY_STONE_BRICKS).mapColor(MapColor.SAND));
+    public static final DeferredBlock<StairBlock> MOSSY_LIMESTONE_BRICK_STAIRS = BLOCKS.register("mossy_limestone_brick_stairs",
+            () -> new StairBlock(MOSSY_LIMESTONE_BRICKS.get().defaultBlockState(), BlockBehaviour.Properties.ofFullCopy(MOSSY_LIMESTONE_BRICKS.get())));
+    public static final DeferredBlock<SlabBlock> MOSSY_LIMESTONE_BRICK_SLAB = BLOCKS.register("mossy_limestone_brick_slab",
+            () -> new SlabBlock(BlockBehaviour.Properties.ofFullCopy(MOSSY_LIMESTONE_BRICKS.get())));
+    public static final DeferredBlock<WallBlock> MOSSY_LIMESTONE_BRICK_WALL = BLOCKS.register("mossy_limestone_brick_wall",
+            () -> new WallBlock(BlockBehaviour.Properties.ofFullCopy(MOSSY_LIMESTONE_BRICKS.get()).forceSolidOn()));
+    public static final DeferredItem<BlockItem> MOSSY_LIMESTONE_BRICKS_ITEM = ITEMS.registerSimpleBlockItem(MOSSY_LIMESTONE_BRICKS);
+    public static final DeferredItem<BlockItem> MOSSY_LIMESTONE_BRICK_STAIRS_ITEM = ITEMS.registerSimpleBlockItem(MOSSY_LIMESTONE_BRICK_STAIRS);
+    public static final DeferredItem<BlockItem> MOSSY_LIMESTONE_BRICK_SLAB_ITEM = ITEMS.registerSimpleBlockItem(MOSSY_LIMESTONE_BRICK_SLAB);
+    public static final DeferredItem<BlockItem> MOSSY_LIMESTONE_BRICK_WALL_ITEM = ITEMS.registerSimpleBlockItem(MOSSY_LIMESTONE_BRICK_WALL);
     private static final DeferredRegister<MapCodec<? extends DensityFunction>> DENSITY_FUNCTIONS =
             DeferredRegister.create(Registries.DENSITY_FUNCTION_TYPE, MOD_ID);
     private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
@@ -204,6 +218,10 @@ public final class BlandfordsFoxMod {
             event.accept(LIMESTONE_BRICK_STAIRS_ITEM);
             event.accept(LIMESTONE_BRICK_SLAB_ITEM);
             event.accept(LIMESTONE_BRICK_WALL_ITEM);
+            event.accept(MOSSY_LIMESTONE_BRICKS_ITEM);
+            event.accept(MOSSY_LIMESTONE_BRICK_STAIRS_ITEM);
+            event.accept(MOSSY_LIMESTONE_BRICK_SLAB_ITEM);
+            event.accept(MOSSY_LIMESTONE_BRICK_WALL_ITEM);
         }
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
             event.accept(SPAWN_EGG);

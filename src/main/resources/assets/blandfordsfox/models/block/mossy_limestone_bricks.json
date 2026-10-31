@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "blandfordsfox:block/limestone",
+    "side": "blandfordsfox:block/mossy_limestone_bricks"
+  }
+}

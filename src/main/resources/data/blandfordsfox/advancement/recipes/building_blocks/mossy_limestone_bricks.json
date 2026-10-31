@@ -1,0 +1,36 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_item": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "blandfordsfox:mossy_limestone_bricks",
+              "minecraft:vine",
+              "minecraft:moss_block"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_item"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "blandfordsfox:mossy_limestone_brick_slab",
+      "blandfordsfox:mossy_limestone_brick_slab_from_mossy_limestone_bricks_stonecutting",
+      "blandfordsfox:mossy_limestone_brick_stairs",
+      "blandfordsfox:mossy_limestone_brick_stairs_from_mossy_limestone_bricks_stonecutting",
+      "blandfordsfox:mossy_limestone_brick_wall",
+      "blandfordsfox:mossy_limestone_brick_wall_from_mossy_limestone_bricks_stonecutting",
+      "blandfordsfox:mossy_limestone_bricks_from_moss_block",
+      "blandfordsfox:mossy_limestone_bricks_from_vine"
+    ]
+  }
+}

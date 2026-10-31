@@ -1,0 +1,7 @@
+{
+  "parent": "blandfordsfox:block/template_limestone_wall_post",
+  "textures": {
+    "wall": "blandfordsfox:block/mossy_limestone_bricks",
+    "top": "blandfordsfox:block/limestone"
+  }
+}

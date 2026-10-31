@@ -345,6 +345,22 @@ public final class NegevSelfTest {
             String slabs = rm.getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, row, level)
                     .map(h -> h.value().assemble(row, level.registryAccess()))
                     .map(st -> st.getCount() + " " + BuiltInRegistries.ITEM.getKey(st.getItem())).orElse("nothing");
+            String mossy = "";
+            for (var extra : new net.minecraft.world.item.Item[] {net.minecraft.world.item.Items.VINE, net.minecraft.world.item.Items.MOSS_BLOCK}) {
+                var two = net.minecraft.world.item.crafting.CraftingInput.of(2, 1, java.util.List.of(bricks.copy(), new net.minecraft.world.item.ItemStack(extra)));
+                mossy += rm.getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CRAFTING, two, level)
+                        .map(h -> h.value().assemble(two, level.registryAccess()))
+                        .map(st -> st.getCount() + " " + BuiltInRegistries.ITEM.getKey(st.getItem())).orElse("nothing") + "; ";
+            }
+            var mossyStack = new net.minecraft.world.item.ItemStack(BlandfordsFoxMod.MOSSY_LIMESTONE_BRICKS_ITEM.get());
+            long mossyCuts = rm.getRecipesFor(net.minecraft.world.item.crafting.RecipeType.STONECUTTING,
+                    new net.minecraft.world.item.crafting.SingleRecipeInput(mossyStack), level).size();
+            boolean mossyTags = BlandfordsFoxMod.MOSSY_LIMESTONE_BRICK_WALL.get().defaultBlockState().is(net.minecraft.tags.BlockTags.WALLS)
+                    && BlandfordsFoxMod.MOSSY_LIMESTONE_BRICK_STAIRS.get().defaultBlockState().is(net.minecraft.tags.BlockTags.STAIRS)
+                    && BlandfordsFoxMod.MOSSY_LIMESTONE_BRICK_SLAB.get().defaultBlockState().is(net.minecraft.tags.BlockTags.SLABS)
+                    && BlandfordsFoxMod.MOSSY_LIMESTONE_BRICKS.get().defaultBlockState().is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE);
+            report.append("mossy bricks: bricks + vine / moss block make ").append(mossy).append("stonecutter options ").append(mossyCuts)
+                    .append(", tags ").append(mossyTags).append('\n');
             long cuts = rm.getRecipesFor(net.minecraft.world.item.crafting.RecipeType.STONECUTTING,
                     new net.minecraft.world.item.crafting.SingleRecipeInput(stone), level).size();
             boolean wallTag = BlandfordsFoxMod.LIMESTONE_BRICK_WALL.get().defaultBlockState().is(net.minecraft.tags.BlockTags.WALLS);
@@ -356,14 +372,15 @@ public final class NegevSelfTest {
                     && net.minecraft.world.level.block.Blocks.COBBLESTONE_WALL.defaultBlockState().is(net.minecraft.tags.BlockTags.WALLS);
             var loot = level.getServer().reloadableRegistries();
             int tables = 0;
-            for (String n : new String[] {"limestone_bricks", "limestone_brick_stairs", "limestone_brick_slab", "limestone_brick_wall"}) {
+            for (String n : new String[] {"limestone_bricks", "limestone_brick_stairs", "limestone_brick_slab", "limestone_brick_wall",
+                    "mossy_limestone_bricks", "mossy_limestone_brick_stairs", "mossy_limestone_brick_slab", "mossy_limestone_brick_wall"}) {
                 var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE,
                         net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(BlandfordsFoxMod.MOD_ID, "blocks/" + n));
                 if (loot.getLootTable(key) != net.minecraft.world.level.storage.loot.LootTable.EMPTY) tables++;
             }
             report.append("bricks: ").append(ours).append(" mod recipes, 2x2 limestone makes ").append(made)
                     .append(", 3 bricks in a row make ").append(slabs).append(", stonecutter options for limestone ").append(cuts)
-                    .append(", wall in #walls ").append(wallTag).append(", pickaxe ").append(pick).append(", stairs/slab/wall tags (ours and vanilla) ").append(tagsOk).append(", loot tables ").append(tables).append("/4\n");
+                    .append(", wall in #walls ").append(wallTag).append(", pickaxe ").append(pick).append(", stairs/slab/wall tags (ours and vanilla) ").append(tagsOk).append(", loot tables ").append(tables).append("/8\n");
         } catch (Throwable t) {
             report.append("brick test failed: ").append(t).append('\n');
         }

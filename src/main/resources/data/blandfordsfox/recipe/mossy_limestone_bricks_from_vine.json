@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "group": "mossy_limestone_bricks",
+  "ingredients": [
+    {
+      "item": "blandfordsfox:limestone_bricks"
+    },
+    {
+      "item": "minecraft:vine"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "blandfordsfox:mossy_limestone_bricks"
+  }
+}

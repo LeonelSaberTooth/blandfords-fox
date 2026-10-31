@@ -1,7 +1,7 @@
 """Writes the data and asset files for the limestone brick set and the birch log variation.
 
-Limestone bricks: bricks on the sides, plain limestone on top and bottom, like the block,
-for the stairs, slab and wall too. Made from 2x2 limestone (4 bricks); stairs, slab and wall
+Limestone bricks and mossy limestone bricks: bricks on the sides, plain limestone on top and
+bottom, for the stairs, slab and wall too. Mossy: limestone bricks + a vine or a moss block. Made from 2x2 limestone (4 bricks); stairs, slab and wall
 crafted from bricks like stone bricks; all of them from limestone or bricks on a stonecutter.
 
 Needs the vanilla 1.21.1 block models and blockstates in ../ref/va (from misode/mcmeta).
@@ -46,8 +46,8 @@ def blockstate(name, obj):
     put(os.path.join(A, NS, 'blockstates', name + '.json'), obj)
 
 
-def renamed(obj):
-    s = json.dumps(obj).replace('minecraft:block/stone_brick', f'{NS}:block/limestone_brick')
+def renamed(obj, base):
+    s = json.dumps(obj).replace('minecraft:block/stone_brick', f'{NS}:block/{base}')
     return json.loads(s)
 
 
@@ -63,81 +63,107 @@ def wall_template(src, dst):
     model(dst, m)
 
 
-def bricks():
-    tex = {'bottom': TOP, 'top': TOP, 'side': SIDE}
-    model('limestone_bricks', {'parent': 'minecraft:block/cube_column', 'textures': {'end': TOP, 'side': SIDE}})
-    blockstate('limestone_bricks', {'variants': {'': {'model': f'{NS}:block/limestone_bricks'}}})
-    item('limestone_bricks', f'{NS}:block/limestone_bricks')
+def brick_set(full, base, side):
+    """A brick block (full, e.g. limestone_bricks) and its stairs, slab and wall (base_stairs...):
+    side texture on the sides, plain limestone on top and bottom."""
+    tex = {'bottom': TOP, 'top': TOP, 'side': side}
+    model(full, {'parent': 'minecraft:block/cube_column', 'textures': {'end': TOP, 'side': side}})
+    blockstate(full, {'variants': {'': {'model': f'{NS}:block/{full}'}}})
+    item(full, f'{NS}:block/{full}')
 
     for suffix in ('', '_inner', '_outer'):
-        model('limestone_brick_stairs' + suffix, {'parent': {'': 'minecraft:block/stairs', '_inner': 'minecraft:block/inner_stairs',
-                                                            '_outer': 'minecraft:block/outer_stairs'}[suffix], 'textures': tex})
-    blockstate('limestone_brick_stairs', renamed(vanilla('blockstates/stone_brick_stairs.json')))
-    item('limestone_brick_stairs', f'{NS}:block/limestone_brick_stairs')
+        model(base + '_stairs' + suffix, {'parent': {'': 'minecraft:block/stairs', '_inner': 'minecraft:block/inner_stairs',
+                                                    '_outer': 'minecraft:block/outer_stairs'}[suffix], 'textures': tex})
+    blockstate(base + '_stairs', renamed(vanilla('blockstates/stone_brick_stairs.json'), base))
+    item(base + '_stairs', f'{NS}:block/{base}_stairs')
 
-    model('limestone_brick_slab', {'parent': 'minecraft:block/slab', 'textures': tex})
-    model('limestone_brick_slab_top', {'parent': 'minecraft:block/slab_top', 'textures': tex})
-    bs = renamed(vanilla('blockstates/stone_brick_slab.json'))
-    bs['variants']['type=double']['model'] = f'{NS}:block/limestone_bricks'
-    blockstate('limestone_brick_slab', bs)
-    item('limestone_brick_slab', f'{NS}:block/limestone_brick_slab')
+    model(base + '_slab', {'parent': 'minecraft:block/slab', 'textures': tex})
+    model(base + '_slab_top', {'parent': 'minecraft:block/slab_top', 'textures': tex})
+    bs = renamed(vanilla('blockstates/stone_brick_slab.json'), base)
+    bs['variants']['type=double']['model'] = f'{NS}:block/{full}'
+    blockstate(base + '_slab', bs)
+    item(base + '_slab', f'{NS}:block/{base}_slab')
 
     for t in ('wall_post', 'wall_side', 'wall_side_tall', 'wall_inventory'):
         wall_template('template_' + t if t != 'wall_inventory' else t, 'template_limestone_' + t)
-        model('limestone_brick_' + t, {'parent': f'{NS}:block/template_limestone_' + t, 'textures': {'wall': SIDE, 'top': TOP}})
-    blockstate('limestone_brick_wall', renamed(vanilla('blockstates/stone_brick_wall.json')))
-    item('limestone_brick_wall', f'{NS}:block/limestone_brick_wall_inventory')
+        model(base + '_' + t, {'parent': f'{NS}:block/template_limestone_' + t, 'textures': {'wall': side, 'top': TOP}})
+    blockstate(base + '_wall', renamed(vanilla('blockstates/stone_brick_wall.json'), base))
+    item(base + '_wall', f'{NS}:block/{base}_wall_inventory')
 
     # loot: each drops itself (a double slab drops two)
     def self_drop(name):
         return {'type': 'minecraft:block', 'random_sequence': f'{NS}:blocks/{name}', 'pools': [{
             'rolls': 1.0, 'bonus_rolls': 0.0, 'conditions': [{'condition': 'minecraft:survives_explosion'}],
             'entries': [{'type': 'minecraft:item', 'name': f'{NS}:{name}'}]}]}
-    for n in ('limestone_bricks', 'limestone_brick_stairs', 'limestone_brick_wall'):
+    for n in (full, base + '_stairs', base + '_wall'):
         put(os.path.join(D, NS, 'loot_table', 'blocks', n + '.json'), self_drop(n))
     slab = json.loads(open(os.path.join(VA, 'loot', 'stone_brick_slab.json')).read()
-                      .replace('minecraft:stone_brick_slab', f'{NS}:limestone_brick_slab')
-                      .replace('minecraft:blocks/stone_brick_slab', f'{NS}:blocks/limestone_brick_slab'))
-    put(os.path.join(D, NS, 'loot_table', 'blocks', 'limestone_brick_slab.json'), slab)
+                      .replace('minecraft:stone_brick_slab', f'{NS}:{base}_slab')
+                      .replace('minecraft:blocks/stone_brick_slab', f'{NS}:blocks/{base}_slab'))
+    put(os.path.join(D, NS, 'loot_table', 'blocks', base + '_slab.json'), slab)
 
-    # recipes
-    rec = lambda n, o: put(os.path.join(D, NS, 'recipe', n + '.json'), o)
-    shaped = lambda key, pattern, out, count, cat='building': {
-        'type': 'minecraft:crafting_shaped', 'category': cat, 'key': {'#': {'item': f'{NS}:{key}'}},
-        'pattern': pattern, 'result': {'count': count, 'id': f'{NS}:{out}'}}
-    cut = lambda src, out, count: {'type': 'minecraft:stonecutting', 'ingredient': {'item': f'{NS}:{src}'},
-                                   'result': {'count': count, 'id': f'{NS}:{out}'}}
-    rec('limestone_bricks', shaped('limestone', ['##', '##'], 'limestone_bricks', 4))
-    rec('limestone_brick_slab', shaped('limestone_bricks', ['###'], 'limestone_brick_slab', 6))
-    rec('limestone_brick_stairs', shaped('limestone_bricks', ['#  ', '## ', '###'], 'limestone_brick_stairs', 4))
-    rec('limestone_brick_wall', shaped('limestone_bricks', ['###', '###'], 'limestone_brick_wall', 6, 'misc'))
-    rec('limestone_bricks_from_limestone_stonecutting', cut('limestone', 'limestone_bricks', 1))
-    for src in ('limestone', 'limestone_bricks'):
-        rec(f'limestone_brick_slab_from_{src}_stonecutting', cut(src, 'limestone_brick_slab', 2))
-        rec(f'limestone_brick_stairs_from_{src}_stonecutting', cut(src, 'limestone_brick_stairs', 1))
-        rec(f'limestone_brick_wall_from_{src}_stonecutting', cut(src, 'limestone_brick_wall', 1))
-
-    # recipe book: unlock the recipes once you have limestone or limestone bricks
-    recipes = sorted(f'{NS}:' + f[:-5] for f in os.listdir(os.path.join(D, NS, 'recipe')) if f.startswith('limestone_brick'))
-    put(os.path.join(D, NS, 'advancement', 'recipes', 'building_blocks', 'limestone_bricks.json'), {
-        'parent': 'minecraft:recipes/root',
-        'criteria': {
-            'has_limestone': {'trigger': 'minecraft:inventory_changed',
-                              'conditions': {'items': [{'items': [f'{NS}:limestone', f'{NS}:limestone_bricks']}]}}},
-        'requirements': [['has_limestone']],
-        'rewards': {'recipes': recipes}})
+    # stairs, slab and wall from the bricks, at the crafting table and the stonecutter
+    rec('%s_slab' % base, shaped(full, ['###'], base + '_slab', 6))
+    rec('%s_stairs' % base, shaped(full, ['#  ', '## ', '###'], base + '_stairs', 4))
+    rec('%s_wall' % base, shaped(full, ['###', '###'], base + '_wall', 6, 'misc'))
+    for src in ((full,) if full != 'limestone_bricks' else ('limestone', full)):
+        rec(f'{base}_slab_from_{src}_stonecutting', cut(src, base + '_slab', 2))
+        rec(f'{base}_stairs_from_{src}_stonecutting', cut(src, base + '_stairs', 1))
+        rec(f'{base}_wall_from_{src}_stonecutting', cut(src, base + '_wall', 1))
 
     # tags
-    def add_tag(path, values):
-        p = os.path.join(D, path)
-        old = json.load(open(p))['values'] if os.path.exists(p) else []
-        put(p, {'values': old + [v for v in values if v not in old]})
-    ids = [f'{NS}:limestone_bricks', f'{NS}:limestone_brick_stairs', f'{NS}:limestone_brick_slab', f'{NS}:limestone_brick_wall']
+    ids = [f'{NS}:{full}'] + [f'{NS}:{base}_{k}' for k in ('stairs', 'slab', 'wall')]
     add_tag('minecraft/tags/block/mineable/pickaxe.json', ids)
     for kind, block in (('stairs', 'stairs'), ('slabs', 'slab'), ('walls', 'wall')):
-        one = [f'{NS}:limestone_brick_' + block]
+        one = [f'{NS}:{base}_' + block]
         add_tag(f'minecraft/tags/block/{kind}.json', one)
         add_tag(f'minecraft/tags/item/{kind}.json', one)
+
+
+def rec(n, o):
+    put(os.path.join(D, NS, 'recipe', n + '.json'), o)
+
+
+def shaped(key, pattern, out, count, cat='building'):
+    return {'type': 'minecraft:crafting_shaped', 'category': cat, 'key': {'#': {'item': f'{NS}:{key}'}},
+            'pattern': pattern, 'result': {'count': count, 'id': f'{NS}:{out}'}}
+
+
+def cut(src, out, count):
+    return {'type': 'minecraft:stonecutting', 'ingredient': {'item': f'{NS}:{src}'},
+            'result': {'count': count, 'id': f'{NS}:{out}'}}
+
+
+def add_tag(path, values):
+    p = os.path.join(D, path)
+    old = json.load(open(p))['values'] if os.path.exists(p) else []
+    put(p, {'values': old + [v for v in values if v not in old]})
+
+
+def unlock(name, have, prefix):
+    """Recipe book: unlock the recipes starting with prefix once you have one of the items."""
+    recipes = sorted(f'{NS}:' + f[:-5] for f in os.listdir(os.path.join(D, NS, 'recipe')) if f.startswith(prefix))
+    put(os.path.join(D, NS, 'advancement', 'recipes', 'building_blocks', name + '.json'), {
+        'parent': 'minecraft:recipes/root',
+        'criteria': {'has_item': {'trigger': 'minecraft:inventory_changed', 'conditions': {'items': [{'items': have}]}}},
+        'requirements': [['has_item']],
+        'rewards': {'recipes': recipes}})
+
+
+def bricks():
+    rec('limestone_bricks', shaped('limestone', ['##', '##'], 'limestone_bricks', 4))
+    rec('limestone_bricks_from_limestone_stonecutting', cut('limestone', 'limestone_bricks', 1))
+    brick_set('limestone_bricks', 'limestone_brick', f'{NS}:block/limestone_bricks')
+    unlock('limestone_bricks', [f'{NS}:limestone', f'{NS}:limestone_bricks'], 'limestone_brick')
+
+    # mossy: limestone bricks with a vine or a moss block, like mossy stone bricks
+    for extra in ('vine', 'moss_block'):
+        rec(f'mossy_limestone_bricks_from_{extra}', {
+            'type': 'minecraft:crafting_shapeless', 'category': 'building', 'group': 'mossy_limestone_bricks',
+            'ingredients': [{'item': f'{NS}:limestone_bricks'}, {'item': f'minecraft:{extra}'}],
+            'result': {'count': 1, 'id': f'{NS}:mossy_limestone_bricks'}})
+    brick_set('mossy_limestone_bricks', 'mossy_limestone_brick', f'{NS}:block/mossy_limestone_bricks')
+    unlock('mossy_limestone_bricks', [f'{NS}:mossy_limestone_bricks', 'minecraft:vine', 'minecraft:moss_block'], 'mossy_limestone_brick')
 
 
 def birch():

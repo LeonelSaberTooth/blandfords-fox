@@ -269,9 +269,10 @@ public final class NegevSelfTest {
                             new net.minecraft.world.phys.AABB(near).inflate(200, 200, 200), e -> true).size()).append('\n');
             player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
             player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
-            int bx = near.getX() + 12, bz = near.getZ() + 12;
+            BlockPos spot = drySpot(level, near, 0);
+            report.append("partridge test spot ").append(spot.toShortString()).append(" on ").append(level.getBlockState(spot.below()).getBlock()).append('\n');
             net.blandfordsfox.entity.Partridge bird = BlandfordsFoxMod.PARTRIDGE.get().create(level);
-            bird.moveTo(bx + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz), bz + 0.5, 0, 0);
+            bird.moveTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 0, 0);
             level.addFreshEntity(bird);
             for (int i = 0; i < 20; i++) { bird.tickCount++; bird.tick(); }
             player.moveTo(bird.getX() - 4, bird.getY(), bird.getZ(), -90, 0);
@@ -294,9 +295,9 @@ public final class NegevSelfTest {
         }
         try {
             // hit by a zombie: it should fly off too
-            int bx = near.getX() - 12, bz = near.getZ() - 12;
+            BlockPos spot = drySpot(level, near, 40);
             net.blandfordsfox.entity.Partridge bird = BlandfordsFoxMod.PARTRIDGE.get().create(level);
-            bird.moveTo(bx + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz), bz + 0.5, 0, 0);
+            bird.moveTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 0, 0);
             level.addFreshEntity(bird);
             for (int i = 0; i < 20; i++) { bird.tickCount++; bird.tick(); }
             var zombie = net.minecraft.world.entity.EntityType.ZOMBIE.create(level);
@@ -307,6 +308,20 @@ public final class NegevSelfTest {
         } catch (Throwable t) {
             report.append("partridge hit test failed: ").append(t).append('\n');
         }
+    }
+
+    /** Open dry ground near a place: no fluid at or under the surface, sky above. */
+    private static BlockPos drySpot(ServerLevel level, BlockPos near, int skip) {
+        int found = 0;
+        for (int r = 8; r < 400; r += 4)
+            for (int a = 0; a < 16; a++) {
+                int x = near.getX() + (int) (r * Math.cos(a * Math.PI / 8)), z = near.getZ() + (int) (r * Math.sin(a * Math.PI / 8));
+                BlockPos p = new BlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), z);
+                if (!level.getFluidState(p).isEmpty() || !level.getFluidState(p.below()).isEmpty()) continue;
+                if (!level.getBlockState(p.below()).isSolid()) continue;
+                if (found++ >= skip) return p;
+            }
+        return near;
     }
 
     private static String watchFlight(ServerLevel level, net.blandfordsfox.entity.Partridge bird, int max) {

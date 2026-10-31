@@ -74,6 +74,7 @@ public final class NegevSelfTest {
         report.append("areas written: ").append(n).append('\n');
         // animals spawned with the generated chunks, around the desert
         net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(d).inflate(1500, 200, 1500);
+        hyenaTest(level, d, report);
         report.append("caracals: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.CARACAL.get(), box, e -> true).size())
                 .append(", blandford's foxes: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.BLANDFORDS_FOX.get(), box, e -> true).size())
                 .append('\n');
@@ -138,6 +139,38 @@ public final class NegevSelfTest {
                 .append(", desert columns ").append(deserts).append(", shaped columns ").append(painted)
                 .append(", ground where expected ").append(verified).append('/').append(shapedHere).append('\n');
         return 1;
+    }
+
+    /** Feeds a hyena bones and rotten flesh as a player would, and checks the results. */
+    private static void hyenaTest(ServerLevel level, BlockPos near, StringBuilder report) {
+        try {
+            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, near.getX(), near.getZ());
+            net.blandfordsfox.entity.Hyena h = net.blandfordsfox.BlandfordsFoxMod.HYENA.get().create(level);
+            h.moveTo(near.getX() + 0.5, y, near.getZ() + 0.5, 0, 0);
+            level.addFreshEntity(h);
+            var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
+            player.moveTo(near.getX() + 2.5, y, near.getZ() + 0.5, 0, 0);
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BONE, 10));
+            int ok = 0;
+            for (int i = 0; i < 7; i++) {
+                if (h.mobInteract(player, net.minecraft.world.InteractionHand.MAIN_HAND).consumesAction()) ok++;
+            }
+            int bonesLeft = player.getMainHandItem().getCount();
+            for (int i = 0; i < 600; i++) h.tick();
+            int blocks = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, h.getBoundingBox().inflate(8),
+                    e -> e.getItem().is(net.minecraft.world.item.Items.BONE_BLOCK)).stream().mapToInt(e -> e.getItem().getCount()).sum();
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ROTTEN_FLESH, 64));
+            int tries = 0;
+            while (!h.isTame() && tries < 60) { h.mobInteract(player, net.minecraft.world.InteractionHand.MAIN_HAND); tries++; }
+            long hurtGoals = h.hyenaHurtGoalsForTest();
+            report.append("hyena: bone feeds accepted ").append(ok).append("/7, bones left ").append(bonesLeft)
+                    .append(", bone blocks dropped ").append(blocks)
+                    .append(", tamed with rotten flesh after ").append(tries).append(" tries (tame=").append(h.isTame()).append(")")
+                    .append(", hurt-by-target goals ").append(hurtGoals).append('\n');
+            h.discard();
+        } catch (Throwable t) {
+            report.append("hyena test failed: ").append(t).append('\n');
+        }
     }
 
     private static char code(BlockState s) {

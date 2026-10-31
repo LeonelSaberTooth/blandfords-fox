@@ -102,6 +102,11 @@ public class Hyena extends Wolf implements GeoEntity {
         this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
     }
 
+    /** For the self-test: how many "fight back when hurt" target goals it has (should be 1, without pack alerts). */
+    public long hyenaHurtGoalsForTest() {
+        return this.targetSelector.getAvailableGoals().stream().filter(g -> g.getGoal() instanceof HurtByTargetGoal).count();
+    }
+
     /** On desert or savanna ground, at or above sea level. */
     public static boolean checkHyenaSpawnRules(EntityType<Hyena> type, ServerLevelAccessor level,
                                               MobSpawnType spawnType, BlockPos pos, RandomSource random) {

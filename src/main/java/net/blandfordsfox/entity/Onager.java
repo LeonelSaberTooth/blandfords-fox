@@ -42,6 +42,12 @@ public class Onager extends Donkey {
         return super.getBreedOffspring(level, otherParent);
     }
 
+    /** Herds: let natural spawning place a whole herd at once (vanilla caps groups at 4). */
+    @Override
+    public int getMaxSpawnClusterSize() {
+        return 8;
+    }
+
     public static boolean checkOnagerSpawnRules(EntityType<Onager> type, ServerLevelAccessor level, MobSpawnType spawnType,
                                                 BlockPos pos, RandomSource random) {
         return level.getBlockState(pos.below()).is(SPAWNABLE_ON) && isBrightEnoughToSpawn(level, pos);

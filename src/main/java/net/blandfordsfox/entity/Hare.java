@@ -40,8 +40,10 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * crops. Two coats: desert (deserts) and white (snowy plains and taiga, and other places
  * vanilla puts white rabbits).
  *
- * <p>Instead of the rabbit's hop-and-pause, it bounds along continuously, because its run
- * animation is a gallop; the speed is matched to the animation so the paws stay planted.
+ * <p>Its run animation is a gallop, so instead of hopping it bounds along the ground: one
+ * stride at a time with rests in between when ambling (like a rabbit's hop-and-pause), and
+ * without stopping when it flees. The speed is matched to the animation so the paws stay
+ * planted.
  */
 public class Hare extends Rabbit implements GeoEntity {
     /** Blocks it can spawn on: everything rabbits spawn on, plus the desert rock. */
@@ -174,10 +176,22 @@ public class Hare extends Rabbit implements GeoEntity {
     // ------------------------------------------------------------- gait & speed
     //
     // The run's ground speed (how fast the front paws travel back while planted), measured
-    // from the keyframes: 88 px/s at normal playback, 5.5 blocks a second. The hare always
-    // moves at that speed, so its paws stay planted; the animation plays at its own speed.
+    // from the keyframes: 88 px/s at normal playback, 5.5 blocks a second. While it moves the
+    // hare always goes at that speed, so its paws stay planted; the animation plays at its own
+    // speed.
+    //
+    // Like a rabbit's hop-and-pause, an ambling hare goes in bounds: one stride of the run
+    // (0.365 s, about 7 ticks), then a rest on the ground before the next. A fleeing or
+    // panicking hare (the rabbit's x2.2 speed) runs without stopping.
 
     static final double RUN_SPEED = 5.5;
+    static final int BOUND_TICKS = 7;
+    static final int REST_TICKS = 10;
+    static final double FLEE_MODIFIER = 2.0;
+
+    private int boundTick;      // ticks into the current bound
+    private int restLeft;       // ticks of rest left before the next bound
+    private long lastGaitTick = Long.MIN_VALUE;
 
     /** On flat ground a mob covers about 44.05 * s^2 blocks per second for setSpeed(s). */
     private static float inputFor(double blocksPerSecond) {
@@ -188,13 +202,35 @@ public class Hare extends Rabbit implements GeoEntity {
         return isBaby() ? 0.5 : 1.0;   // leverets are drawn at half size
     }
 
+    /** True while running flat out (fleeing or panicking): no rests between strides. */
+    public boolean isFleeing() {
+        return this.moveControl.getSpeedModifier() >= FLEE_MODIFIER;
+    }
+
     @Override
     public void setSpeed(float speed) {
-        if (speed > 0 && !level().isClientSide) speed = inputFor(RUN_SPEED * sizeScale());
+        if (speed > 0 && !level().isClientSide) {
+            long t = this.tickCount;
+            boolean newTick = t != lastGaitTick;
+            if (newTick && t != lastGaitTick + 1) { boundTick = 0; restLeft = 0; }   // starting off
+            if (newTick) lastGaitTick = t;
+            if (isFleeing() || !onGround()) {
+                restLeft = 0;
+            } else if (newTick) {
+                if (restLeft > 0) {
+                    restLeft--;
+                } else {
+                    if (boundTick == 0) playSound(getJumpSound(), getSoundVolume() * 0.6F,
+                            ((random.nextFloat() - random.nextFloat()) * 0.2F + 1.0F) * 0.8F);
+                    if (++boundTick >= BOUND_TICKS) { boundTick = 0; restLeft = REST_TICKS + random.nextInt(6); }
+                }
+            }
+            speed = restLeft > 0 ? 0 : inputFor(RUN_SPEED * sizeScale());
+        }
         super.setSpeed(speed);
     }
 
-    // client-side: smoothed ground speed in blocks/s
+    // client-side: ground speed in blocks/s, lightly smoothed
     private double groundSpeed;
 
     @Override
@@ -203,7 +239,7 @@ public class Hare extends Rabbit implements GeoEntity {
         if (level().isClientSide) {
             double dx = getX() - xo, dz = getZ() - zo;
             double now = Math.sqrt(dx * dx + dz * dz) * 20;
-            groundSpeed += (now - groundSpeed) * 0.35;
+            groundSpeed += (now - groundSpeed) * 0.6;
         }
     }
 
@@ -211,7 +247,7 @@ public class Hare extends Rabbit implements GeoEntity {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "main", 3, this::pickAnimation));
+        controllers.add(new AnimationController<>(this, "main", 2, this::pickAnimation));
     }
 
     private PlayState pickAnimation(AnimationState<Hare> state) {

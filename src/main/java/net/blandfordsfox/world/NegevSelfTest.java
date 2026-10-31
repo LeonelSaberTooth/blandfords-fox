@@ -72,6 +72,11 @@ public final class NegevSelfTest {
         n += dump(level, columns, d, c -> c.high > 0.2 && c.high < 0.8, "highland_edge", out, report);
         n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.RIVER_FLOOR, "dry_river", out, report);
         report.append("areas written: ").append(n).append('\n');
+        // animals spawned with the generated chunks, around the desert
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(d).inflate(1500, 200, 1500);
+        report.append("caracals: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.CARACAL.get(), box, e -> true).size())
+                .append(", blandford's foxes: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.BLANDFORDS_FOX.get(), box, e -> true).size())
+                .append('\n');
         Files.writeString(out.resolve("report.txt"), report);
     }
 

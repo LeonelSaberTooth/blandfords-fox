@@ -30,7 +30,8 @@ def r(x):
 
 
 # ---------------------------------------------------------------- geometry
-def build_geo(j):
+def build_geo(j, name=None, mouth=True):
+    name = name or NAME
     groups = {g['uuid']: g for g in j.get('groups', [])}
     elems = {e['uuid']: e for e in j['elements']}
     bones = []
@@ -62,16 +63,16 @@ def build_geo(j):
         bones.append(b)
         for c in node.get('children', []):
             if isinstance(c, dict): bone(c, g['name'])
-        if g['name'] == 'head':
+        if mouth and g['name'] == 'head':
             bones.append({'name': 'mouth_item', 'parent': 'head',
                           'pivot': [r(-MOUTH[0]), MOUTH[1], MOUTH[2]]})
 
     for n in j['outliner']:
         if isinstance(n, dict): bone(n, None)
     names = [b['name'] for b in bones]
-    assert 'head' in names and 'mouth_item' in names, names
+    assert 'head' in names and (not mouth or 'mouth_item' in names), names
     return {'format_version': '1.12.0', 'minecraft:geometry': [{
-        'description': {'identifier': 'geometry.' + NAME,
+        'description': {'identifier': 'geometry.' + name,
                         'texture_width': j['resolution']['width'], 'texture_height': j['resolution']['height'],
                         'visible_bounds_width': 3, 'visible_bounds_height': 2, 'visible_bounds_offset': [0, 0.5, 0]},
         'bones': bones}]}

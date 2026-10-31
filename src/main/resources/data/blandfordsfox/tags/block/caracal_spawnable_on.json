@@ -1,0 +1,12 @@
+{
+  "values": [
+    "minecraft:sand",
+    "minecraft:red_sand",
+    "minecraft:sandstone",
+    "minecraft:granite",
+    "minecraft:stripped_oak_wood",
+    "minecraft:grass_block",
+    "minecraft:dirt",
+    "minecraft:coarse_dirt"
+  ]
+}

@@ -2,6 +2,7 @@ package net.blandfordsfox;
 
 import com.mojang.serialization.MapCodec;
 import net.blandfordsfox.entity.BlandfordsFox;
+import net.blandfordsfox.entity.Caracal;
 import net.blandfordsfox.world.NegevDensity;
 import net.blandfordsfox.world.NegevFeatures;
 import net.minecraft.world.level.levelgen.DensityFunction;
@@ -56,6 +57,18 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<Item> SPAWN_EGG = ITEMS.register("blandfords_fox_spawn_egg",
             () -> new DeferredSpawnEggItem(BLANDFORDS_FOX, 0xD9B27C, 0x5A4632, new Item.Properties()));
 
+    // Ocelot settings, sized to the caracal model (about a block tall to the top of its head).
+    public static final DeferredHolder<EntityType<?>, EntityType<Caracal>> CARACAL = ENTITIES.register("caracal",
+            () -> EntityType.Builder.of(Caracal::new, MobCategory.CREATURE)
+                    .sized(0.6F, 1.0F)
+                    .eyeHeight(0.9F)
+                    .passengerAttachments(1.0F)
+                    .clientTrackingRange(10)
+                    .build(MOD_ID + ":caracal"));
+
+    public static final DeferredItem<Item> CARACAL_SPAWN_EGG = ITEMS.register("caracal_spawn_egg",
+            () -> new DeferredSpawnEggItem(CARACAL, 0xB8794A, 0x2B1E17, new Item.Properties()));
+
     public BlandfordsFoxMod(IEventBus modBus) {
         ENTITIES.register(modBus);
         ITEMS.register(modBus);
@@ -68,16 +81,20 @@ public final class BlandfordsFoxMod {
 
     private void attributes(EntityAttributeCreationEvent event) {
         event.put(BLANDFORDS_FOX.get(), BlandfordsFox.createAttributes().build());
+        event.put(CARACAL.get(), Caracal.createAttributes().build());
     }
 
     private void spawnPlacements(RegisterSpawnPlacementsEvent event) {
         event.register(BLANDFORDS_FOX.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 BlandfordsFox::checkBlandfordsFoxSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
+        event.register(CARACAL.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                Caracal::checkCaracalSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
     }
 
     private void creativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
             event.accept(SPAWN_EGG);
+            event.accept(CARACAL_SPAWN_EGG);
         }
     }
 }

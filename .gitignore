@@ -40,3 +40,4 @@ repo/
 !**/src/**/repo/
 
 run-selftest/
+tools/__pycache__/

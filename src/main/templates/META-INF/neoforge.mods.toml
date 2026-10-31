@@ -10,9 +10,9 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 description='''
-Adds the Blandford's fox: a small desert fox that behaves exactly like a vanilla fox.
-It sleeps through the day, pounces on chickens and rabbits, eats sweet berries,
-carries items in its mouth and can be bred into trusting cubs.
+Middle Eastern wildlife and landscapes: Negev-style deserts with highland plateaus,
+layered limestone valleys and dry riverbeds, and the animals that live there:
+the Blandford's fox, the caracal and the hyena.
 '''
 
 [[dependencies.${mod_id}]]

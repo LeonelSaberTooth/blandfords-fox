@@ -14,5 +14,6 @@ public final class ClientSetup {
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(BlandfordsFoxMod.BLANDFORDS_FOX.get(), BlandfordsFoxRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.CARACAL.get(), CaracalRenderer::new);
+        event.registerEntityRenderer(BlandfordsFoxMod.HYENA.get(), HyenaRenderer::new);
     }
 }

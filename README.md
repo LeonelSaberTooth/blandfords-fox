@@ -1,4 +1,4 @@
-# Blandford's Fox
+# Middle East
 
 A NeoForge 1.21.1 mod that adds the Blandford's fox, a small desert fox that behaves exactly like a vanilla fox.
 

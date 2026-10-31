@@ -49,7 +49,7 @@ jobs:
         run: |
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest build/libs/*.jar \
-            --title "Blandford's Fox (latest build)" \
+            --title "Middle East (latest build)" \
             --notes "Drop the .jar into your mods folder. Needs NeoForge 1.21.1 and GeckoLib 4.9 or newer for NeoForge 1.21.1."
 
       - name: World generation test

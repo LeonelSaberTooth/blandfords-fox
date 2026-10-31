@@ -3,6 +3,7 @@ package net.blandfordsfox;
 import com.mojang.serialization.MapCodec;
 import net.blandfordsfox.entity.BlandfordsFox;
 import net.blandfordsfox.entity.Caracal;
+import net.blandfordsfox.entity.Hyena;
 import net.blandfordsfox.world.NegevDensity;
 import net.blandfordsfox.world.NegevFeatures;
 import net.minecraft.world.level.levelgen.DensityFunction;
@@ -90,6 +91,18 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<Item> CARACAL_SPAWN_EGG = ITEMS.register("caracal_spawn_egg",
             () -> new DeferredSpawnEggItem(CARACAL, 0xB8794A, 0x2B1E17, new Item.Properties()));
 
+    // Wolf settings, sized to the hyena model (about 1.4 blocks to the ear tips).
+    public static final DeferredHolder<EntityType<?>, EntityType<Hyena>> HYENA = ENTITIES.register("hyena",
+            () -> EntityType.Builder.of(Hyena::new, MobCategory.CREATURE)
+                    .sized(0.8F, 1.3F)
+                    .eyeHeight(1.1F)
+                    .passengerAttachments(1.3F)
+                    .clientTrackingRange(10)
+                    .build(MOD_ID + ":hyena"));
+
+    public static final DeferredItem<Item> HYENA_SPAWN_EGG = ITEMS.register("hyena_spawn_egg",
+            () -> new DeferredSpawnEggItem(HYENA, 0xC9B79C, 0x4A3F35, new Item.Properties()));
+
     public BlandfordsFoxMod(IEventBus modBus) {
         ENTITIES.register(modBus);
         BLOCKS.register(modBus);
@@ -104,6 +117,7 @@ public final class BlandfordsFoxMod {
     private void attributes(EntityAttributeCreationEvent event) {
         event.put(BLANDFORDS_FOX.get(), BlandfordsFox.createAttributes().build());
         event.put(CARACAL.get(), Caracal.createAttributes().build());
+        event.put(HYENA.get(), Hyena.createAttributes().build());
     }
 
     private void spawnPlacements(RegisterSpawnPlacementsEvent event) {
@@ -111,6 +125,8 @@ public final class BlandfordsFoxMod {
                 BlandfordsFox::checkBlandfordsFoxSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
         event.register(CARACAL.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 Caracal::checkCaracalSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
+        event.register(HYENA.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                Hyena::checkHyenaSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
     }
 
     private void creativeTabs(BuildCreativeModeTabContentsEvent event) {
@@ -121,6 +137,7 @@ public final class BlandfordsFoxMod {
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
             event.accept(SPAWN_EGG);
             event.accept(CARACAL_SPAWN_EGG);
+            event.accept(HYENA_SPAWN_EGG);
         }
     }
 }

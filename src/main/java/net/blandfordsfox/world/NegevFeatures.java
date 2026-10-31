@@ -1,5 +1,6 @@
 package net.blandfordsfox.world;
 
+import net.blandfordsfox.BlandfordsFoxMod;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -55,10 +56,10 @@ public final class NegevFeatures {
         return switch (m) {
             case SANDSTONE -> Blocks.SANDSTONE.defaultBlockState();
             case GRANITE -> Blocks.GRANITE.defaultBlockState();
-            case PACKED_MUD -> Blocks.PACKED_MUD.defaultBlockState();
-            case LIMESTONE -> Blocks.STRIPPED_OAK_WOOD.defaultBlockState();   // stand-in for limestone
+            case PACKED_MUD -> BlandfordsFoxMod.LIMESTONE_GRAVEL.get().defaultBlockState();   // gravel bands in the rock
+            case LIMESTONE -> BlandfordsFoxMod.LIMESTONE.get().defaultBlockState();
             case SAND -> Blocks.SAND.defaultBlockState();
-            case DIRT -> Blocks.DIRT.defaultBlockState();
+            case DIRT -> BlandfordsFoxMod.LIMESTONE_GRAVEL.get().defaultBlockState();       // river beds: gravel, not dirt
             case GRASS -> Blocks.GRASS_BLOCK.defaultBlockState();
         };
     }
@@ -202,7 +203,8 @@ public final class NegevFeatures {
                 if (!level.getBlockState(above).isAir()) continue;
                 switch (kind) {
                     case FLOOR, WADI_FLOOR, RIVER_FLOOR -> {
-                        if (!(ground.is(Blocks.GRASS_BLOCK) || ground.is(Blocks.DIRT) || ground.is(Blocks.SAND))) continue;
+                        if (!(ground.is(Blocks.GRASS_BLOCK) || ground.is(Blocks.DIRT) || ground.is(Blocks.SAND)
+                                || ground.is(BlandfordsFoxMod.LIMESTONE_GRAVEL.get()))) continue;
                         float r = rnd.nextFloat();
                         if (r < TREE) {
                             tree(level, ctx, pos.immutable(), rnd);
@@ -218,8 +220,7 @@ public final class NegevFeatures {
                     }
                     case TOP -> {
                         if (rnd.nextFloat() < TOP_DEAD_BUSH) {
-                            level.setBlock(pos, Blocks.SAND.defaultBlockState(), Block.UPDATE_CLIENTS);
-                            level.setBlock(above, Blocks.DEAD_BUSH.defaultBlockState(), Block.UPDATE_CLIENTS);
+                            level.setBlock(above, Blocks.DEAD_BUSH.defaultBlockState(), Block.UPDATE_CLIENTS);   // dead bushes grow on limestone
                         }
                     }
                     case SLOPE, WADI_SLOPE, RIVER_SLOPE -> {

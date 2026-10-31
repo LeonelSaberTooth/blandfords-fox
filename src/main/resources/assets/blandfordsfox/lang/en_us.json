@@ -2,5 +2,7 @@
   "entity.blandfordsfox.blandfords_fox": "Blandford's Fox",
   "item.blandfordsfox.blandfords_fox_spawn_egg": "Blandford's Fox Spawn Egg",
   "entity.blandfordsfox.caracal": "Caracal",
-  "item.blandfordsfox.caracal_spawn_egg": "Caracal Spawn Egg"
+  "item.blandfordsfox.caracal_spawn_egg": "Caracal Spawn Egg",
+  "block.blandfordsfox.limestone": "Limestone",
+  "block.blandfordsfox.limestone_gravel": "Limestone Gravel"
 }

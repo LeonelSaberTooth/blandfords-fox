@@ -15,6 +15,15 @@ import net.minecraft.world.entity.SpawnPlacementTypes;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.util.ColorRGBA;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ColoredFallingBlock;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
+import net.minecraft.world.level.material.MapColor;
+import net.neoforged.neoforge.registries.DeferredBlock;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -32,6 +41,18 @@ public final class BlandfordsFoxMod {
 
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MOD_ID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
+    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MOD_ID);
+
+    /** Like cobblestone: needs a pickaxe, drops itself. */
+    public static final DeferredBlock<Block> LIMESTONE = BLOCKS.registerSimpleBlock("limestone",
+            BlockBehaviour.Properties.of().mapColor(MapColor.SAND).instrument(NoteBlockInstrument.BASEDRUM)
+                    .requiresCorrectToolForDrops().strength(2.0F, 6.0F));
+    /** Like gravel: falls, best dug with a shovel, sometimes drops flint. */
+    public static final DeferredBlock<ColoredFallingBlock> LIMESTONE_GRAVEL = BLOCKS.register("limestone_gravel",
+            () -> new ColoredFallingBlock(new ColorRGBA(0xFFC09F73), BlockBehaviour.Properties.of().mapColor(MapColor.SAND)
+                    .instrument(NoteBlockInstrument.SNARE).strength(0.6F).sound(SoundType.GRAVEL)));
+    public static final DeferredItem<BlockItem> LIMESTONE_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE);
+    public static final DeferredItem<BlockItem> LIMESTONE_GRAVEL_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_GRAVEL);
     private static final DeferredRegister<MapCodec<? extends DensityFunction>> DENSITY_FUNCTIONS =
             DeferredRegister.create(Registries.DENSITY_FUNCTION_TYPE, MOD_ID);
     private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
@@ -71,6 +92,7 @@ public final class BlandfordsFoxMod {
 
     public BlandfordsFoxMod(IEventBus modBus) {
         ENTITIES.register(modBus);
+        BLOCKS.register(modBus);
         ITEMS.register(modBus);
         DENSITY_FUNCTIONS.register(modBus);
         FEATURES.register(modBus);
@@ -92,6 +114,10 @@ public final class BlandfordsFoxMod {
     }
 
     private void creativeTabs(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
+            event.accept(LIMESTONE_ITEM);
+            event.accept(LIMESTONE_GRAVEL_ITEM);
+        }
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
             event.accept(SPAWN_EGG);
             event.accept(CARACAL_SPAWN_EGG);

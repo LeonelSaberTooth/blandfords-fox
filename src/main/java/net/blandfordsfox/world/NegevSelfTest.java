@@ -149,7 +149,8 @@ public final class NegevSelfTest {
             case "smooth_sandstone", "cut_sandstone", "chiseled_sandstone" -> 's';
             case "granite" -> 'G';
             case "packed_mud" -> 'P';
-            case "stripped_oak_wood" -> 'o';
+            case "stripped_oak_wood", "limestone" -> 'o';
+            case "limestone_gravel" -> 'P';
             case "dirt", "coarse_dirt" -> 'D';
             case "grass_block" -> 'R';
             case "stone", "deepslate", "andesite", "diorite", "tuff" -> 'X';

@@ -402,6 +402,7 @@ public final class NegevShape {
     }
 
     // -- painting ------------------------------------------------------------------------
+    /** PACKED_MUD bands and DIRT river beds are now limestone gravel in game (see NegevFeatures.block). */
     public enum Material { SANDSTONE, GRANITE, PACKED_MUD, LIMESTONE, SAND, DIRT, GRASS }
 
     /** Rock layers: sandstone with thin bands of granite and packed mud, gently wavy. */

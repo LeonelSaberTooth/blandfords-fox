@@ -2,6 +2,8 @@
   "values": [
     "minecraft:sand",
     "minecraft:red_sand",
-    "#minecraft:foxes_spawnable_on"
+    "#minecraft:foxes_spawnable_on",
+    "blandfordsfox:limestone",
+    "blandfordsfox:limestone_gravel"
   ]
 }

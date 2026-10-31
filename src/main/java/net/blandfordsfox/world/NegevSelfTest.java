@@ -349,6 +349,11 @@ public final class NegevSelfTest {
                     new net.minecraft.world.item.crafting.SingleRecipeInput(stone), level).size();
             boolean wallTag = BlandfordsFoxMod.LIMESTONE_BRICK_WALL.get().defaultBlockState().is(net.minecraft.tags.BlockTags.WALLS);
             boolean pick = BlandfordsFoxMod.LIMESTONE_BRICKS.get().defaultBlockState().is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE);
+            boolean tagsOk = BlandfordsFoxMod.LIMESTONE_BRICK_STAIRS.get().defaultBlockState().is(net.minecraft.tags.BlockTags.STAIRS)
+                    && BlandfordsFoxMod.LIMESTONE_BRICK_SLAB.get().defaultBlockState().is(net.minecraft.tags.BlockTags.SLABS)
+                    && net.minecraft.world.level.block.Blocks.OAK_STAIRS.defaultBlockState().is(net.minecraft.tags.BlockTags.STAIRS)
+                    && net.minecraft.world.level.block.Blocks.STONE_SLAB.defaultBlockState().is(net.minecraft.tags.BlockTags.SLABS)
+                    && net.minecraft.world.level.block.Blocks.COBBLESTONE_WALL.defaultBlockState().is(net.minecraft.tags.BlockTags.WALLS);
             var loot = level.getServer().reloadableRegistries();
             int tables = 0;
             for (String n : new String[] {"limestone_bricks", "limestone_brick_stairs", "limestone_brick_slab", "limestone_brick_wall"}) {
@@ -358,7 +363,7 @@ public final class NegevSelfTest {
             }
             report.append("bricks: ").append(ours).append(" mod recipes, 2x2 limestone makes ").append(made)
                     .append(", 3 bricks in a row make ").append(slabs).append(", stonecutter options for limestone ").append(cuts)
-                    .append(", wall in #walls ").append(wallTag).append(", pickaxe ").append(pick).append(", loot tables ").append(tables).append("/4\n");
+                    .append(", wall in #walls ").append(wallTag).append(", pickaxe ").append(pick).append(", stairs/slab/wall tags (ours and vanilla) ").append(tagsOk).append(", loot tables ").append(tables).append("/4\n");
         } catch (Throwable t) {
             report.append("brick test failed: ").append(t).append('\n');
         }

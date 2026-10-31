@@ -134,8 +134,8 @@ def bricks():
         put(p, {'values': old + [v for v in values if v not in old]})
     ids = [f'{NS}:limestone_bricks', f'{NS}:limestone_brick_stairs', f'{NS}:limestone_brick_slab', f'{NS}:limestone_brick_wall']
     add_tag('minecraft/tags/block/mineable/pickaxe.json', ids)
-    for kind in ('stairs', 'slabs', 'walls'):
-        one = [f'{NS}:limestone_brick_' + kind.rstrip('s')]
+    for kind, block in (('stairs', 'stairs'), ('slabs', 'slab'), ('walls', 'wall')):
+        one = [f'{NS}:limestone_brick_' + block]
         add_tag(f'minecraft/tags/block/{kind}.json', one)
         add_tag(f'minecraft/tags/item/{kind}.json', one)
 

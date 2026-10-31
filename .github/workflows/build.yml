@@ -55,14 +55,20 @@ jobs:
       - name: World generation test
         if: github.ref == 'refs/heads/main'
         run: |
-          mkdir -p run-selftest
-          echo "eula=true" > run-selftest/eula.txt
-          printf "level-seed=20261030\nonline-mode=false\nlevel-name=world\nmax-tick-time=-1\n" > run-selftest/server.properties
-          timeout 1500 ./gradlew runSelftest --stacktrace > selftest.log 2>&1 || true
-          mkdir -p run-selftest/selftest
-          cp selftest.log run-selftest/selftest/
-          grep -iE "error|exception|failed" run-selftest/logs/latest.log | head -200 > run-selftest/selftest/problems.txt || true
-          cd run-selftest/selftest && zip -q ../../selftest.zip *
+          run_test() {
+            rm -rf run-selftest/world run-selftest/selftest
+            mkdir -p run-selftest
+            echo "eula=true" > run-selftest/eula.txt
+            printf "level-seed=20261030\nonline-mode=false\nlevel-name=world\nmax-tick-time=-1\nlevel-type=$1\n" > run-selftest/server.properties
+            timeout 1500 ./gradlew runSelftest --stacktrace > selftest.log 2>&1 || true
+            mkdir -p run-selftest/selftest "results/$2"
+            cp selftest.log run-selftest/selftest/
+            grep -iE "error|exception|failed" run-selftest/logs/latest.log | head -200 > run-selftest/selftest/problems.txt || true
+            cp run-selftest/selftest/* "results/$2/"
+          }
+          run_test 'minecraft\:normal' .
+          run_test 'minecraft\:large_biomes' large
+          cd results && zip -qr ../selftest.zip .
 
       - name: Publish the test results
         if: github.ref == 'refs/heads/main'

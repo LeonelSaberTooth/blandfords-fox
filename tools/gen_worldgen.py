@@ -35,15 +35,32 @@ write('blandfordsfox/worldgen/noise/negev_mid.json', {"firstOctave": -8, "amplit
 write('blandfordsfox/worldgen/noise/negev_small.json', {"firstOctave": -6, "amplitudes": [1.0, 0.5]})
 write('blandfordsfox/worldgen/noise/negev_fine.json', {"firstOctave": -4, "amplitudes": [1.0, 0.5]})
 
-# smooth shape: wrap vanilla's sloped cheese
-cheese = json.load(open(os.path.join(VANILLA, 'density_function', 'overworld', 'sloped_cheese.json')))
-write('minecraft/worldgen/density_function/overworld/sloped_cheese.json',
-      dict({"type": "blandfordsfox:negev_terrain", "input": cheese}, **INPUTS))
+def inputs_for(large):
+    """Climate inputs for the Negev functions, matching each world type's own noise router."""
+    sfx = '_large' if large else ''
+    terrain = 'overworld_large_biomes' if large else 'overworld'
+    shifted = lambda noise: {"type": "minecraft:shifted_noise", "noise": noise, "xz_scale": 0.25, "y_scale": 0.0,
+                             "shift_x": "minecraft:shift_x", "shift_y": 0.0, "shift_z": "minecraft:shift_z"}
+    return dict(INPUTS, **{
+        "temperature": shifted(f"minecraft:temperature{sfx}"),
+        "vegetation": shifted(f"minecraft:vegetation{sfx}"),
+        "continents": f"minecraft:{terrain}/continents",
+        "erosion": f"minecraft:{terrain}/erosion",
+        "ridges": "minecraft:overworld/ridges",
+        "depth": f"minecraft:{terrain}/depth",
+    })
 
-# exact terraces: wrap the overworld's final density
-ns = json.load(open(os.path.join(VANILLA, 'noise_settings', 'overworld.json')))
-ns['noise_router']['final_density'] = dict({"type": "blandfordsfox:negev_detail", "input": ns['noise_router']['final_density']}, **INPUTS)
-write('minecraft/worldgen/noise_settings/overworld.json', ns)
+# Default and Large Biomes worlds each have their own terrain files; hook both.
+for preset, terrain, large in (('overworld', 'overworld', False), ('large_biomes', 'overworld_large_biomes', True)):
+    inputs = inputs_for(large)
+    # smooth shape: wrap vanilla's sloped cheese
+    cheese = json.load(open(os.path.join(VANILLA, 'density_function', terrain, 'sloped_cheese.json')))
+    write(f'minecraft/worldgen/density_function/{terrain}/sloped_cheese.json',
+          dict({"type": "blandfordsfox:negev_terrain", "input": cheese}, **inputs))
+    # exact terraces: wrap the final density
+    ns = json.load(open(os.path.join(VANILLA, 'noise_settings', f'{preset}.json')))
+    ns['noise_router']['final_density'] = dict({"type": "blandfordsfox:negev_detail", "input": ns['noise_router']['final_density']}, **inputs)
+    write(f'minecraft/worldgen/noise_settings/{preset}.json', ns)
 
 # features
 for name, step_heightmap in (('negev_paint', 'WORLD_SURFACE_WG'), ('negev_decorate', 'WORLD_SURFACE_WG')):

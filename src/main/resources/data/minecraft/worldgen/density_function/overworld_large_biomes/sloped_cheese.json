@@ -1,0 +1,61 @@
+{
+  "type": "blandfordsfox:negev_terrain",
+  "input": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:mul",
+      "argument1": 4.0,
+      "argument2": {
+        "type": "minecraft:quarter_negative",
+        "argument": {
+          "type": "minecraft:mul",
+          "argument1": {
+            "type": "minecraft:add",
+            "argument1": "minecraft:overworld_large_biomes/depth",
+            "argument2": {
+              "type": "minecraft:mul",
+              "argument1": "minecraft:overworld_large_biomes/jaggedness",
+              "argument2": {
+                "type": "minecraft:half_negative",
+                "argument": {
+                  "type": "minecraft:noise",
+                  "noise": "minecraft:jagged",
+                  "xz_scale": 1500.0,
+                  "y_scale": 0.0
+                }
+              }
+            }
+          },
+          "argument2": "minecraft:overworld_large_biomes/factor"
+        }
+      }
+    },
+    "argument2": "minecraft:overworld/base_3d_noise"
+  },
+  "temperature": {
+    "type": "minecraft:shifted_noise",
+    "noise": "minecraft:temperature_large",
+    "xz_scale": 0.25,
+    "y_scale": 0.0,
+    "shift_x": "minecraft:shift_x",
+    "shift_y": 0.0,
+    "shift_z": "minecraft:shift_z"
+  },
+  "vegetation": {
+    "type": "minecraft:shifted_noise",
+    "noise": "minecraft:vegetation_large",
+    "xz_scale": 0.25,
+    "y_scale": 0.0,
+    "shift_x": "minecraft:shift_x",
+    "shift_y": 0.0,
+    "shift_z": "minecraft:shift_z"
+  },
+  "continents": "minecraft:overworld_large_biomes/continents",
+  "erosion": "minecraft:overworld_large_biomes/erosion",
+  "ridges": "minecraft:overworld/ridges",
+  "depth": "minecraft:overworld_large_biomes/depth",
+  "noise_big": "blandfordsfox:negev_big",
+  "noise_mid": "blandfordsfox:negev_mid",
+  "noise_small": "blandfordsfox:negev_small",
+  "noise_fine": "blandfordsfox:negev_fine"
+}

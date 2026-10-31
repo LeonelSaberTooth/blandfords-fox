@@ -6,5 +6,9 @@
   "block.blandfordsfox.limestone": "Limestone",
   "block.blandfordsfox.limestone_gravel": "Limestone Gravel",
   "entity.blandfordsfox.hyena": "Hyena",
-  "item.blandfordsfox.hyena_spawn_egg": "Hyena Spawn Egg"
+  "item.blandfordsfox.hyena_spawn_egg": "Hyena Spawn Egg",
+  "entity.blandfordsfox.hare": "Hare",
+  "item.blandfordsfox.hare_spawn_egg": "Hare Spawn Egg",
+  "entity.blandfordsfox.onager": "Onager",
+  "item.blandfordsfox.onager_spawn_egg": "Onager Spawn Egg"
 }

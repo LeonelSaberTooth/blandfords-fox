@@ -1,0 +1,13 @@
+{
+  "values": [
+    "minecraft:sand",
+    "minecraft:red_sand",
+    "minecraft:grass_block",
+    "minecraft:coarse_dirt",
+    "minecraft:dirt",
+    "blandfordsfox:limestone",
+    "blandfordsfox:limestone_gravel",
+    "minecraft:sandstone",
+    "minecraft:granite"
+  ]
+}

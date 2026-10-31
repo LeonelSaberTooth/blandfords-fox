@@ -1,0 +1,12 @@
+{
+  "values": [
+    "#minecraft:rabbits_spawnable_on",
+    "minecraft:red_sand",
+    "minecraft:coarse_dirt",
+    "minecraft:dirt",
+    "blandfordsfox:limestone",
+    "blandfordsfox:limestone_gravel",
+    "minecraft:sandstone",
+    "minecraft:granite"
+  ]
+}

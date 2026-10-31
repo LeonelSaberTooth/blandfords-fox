@@ -32,7 +32,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          jar=$(find build/moddev ~/.gradle -name "*sources*.jar" -path "*neoforge*" 2>/dev/null | head -1)
+          find build/moddev ~/.gradle -name "*sources*.jar" 2>/dev/null | head -20
+          jar=""
+          for j in $(find build/moddev ~/.gradle -name "*sources*.jar" 2>/dev/null); do
+            if unzip -l "$j" 'net/minecraft/client/model/HorseModel.java' >/dev/null 2>&1; then jar="$j"; break; fi
+          done
           echo "sources: $jar"
           [ -n "$jar" ] || exit 0
           mkdir -p mcsrc && cd mcsrc

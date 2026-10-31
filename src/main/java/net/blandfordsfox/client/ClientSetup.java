@@ -15,5 +15,13 @@ public final class ClientSetup {
         event.registerEntityRenderer(BlandfordsFoxMod.BLANDFORDS_FOX.get(), BlandfordsFoxRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.CARACAL.get(), CaracalRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.HYENA.get(), HyenaRenderer::new);
+        event.registerEntityRenderer(BlandfordsFoxMod.HARE.get(), HareRenderer::new);
+        event.registerEntityRenderer(BlandfordsFoxMod.ONAGER.get(), OnagerRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(OnagerRenderer.LAYER, OnagerModel::createBodyLayer);
+        event.registerLayerDefinition(OnagerRenderer.TACK_LAYER, OnagerModel::createBodyLayer);
     }
 }

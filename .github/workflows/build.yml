@@ -27,6 +27,27 @@ jobs:
           set -o pipefail
           ./gradlew build --stacktrace 2>&1 | tee build.log
 
+      - name: Publish a few vanilla sources for reference
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jar=$(find build/moddev ~/.gradle -name "*sources*.jar" -path "*neoforge*" 2>/dev/null | head -1)
+          echo "sources: $jar"
+          [ -n "$jar" ] || exit 0
+          mkdir -p mcsrc && cd mcsrc
+          unzip -q -o "$jar" \
+            'net/minecraft/client/model/HorseModel.java' 'net/minecraft/client/model/ChestedHorseModel.java' \
+            'net/minecraft/client/renderer/entity/ChestedHorseRenderer.java' 'net/minecraft/client/renderer/entity/AbstractHorseRenderer.java' \
+            'net/minecraft/client/model/geom/ModelPart.java' 'net/minecraft/world/entity/animal/Rabbit.java' \
+            'net/minecraft/world/entity/ai/control/JumpControl.java' 'net/minecraft/world/entity/animal/horse/Donkey.java' \
+            'net/minecraft/world/entity/animal/horse/AbstractChestedHorse.java' 'net/minecraft/client/model/RabbitModel.java' || true
+          find . -name "*.java" | sed 's|^\./||' > index.txt
+          zip -qr ../mcsrc.zip .
+          cd ..
+          gh release delete mcsrc --yes --cleanup-tag || true
+          gh release create mcsrc mcsrc.zip --prerelease --title "Vanilla sources (reference)" --notes "A few decompiled classes used while writing the mod."
+
       - name: Publish the build log if it failed
         if: failure()
         env:

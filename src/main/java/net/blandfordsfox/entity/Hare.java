@@ -207,25 +207,45 @@ public class Hare extends Rabbit implements GeoEntity {
         return this.moveControl.getSpeedModifier() >= FLEE_MODIFIER;
     }
 
+    // A mob only gets to full speed over a few ticks and coasts a few more after it stops,
+    // which would make the paws skid at the start and end of every bound. So the first tick
+    // of a bound pushes 2.2x as hard (input sqrt(2.2) larger: the push grows with the square
+    // of the input), and the hare stops dead when the bound ends.
+    private static final float LAUNCH = (float) Math.sqrt(2.2);
+    private float gaitSpeed;
+    private boolean stopNow;
+
     @Override
     public void setSpeed(float speed) {
         if (speed > 0 && !level().isClientSide) {
             long t = this.tickCount;
-            boolean newTick = t != lastGaitTick;
-            if (newTick && t != lastGaitTick + 1) { boundTick = 0; restLeft = 0; }   // starting off
-            if (newTick) lastGaitTick = t;
-            if (isFleeing() || !onGround()) {
-                restLeft = 0;
-            } else if (newTick) {
-                if (restLeft > 0) {
+            if (t != lastGaitTick) {
+                if (t != lastGaitTick + 1) { boundTick = 0; restLeft = 0; }   // setting off
+                lastGaitTick = t;
+                float run = inputFor(RUN_SPEED * sizeScale());
+                if (isFleeing() || !onGround()) {
+                    restLeft = 0;
+                    gaitSpeed = run;
+                } else if (restLeft > 0) {
                     restLeft--;
+                    gaitSpeed = 0;
+                    if (stopNow) {
+                        stopNow = false;
+                        setDeltaMovement(getDeltaMovement().multiply(0, 1, 0));
+                    }
                 } else {
-                    if (boundTick == 0) playSound(getJumpSound(), getSoundVolume() * 0.6F,
+                    boolean launch = boundTick == 0;
+                    if (launch) playSound(getJumpSound(), getSoundVolume() * 0.6F,
                             ((random.nextFloat() - random.nextFloat()) * 0.2F + 1.0F) * 0.8F);
-                    if (++boundTick >= BOUND_TICKS) { boundTick = 0; restLeft = REST_TICKS + random.nextInt(6); }
+                    gaitSpeed = launch ? run * LAUNCH : run;
+                    if (++boundTick >= BOUND_TICKS) {
+                        boundTick = 0;
+                        restLeft = REST_TICKS + random.nextInt(6);
+                        stopNow = true;
+                    }
                 }
             }
-            speed = restLeft > 0 ? 0 : inputFor(RUN_SPEED * sizeScale());
+            speed = gaitSpeed;
         }
         super.setSpeed(speed);
     }

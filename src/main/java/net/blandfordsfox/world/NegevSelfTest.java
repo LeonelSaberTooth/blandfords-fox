@@ -319,7 +319,12 @@ public final class NegevSelfTest {
                 BlockPos p = new BlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), z);
                 if (!level.getFluidState(p).isEmpty() || !level.getFluidState(p.below()).isEmpty()) continue;
                 if (!level.getBlockState(p.below()).isSolid()) continue;
-                if (found++ >= skip) return p;
+                if (found++ >= skip) {
+                    // load the area around it, so a bird flying off has ground to land on
+                    for (int cx = (x >> 4) - 6; cx <= (x >> 4) + 6; cx++)
+                        for (int cz = (z >> 4) - 6; cz <= (z >> 4) + 6; cz++) level.getChunk(cx, cz);
+                    return p;
+                }
             }
         return near;
     }
@@ -348,7 +353,9 @@ public final class NegevSelfTest {
         return String.format(java.util.Locale.ROOT,
                 "took off after %d ticks, flew %d ticks at %.1f blocks/s, %.1f blocks above the ground on average (max %.1f), glided in %d ticks, landed %s %.1f blocks away",
                 takeoff, flying, flying > 0 ? flyDist / flying * 20 : 0, flying > 0 ? sumH / flying : 0, maxH, landing,
-                bird.getFlight() == 0 && bird.onGround() ? "on the ground" : "NOT YET", start == null ? 0 : start.distanceTo(bird.position()));
+                bird.getFlight() == 0 && bird.onGround() ? "on the ground" : "NOT YET (state " + bird.getFlight() + ", y " + (int) bird.getY()
+                        + ", alive " + bird.isAlive() + ", on vines " + bird.onClimbable() + ", in " + level.getBlockState(bird.blockPosition()).getBlock() + ")",
+                start == null ? 0 : start.distanceTo(bird.position()));
     }
 
     private static String name(net.minecraft.world.entity.Entity e) {

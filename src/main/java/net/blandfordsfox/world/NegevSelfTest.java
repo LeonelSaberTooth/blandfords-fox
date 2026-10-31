@@ -354,7 +354,9 @@ public final class NegevSelfTest {
                 "took off after %d ticks, flew %d ticks at %.1f blocks/s, %.1f blocks above the ground on average (max %.1f), glided in %d ticks, landed %s %.1f blocks away",
                 takeoff, flying, flying > 0 ? flyDist / flying * 20 : 0, flying > 0 ? sumH / flying : 0, maxH, landing,
                 bird.getFlight() == 0 && bird.onGround() ? "on the ground" : "NOT YET (state " + bird.getFlight() + ", y " + (int) bird.getY()
-                        + ", alive " + bird.isAlive() + ", on vines " + bird.onClimbable() + ", in " + level.getBlockState(bird.blockPosition()).getBlock() + ")",
+                        + ", alive " + bird.isAlive() + (bird.getLastDamageSource() != null ? ", last hurt by " + bird.getLastDamageSource().getMsgId()
+                        + (bird.getLastDamageSource().getEntity() != null ? " from " + bird.getLastDamageSource().getEntity().getType().toShortString() : "") : "")
+                        + ", on vines " + bird.onClimbable() + ", in " + level.getBlockState(bird.blockPosition()).getBlock() + ")",
                 start == null ? 0 : start.distanceTo(bird.position()));
     }
 

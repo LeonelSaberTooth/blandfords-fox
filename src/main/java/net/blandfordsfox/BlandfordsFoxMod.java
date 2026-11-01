@@ -5,13 +5,12 @@ import net.blandfordsfox.entity.BlandfordsFox;
 import net.blandfordsfox.entity.Caracal;
 import net.blandfordsfox.entity.Hare;
 import net.blandfordsfox.entity.Hyena;
+import net.blandfordsfox.entity.Lynx;
 import net.blandfordsfox.entity.Onager;
 import net.blandfordsfox.entity.Partridge;
 import net.blandfordsfox.world.NegevDensity;
 import net.blandfordsfox.world.NegevFeatures;
 import net.blandfordsfox.world.TaigaFeatures;
-import net.blandfordsfox.block.BirchTrunkBase;
-import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecoratorType;
 import net.minecraft.world.level.levelgen.DensityFunction;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
@@ -78,11 +77,6 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<BlockItem> LIMESTONE_BRICK_SLAB_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_SLAB);
     public static final DeferredItem<BlockItem> LIMESTONE_BRICK_WALL_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_WALL);
 
-    /** The weathered bottom log of natural birch trees. */
-    public static final DeferredBlock<BirchTrunkBase> BIRCH_TRUNK_BASE = BLOCKS.register("birch_trunk_base",
-            () -> new BirchTrunkBase(BlockBehaviour.Properties.ofFullCopy(Blocks.BIRCH_LOG)));
-    public static final DeferredItem<BlockItem> BIRCH_TRUNK_BASE_ITEM = ITEMS.registerSimpleBlockItem(BIRCH_TRUNK_BASE);
-
     /** Like mossy stone bricks: limestone bricks with a vine or a moss block. */
     public static final DeferredBlock<Block> MOSSY_LIMESTONE_BRICKS = BLOCKS.registerSimpleBlock("mossy_limestone_bricks",
             BlockBehaviour.Properties.ofFullCopy(Blocks.MOSSY_STONE_BRICKS).mapColor(MapColor.SAND));
@@ -99,10 +93,6 @@ public final class BlandfordsFoxMod {
     private static final DeferredRegister<MapCodec<? extends DensityFunction>> DENSITY_FUNCTIONS =
             DeferredRegister.create(Registries.DENSITY_FUNCTION_TYPE, MOD_ID);
     private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
-    private static final DeferredRegister<TreeDecoratorType<?>> TREE_DECORATORS = DeferredRegister.create(Registries.TREE_DECORATOR_TYPE, MOD_ID);
-    /** Puts the weathered trunk base at the foot of birch trees. */
-    public static final DeferredHolder<TreeDecoratorType<?>, TreeDecoratorType<TaigaFeatures.BirchBase>> BIRCH_BASE_DECORATOR =
-            TREE_DECORATORS.register("birch_base", () -> new TreeDecoratorType<>(TaigaFeatures.BirchBase.CODEC));
 
     // Negev-style deserts: terrain shape, then rock layers and valley decoration
     static {
@@ -185,13 +175,23 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<Item> PARTRIDGE_SPAWN_EGG = ITEMS.register("partridge_spawn_egg",
             () -> new DeferredSpawnEggItem(PARTRIDGE, 0xB5A48A, 0x7A4A36, new Item.Properties()));
 
+    // Caracal (ocelot) settings, sized to the lynx model.
+    public static final DeferredHolder<EntityType<?>, EntityType<Lynx>> LYNX = ENTITIES.register("lynx",
+            () -> EntityType.Builder.of(Lynx::new, MobCategory.CREATURE)
+                    .sized(0.7F, 1.1F)
+                    .eyeHeight(0.95F)
+                    .clientTrackingRange(10)
+                    .build(MOD_ID + ":lynx"));
+
+    public static final DeferredItem<Item> LYNX_SPAWN_EGG = ITEMS.register("lynx_spawn_egg",
+            () -> new DeferredSpawnEggItem(LYNX, 0xB8A48C, 0x3A3029, new Item.Properties()));
+
     public BlandfordsFoxMod(IEventBus modBus) {
         ENTITIES.register(modBus);
         BLOCKS.register(modBus);
         ITEMS.register(modBus);
         DENSITY_FUNCTIONS.register(modBus);
         FEATURES.register(modBus);
-        TREE_DECORATORS.register(modBus);
         modBus.addListener(this::attributes);
         modBus.addListener(this::spawnPlacements);
         modBus.addListener(this::creativeTabs);
@@ -204,6 +204,7 @@ public final class BlandfordsFoxMod {
         event.put(HARE.get(), Hare.createAttributes().build());
         event.put(ONAGER.get(), Onager.createBaseChestedHorseAttributes().build());
         event.put(PARTRIDGE.get(), Partridge.createAttributes().build());
+        event.put(LYNX.get(), Lynx.createAttributes().build());
     }
 
     private void spawnPlacements(RegisterSpawnPlacementsEvent event) {
@@ -219,11 +220,12 @@ public final class BlandfordsFoxMod {
                 Onager::checkOnagerSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
         event.register(PARTRIDGE.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 Partridge::checkPartridgeSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
+        event.register(LYNX.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                Lynx::checkLynxSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
     }
 
     private void creativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
-            event.accept(BIRCH_TRUNK_BASE_ITEM);
             event.accept(LIMESTONE_ITEM);
             event.accept(LIMESTONE_GRAVEL_ITEM);
         }
@@ -245,6 +247,7 @@ public final class BlandfordsFoxMod {
             event.accept(HARE_SPAWN_EGG);
             event.accept(ONAGER_SPAWN_EGG);
             event.accept(PARTRIDGE_SPAWN_EGG);
+            event.accept(LYNX_SPAWN_EGG);
         }
     }
 }

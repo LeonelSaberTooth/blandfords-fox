@@ -13,7 +13,12 @@ import software.bernie.geckolib.model.data.EntityModelData;
 /** Loads geo/entity/caracal.geo.json, its animations and texture. */
 public class CaracalModel extends DefaultedEntityGeoModel<Caracal> {
     public CaracalModel() {
-        super(ResourceLocation.fromNamespaceAndPath(BlandfordsFoxMod.MOD_ID, "caracal"), false);
+        this("caracal");
+    }
+
+    /** "caracal" or "lynx": geo/entity/NAME.geo.json, animations and texture. */
+    public CaracalModel(String name) {
+        super(ResourceLocation.fromNamespaceAndPath(BlandfordsFoxMod.MOD_ID, name), false);
     }
 
     /** The head follows where the caracal is looking, on top of the current animation. */

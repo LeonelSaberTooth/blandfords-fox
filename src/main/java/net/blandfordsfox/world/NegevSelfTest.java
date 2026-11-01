@@ -389,7 +389,7 @@ public final class NegevSelfTest {
 
     /** Taiga ground, plants and trees; birch trunk bases; stripping birch with an axe. */
     private static void taigaTest(ServerLevel level, BlockPos near, StringBuilder report) {
-        for (var biome : java.util.List.of(Biomes.TAIGA, Biomes.BIRCH_FOREST)) {
+        for (var biome : java.util.List.of(Biomes.TAIGA, Biomes.SNOWY_TAIGA, Biomes.GROVE, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.BIRCH_FOREST)) {
             try {
                 Pair<BlockPos, Holder<Biome>> found = level.findClosestBiome3d(h -> h.is(biome), near.atY(64), 12000, 32, 64);
                 if (found == null) { report.append(biome.location().getPath()).append(": none found\n"); continue; }
@@ -434,30 +434,12 @@ public final class NegevSelfTest {
                 StringBuilder t = new StringBuilder();
                 trees.forEach((k, v) -> t.append(k).append(' ').append(v[0]).append(String.format(java.util.Locale.ROOT, " (trunk %.1f)", v[1] / (double) v[0])).append(", "));
                 report.append(biome.location().getPath()).append(" near ").append(c.toShortString()).append(": ").append(columns).append(" columns; ground ")
-                        .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t).append('\n');
+                        .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t)
+                        .append("; lynxes ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Lynx.class,
+                                new net.minecraft.world.phys.AABB(c).inflate(100, 200, 100), e -> true).size()).append('\n');
             } catch (Throwable t) {
                 report.append(biome.location().getPath()).append(" test failed: ").append(t).append('\n');
             }
-        }
-        try {
-            // grow a vanilla birch tree by hand and look at its bottom log
-            var reg = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.CONFIGURED_FEATURE);
-            var key = net.minecraft.resources.ResourceLocation.withDefaultNamespace("birch");
-            var feature = reg.get(key);
-            String decorators = feature != null && feature.config() instanceof net.minecraft.world.level.levelgen.feature.configurations.TreeConfiguration tc
-                    ? tc.decorators.toString() : String.valueOf(feature);
-            int[] before = TaigaFeatures.BirchBase.STATS.clone();
-            BlockPos spot = drySpot(level, near, 80);
-            level.setBlock(spot.below(), net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-            boolean placed = feature != null && feature.place(level, level.getChunkSource().getGenerator(), level.getRandom(), spot);
-            report.append("birch tree by hand: decorators ").append(decorators).append(", placed ").append(placed)
-                    .append(", bottom log ").append(BuiltInRegistries.BLOCK.getKey(level.getBlockState(spot).getBlock()).getPath())
-                    .append(", decorator calls ").append(TaigaFeatures.BirchBase.STATS[0] - before[0])
-                    .append(" logs ").append(TaigaFeatures.BirchBase.STATS[1] - before[1])
-                    .append(" swapped ").append(TaigaFeatures.BirchBase.STATS[2] - before[2])
-                    .append("; all worldgen so far: ").append(java.util.Arrays.toString(TaigaFeatures.BirchBase.STATS)).append('\n');
-        } catch (Throwable t) {
-            report.append("birch tree test failed: ").append(t).append('\n');
         }
         try {
             var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
@@ -465,7 +447,7 @@ public final class NegevSelfTest {
             String out = "";
             int i = 0;
             for (var log : new BlockState[] {net.minecraft.world.level.block.Blocks.BIRCH_LOG.defaultBlockState(),
-                    BlandfordsFoxMod.BIRCH_TRUNK_BASE.get().defaultBlockState(), net.minecraft.world.level.block.Blocks.OAK_LOG.defaultBlockState()}) {
+                    net.minecraft.world.level.block.Blocks.OAK_LOG.defaultBlockState()}) {
                 BlockPos at = new BlockPos(near.getX() + 6 * i++, y, near.getZ());
                 level.setBlock(at, log, 3);
                 player.moveTo(at.getX() + 0.5, at.getY() + 1, at.getZ() - 1.5, 0, 0);

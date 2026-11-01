@@ -36,17 +36,28 @@ public class Caracal extends Ocelot implements GeoEntity {
     public static final TagKey<Block> SPAWNABLE_ON =
             TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(BlandfordsFoxMod.MOD_ID, "caracal_spawnable_on"));
 
-    private static final String P = "animation.caracal.";
-    private static final RawAnimation IDLE = RawAnimation.begin().thenLoop(P + "idle");
-    private static final RawAnimation WALK = RawAnimation.begin().thenLoop(P + "walk");
-    private static final RawAnimation RUN = RawAnimation.begin().thenLoop(P + "run");
-    private static final RawAnimation SNEAK = RawAnimation.begin().thenLoop(P + "sneak");
+    private final RawAnimation IDLE, WALK, RUN, SNEAK;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     public Caracal(EntityType<? extends Ocelot> type, Level level) {
         super(type, level);
+        String p = "animation." + animationName() + ".";
+        IDLE = RawAnimation.begin().thenLoop(p + "idle");
+        WALK = RawAnimation.begin().thenLoop(p + "walk");
+        RUN = RawAnimation.begin().thenLoop(p + "run");
+        SNEAK = RawAnimation.begin().thenLoop(p + "sneak");
     }
+
+    /** The name its animations go by (animation.NAME.walk ...). */
+    protected String animationName() {
+        return "caracal";
+    }
+
+    /** Ground speed of the walk, run and sneak animations, in blocks per second (see below). */
+    protected double walkSpeed() { return WALK_SPEED; }
+    protected double runSpeed() { return RUN_SPEED; }
+    protected double sneakSpeed() { return SNEAK_SPEED; }
 
     /** Kittens from caracals are caracals (vanilla would make an ocelot). */
     @Override
@@ -92,7 +103,7 @@ public class Caracal extends Ocelot implements GeoEntity {
         if (speed > 0 && !level().isClientSide) {
             double attribute = getAttributeValue(Attributes.MOVEMENT_SPEED);
             double multiplier = attribute > 0 ? speed / attribute : 1;
-            double gait = isCrouching() ? SNEAK_SPEED : multiplier >= RUN_FROM_MULTIPLIER ? RUN_SPEED : WALK_SPEED;
+            double gait = isCrouching() ? sneakSpeed() : multiplier >= RUN_FROM_MULTIPLIER ? runSpeed() : walkSpeed();
             speed = inputFor(gait * sizeScale());
         }
         super.setSpeed(speed);
@@ -125,15 +136,15 @@ public class Caracal extends Ocelot implements GeoEntity {
 
         if (isCrouching()) {
             // creeping up on a player holding fish; holds still when not moving
-            state.setControllerSpeed(v > SNEAK_SPEED * 0.3 ? SNEAK_PLAYBACK : 0F);
+            state.setControllerSpeed(v > sneakSpeed() * 0.3 ? SNEAK_PLAYBACK : 0F);
             return state.setAndContinue(SNEAK);
         }
-        if (v < WALK_SPEED * 0.3) {
+        if (v < walkSpeed() * 0.3) {
             showingRun = false;
             return state.setAndContinue(IDLE);
         }
         // switch gaits with a little overlap so it doesn't flicker between them
-        double mid = (WALK_SPEED + RUN_SPEED) / 2;
+        double mid = (walkSpeed() + runSpeed()) / 2;
         showingRun = showingRun ? v > mid * 0.8 : v > mid * 1.1;
         state.setControllerSpeed(showingRun ? RUN_PLAYBACK : WALK_PLAYBACK);
         return state.setAndContinue(showingRun ? RUN : WALK);

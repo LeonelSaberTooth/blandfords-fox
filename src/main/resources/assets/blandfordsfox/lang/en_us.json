@@ -21,5 +21,6 @@
   "block.blandfordsfox.mossy_limestone_brick_stairs": "Mossy Limestone Brick Stairs",
   "block.blandfordsfox.mossy_limestone_brick_slab": "Mossy Limestone Brick Slab",
   "block.blandfordsfox.mossy_limestone_brick_wall": "Mossy Limestone Brick Wall",
-  "block.blandfordsfox.birch_trunk_base": "Birch Trunk Base"
+  "entity.blandfordsfox.lynx": "Lynx",
+  "item.blandfordsfox.lynx_spawn_egg": "Lynx Spawn Egg"
 }

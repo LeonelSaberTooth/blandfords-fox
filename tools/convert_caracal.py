@@ -1,14 +1,14 @@
-"""Turns art/caracal.bbmodel into the GeckoLib files for the caracal.
+"""Turns art/caracal.bbmodel (or art/lynx.bbmodel: `convert_caracal.py lynx`) into GeckoLib files.
 
 WALK, RUN, SNEAK and SLEEP come from the .bbmodel unchanged; IDLE is made here.
 Textures: the model's own texture, plus its closed-eye sleep texture.
 """
-import base64, json, math, os
+import base64, json, math, os, sys
 import convert_model as cm
 
 ROOT = cm.ROOT
-SRC = os.path.join(ROOT, 'art', 'caracal.bbmodel')
-NAME = 'caracal'
+NAME = sys.argv[1] if len(sys.argv) > 1 else 'caracal'
+SRC = os.path.join(ROOT, 'art', NAME + '.bbmodel')
 ASSETS = cm.ASSETS
 
 
@@ -43,7 +43,7 @@ def main():
     json.dump(out, open(os.path.join(ASSETS, 'animations', 'entity', NAME + '.animation.json'), 'w'), indent=1)
 
     # the texture the cubes actually use, and its sleeping version
-    used = {f.get('texture') for e in j['elements'] for f in e['faces'].values()}
+    used = {f.get('texture') for e in j['elements'] for f in e['faces'].values()} - {None}   # None: a blank face
     assert len(used) == 1, used
     tex = j['textures'][used.pop()]
     sleep = next(t for t in j['textures'] if t['name'] == tex['name'].replace('.png', '_sleep.png'))

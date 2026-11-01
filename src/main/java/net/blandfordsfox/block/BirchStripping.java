@@ -15,7 +15,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.ItemAbilities;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
-/** Stripping a birch log (or a birch trunk base) with an axe gives a stripped birch log and a sheet of paper. */
+/** Stripping a birch log with an axe gives a stripped birch log and a sheet of paper. */
 @EventBusSubscriber(modid = BlandfordsFoxMod.MOD_ID)
 public final class BirchStripping {
     private BirchStripping() {}
@@ -24,7 +24,7 @@ public final class BirchStripping {
     public static void onStrip(BlockEvent.BlockToolModificationEvent event) {
         if (event.getItemAbility() != ItemAbilities.AXE_STRIP || event.isCanceled()) return;
         BlockState state = event.getState();
-        if (!state.is(BlandfordsFoxMod.BIRCH_TRUNK_BASE.get()) && !state.is(Blocks.BIRCH_LOG)) return;
+        if (!state.is(Blocks.BIRCH_LOG)) return;
         // NeoForge asks before working out vanilla's stripped state, so set it here for both
         event.setFinalState(Blocks.STRIPPED_BIRCH_LOG.defaultBlockState()
                 .setValue(RotatedPillarBlock.AXIS, state.getValue(RotatedPillarBlock.AXIS)));

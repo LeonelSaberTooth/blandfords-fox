@@ -8,8 +8,13 @@ import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
 public class CaracalRenderer extends GeoEntityRenderer<Caracal> {
     public CaracalRenderer(EntityRendererProvider.Context context) {
-        super(context, new CaracalModel());
-        this.shadowRadius = 0.4F;
+        this(context, "caracal", 0.4F);
+    }
+
+    /** Also draws the lynx (a caracal underneath) with its own model. */
+    public CaracalRenderer(EntityRendererProvider.Context context, String name, float shadow) {
+        super(context, new CaracalModel(name));
+        this.shadowRadius = shadow;
     }
 
     /** Kittens are drawn at half size, like vanilla. */

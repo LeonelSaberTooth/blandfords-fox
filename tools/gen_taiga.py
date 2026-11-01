@@ -1,7 +1,5 @@
-"""Writes the worldgen data for the taiga changes and the birch trunk base.
+"""Writes the worldgen data for the taiga changes.
 
-- Every vanilla birch tree feature gets the birch_base decorator, so the bottom log of a
-  natural birch is the weathered trunk base (saplings grow these trees too).
 - Taiga (minecraft:taiga): trees are 50% spruce, 25% pine (both spruce trees, as vanilla's
   2:1) and 25% birch, every trunk 2 blocks taller than vanilla with the same crown; short
   grass and sugar cane are gone and the grass patches are all ferns; the ground is podzol
@@ -17,8 +15,6 @@ WG = os.path.join(os.path.dirname(ROOT), 'ref', 'va', 'wg')
 NS = 'blandfordsfox'
 TAIGA = 'minecraft:taiga'
 TALLER = 2
-BASE = {'type': f'{NS}:birch_base'}
-BIRCH_TREES = ['birch', 'birch_bees_0002', 'birch_bees_002', 'birch_bees_005', 'super_birch_bees', 'super_birch_bees_0002']
 
 
 def put(path, obj):
@@ -51,16 +47,9 @@ def taller(tree):
 
 
 def main():
-    for name in BIRCH_TREES:
-        t = vanilla('configured_feature', name)
-        assert t['config']['trunk_provider']['state']['Name'] == 'minecraft:birch_log', name
-        t['config']['decorators'] = [d for d in t['config']['decorators'] if d.get('type') != BASE['type']] + [BASE]
-        put(os.path.join(D, 'minecraft', 'worldgen', 'configured_feature', name + '.json'), t)
-
     # taiga trees
     spruce, pine, birch = taller(vanilla('configured_feature', 'spruce')), taller(vanilla('configured_feature', 'pine')), \
         taller(vanilla('configured_feature', 'birch'))
-    birch['config']['decorators'] = birch['config']['decorators'] + [BASE]
     for name, tree, sapling in (('taiga_spruce', spruce, 'spruce_sapling'), ('taiga_pine', pine, 'spruce_sapling'),
                                 ('taiga_birch', birch, 'birch_sapling')):
         ours('configured_feature', name, tree)

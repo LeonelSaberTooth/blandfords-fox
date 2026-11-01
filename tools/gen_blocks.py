@@ -231,13 +231,4 @@ if __name__ == '__main__':
     bricks()
     birch()
     check_birch()
-    # the weathered base of natural birch trunks, slid the same way
-    birch('birch_trunk_base', f'{NS}:block/birch_trunk_base', os.path.join(A, NS, 'blockstates', 'birch_trunk_base.json'))
-    item('birch_trunk_base', f'{NS}:block/birch_trunk_base_slid_0')
-    put(os.path.join(D, NS, 'loot_table', 'blocks', 'birch_trunk_base.json'), {
-        'type': 'minecraft:block', 'random_sequence': f'{NS}:blocks/birch_trunk_base', 'pools': [{
-            'rolls': 1.0, 'bonus_rolls': 0.0, 'conditions': [{'condition': 'minecraft:survives_explosion'}],
-            'entries': [{'type': 'minecraft:item', 'name': f'{NS}:birch_trunk_base'}]}]})
-    for kind in ('block', 'item'):     # a birch log in every way: planks, charcoal, axe, leaves stay
-        add_tag(f'minecraft/tags/{kind}/birch_logs.json', [f'{NS}:birch_trunk_base'])
     print('done')

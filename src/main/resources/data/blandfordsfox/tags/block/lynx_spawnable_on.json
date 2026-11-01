@@ -1,0 +1,14 @@
+{
+  "values": [
+    "minecraft:grass_block",
+    "minecraft:podzol",
+    "minecraft:coarse_dirt",
+    "minecraft:dirt",
+    "minecraft:snow",
+    "minecraft:snow_block",
+    "minecraft:moss_block",
+    "minecraft:mossy_cobblestone",
+    "minecraft:stone",
+    "minecraft:gravel"
+  ]
+}

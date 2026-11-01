@@ -1,24 +1,19 @@
 package net.blandfordsfox.world;
 
-import com.mojang.serialization.MapCodec;
-import net.blandfordsfox.BlandfordsFoxMod;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.QuartPos;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
-import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecorator;
-import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecoratorType;
 
-/** Taiga ground, and the weathered base of birch trunks. */
+/** Taiga ground. */
 public final class TaigaFeatures {
     private TaigaFeatures() {}
 
@@ -63,39 +58,6 @@ public final class TaigaFeatures {
         private static boolean isPlant(BlockState s) {
             return s.is(Blocks.SWEET_BERRY_BUSH) || s.is(Blocks.PUMPKIN) || s.is(BlockTags.FLOWERS) || s.is(Blocks.BROWN_MUSHROOM)
                     || s.is(Blocks.RED_MUSHROOM) || s.is(BlockTags.SAPLINGS);
-        }
-    }
-
-    /** Swaps the lowest log of a birch tree for the weathered trunk base. */
-    public static final class BirchBase extends TreeDecorator {
-        public static final BirchBase INSTANCE = new BirchBase();
-        public static final MapCodec<BirchBase> CODEC = MapCodec.unit(() -> INSTANCE);
-
-        @Override
-        protected TreeDecoratorType<?> type() {
-            return BlandfordsFoxMod.BIRCH_BASE_DECORATOR.get();
-        }
-
-        /** For the self-test: calls, logs seen, logs swapped. */
-        public static final int[] STATS = new int[3];
-
-        @Override
-        public void place(Context ctx) {
-            STATS[0]++;
-            STATS[1] += ctx.logs().size();
-            if (ctx.logs().isEmpty()) return;
-            // the tree's log list also holds the dirt it puts under the trunk, so look for real birch logs
-            java.util.function.Predicate<BlockState> birch = st -> st.is(Blocks.BIRCH_LOG);
-            int low = Integer.MAX_VALUE;
-            for (BlockPos p : ctx.logs()) if (ctx.level().isStateAtPosition(p, birch)) low = Math.min(low, p.getY());
-            if (low == Integer.MAX_VALUE) return;
-            BlockState base = BlandfordsFoxMod.BIRCH_TRUNK_BASE.get().defaultBlockState()
-                    .setValue(RotatedPillarBlock.AXIS, net.minecraft.core.Direction.Axis.Y);
-            for (BlockPos p : ctx.logs())
-                if (p.getY() == low && ctx.level().isStateAtPosition(p, birch)) {
-                    ctx.setBlock(p, base);
-                    STATS[2]++;
-                }
         }
     }
 }

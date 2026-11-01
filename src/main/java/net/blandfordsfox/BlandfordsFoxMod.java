@@ -9,6 +9,9 @@ import net.blandfordsfox.entity.Onager;
 import net.blandfordsfox.entity.Partridge;
 import net.blandfordsfox.world.NegevDensity;
 import net.blandfordsfox.world.NegevFeatures;
+import net.blandfordsfox.world.TaigaFeatures;
+import net.blandfordsfox.block.BirchTrunkBase;
+import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecoratorType;
 import net.minecraft.world.level.levelgen.DensityFunction;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
@@ -75,6 +78,11 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<BlockItem> LIMESTONE_BRICK_SLAB_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_SLAB);
     public static final DeferredItem<BlockItem> LIMESTONE_BRICK_WALL_ITEM = ITEMS.registerSimpleBlockItem(LIMESTONE_BRICK_WALL);
 
+    /** The weathered bottom log of natural birch trees. */
+    public static final DeferredBlock<BirchTrunkBase> BIRCH_TRUNK_BASE = BLOCKS.register("birch_trunk_base",
+            () -> new BirchTrunkBase(BlockBehaviour.Properties.ofFullCopy(Blocks.BIRCH_LOG)));
+    public static final DeferredItem<BlockItem> BIRCH_TRUNK_BASE_ITEM = ITEMS.registerSimpleBlockItem(BIRCH_TRUNK_BASE);
+
     /** Like mossy stone bricks: limestone bricks with a vine or a moss block. */
     public static final DeferredBlock<Block> MOSSY_LIMESTONE_BRICKS = BLOCKS.registerSimpleBlock("mossy_limestone_bricks",
             BlockBehaviour.Properties.ofFullCopy(Blocks.MOSSY_STONE_BRICKS).mapColor(MapColor.SAND));
@@ -91,6 +99,10 @@ public final class BlandfordsFoxMod {
     private static final DeferredRegister<MapCodec<? extends DensityFunction>> DENSITY_FUNCTIONS =
             DeferredRegister.create(Registries.DENSITY_FUNCTION_TYPE, MOD_ID);
     private static final DeferredRegister<Feature<?>> FEATURES = DeferredRegister.create(Registries.FEATURE, MOD_ID);
+    private static final DeferredRegister<TreeDecoratorType<?>> TREE_DECORATORS = DeferredRegister.create(Registries.TREE_DECORATOR_TYPE, MOD_ID);
+    /** Puts the weathered trunk base at the foot of birch trees. */
+    public static final DeferredHolder<TreeDecoratorType<?>, TreeDecoratorType<TaigaFeatures.BirchBase>> BIRCH_BASE_DECORATOR =
+            TREE_DECORATORS.register("birch_base", () -> new TreeDecoratorType<>(TaigaFeatures.BirchBase.CODEC));
 
     // Negev-style deserts: terrain shape, then rock layers and valley decoration
     static {
@@ -98,6 +110,7 @@ public final class BlandfordsFoxMod {
         DENSITY_FUNCTIONS.register("negev_detail", () -> NegevDensity.Detail.MAP_CODEC);
         FEATURES.register("negev_paint", () -> new NegevFeatures.Paint(NoneFeatureConfiguration.CODEC));
         FEATURES.register("negev_decorate", () -> new NegevFeatures.Decorate(NoneFeatureConfiguration.CODEC));
+        FEATURES.register("taiga_podzol", () -> new TaigaFeatures.Podzol(NoneFeatureConfiguration.CODEC));
     }
 
     // Same settings as the vanilla fox, sized down to this smaller model.
@@ -178,6 +191,7 @@ public final class BlandfordsFoxMod {
         ITEMS.register(modBus);
         DENSITY_FUNCTIONS.register(modBus);
         FEATURES.register(modBus);
+        TREE_DECORATORS.register(modBus);
         modBus.addListener(this::attributes);
         modBus.addListener(this::spawnPlacements);
         modBus.addListener(this::creativeTabs);
@@ -209,6 +223,7 @@ public final class BlandfordsFoxMod {
 
     private void creativeTabs(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
+            event.accept(BIRCH_TRUNK_BASE_ITEM);
             event.accept(LIMESTONE_ITEM);
             event.accept(LIMESTONE_GRAVEL_ITEM);
         }

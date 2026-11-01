@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:random_selector",
+  "config": {
+    "default": "blandfordsfox:taiga_spruce_checked",
+    "features": [
+      {
+        "chance": 0.25,
+        "feature": "blandfordsfox:taiga_birch_checked"
+      },
+      {
+        "chance": 0.33333334,
+        "feature": "blandfordsfox:taiga_pine_checked"
+      }
+    ]
+  }
+}

@@ -78,6 +78,7 @@ public final class NegevSelfTest {
         animalTest(level, d, box, report);
         partridgeTest(level, d, report);
         brickTest(level, report);
+        taigaTest(level, d, report);
         report.append("caracals: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.CARACAL.get(), box, e -> true).size())
                 .append(", blandford's foxes: ").append(level.getEntities(net.blandfordsfox.BlandfordsFoxMod.BLANDFORDS_FOX.get(), box, e -> true).size())
                 .append('\n');
@@ -383,6 +384,81 @@ public final class NegevSelfTest {
                     .append(", wall in #walls ").append(wallTag).append(", pickaxe ").append(pick).append(", stairs/slab/wall tags (ours and vanilla) ").append(tagsOk).append(", loot tables ").append(tables).append("/8\n");
         } catch (Throwable t) {
             report.append("brick test failed: ").append(t).append('\n');
+        }
+    }
+
+    /** Taiga ground, plants and trees; birch trunk bases; stripping birch with an axe. */
+    private static void taigaTest(ServerLevel level, BlockPos near, StringBuilder report) {
+        for (var biome : java.util.List.of(Biomes.TAIGA, Biomes.BIRCH_FOREST)) {
+            try {
+                Pair<BlockPos, Holder<Biome>> found = level.findClosestBiome3d(h -> h.is(biome), near.atY(64), 12000, 32, 64);
+                if (found == null) { report.append(biome.location().getPath()).append(": none found\n"); continue; }
+                BlockPos c = found.getFirst();
+                for (int cx = (c.getX() >> 4) - 6; cx <= (c.getX() >> 4) + 6; cx++)
+                    for (int cz = (c.getZ() >> 4) - 6; cz <= (c.getZ() >> 4) + 6; cz++) level.getChunk(cx, cz);
+                java.util.Map<String, Integer> ground = new java.util.TreeMap<>(), plants = new java.util.TreeMap<>();
+                java.util.Map<String, int[]> trees = new java.util.TreeMap<>();   // bottom log -> {count, total height}
+                int columns = 0;
+                BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+                for (int x = c.getX() - 64; x < c.getX() + 64; x++)
+                    for (int z = c.getZ() - 64; z < c.getZ() + 64; z++) {
+                        int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
+                        if (!level.getBiome(new BlockPos(x, top, z)).is(biome)) continue;
+                        columns++;
+                        for (int y = top; y > top - 40; y--) {
+                            BlockState st = level.getBlockState(p.set(x, y, z));
+                            String id = BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath();
+                            if (st.is(net.minecraft.tags.BlockTags.LOGS)) {
+                                BlockState below = level.getBlockState(p.below());
+                                if (!below.is(net.minecraft.tags.BlockTags.LOGS) && below.isSolid()) {   // bottom of a trunk
+                                    int h = 0;
+                                    while (level.getBlockState(p.above(h)).is(net.minecraft.tags.BlockTags.LOGS)) h++;
+                                    int[] t = trees.computeIfAbsent(id, k -> new int[2]);
+                                    t[0]++; t[1] += h;
+                                }
+                                continue;
+                            }
+                            if (st.isAir() || st.is(net.minecraft.tags.BlockTags.LEAVES)) continue;
+                            if (st.is(net.minecraft.world.level.block.Blocks.SHORT_GRASS) || st.is(net.minecraft.world.level.block.Blocks.FERN)
+                                    || st.is(net.minecraft.world.level.block.Blocks.SUGAR_CANE) || st.is(net.minecraft.world.level.block.Blocks.TALL_GRASS)
+                                    || st.is(net.minecraft.world.level.block.Blocks.LARGE_FERN)) {
+                                plants.merge(id, 1, Integer::sum);
+                                continue;
+                            }
+                            if (st.canBeReplaced() || !st.isSolid() && st.getFluidState().isEmpty()) continue;
+                            ground.merge(id, 1, Integer::sum);
+                            break;
+                        }
+                    }
+                StringBuilder t = new StringBuilder();
+                trees.forEach((k, v) -> t.append(k).append(' ').append(v[0]).append(String.format(java.util.Locale.ROOT, " (trunk %.1f)", v[1] / (double) v[0])).append(", "));
+                report.append(biome.location().getPath()).append(" near ").append(c.toShortString()).append(": ").append(columns).append(" columns; ground ")
+                        .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t).append('\n');
+            } catch (Throwable t) {
+                report.append(biome.location().getPath()).append(" test failed: ").append(t).append('\n');
+            }
+        }
+        try {
+            var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
+            int y = level.getMaxBuildHeight() - 20;
+            String out = "";
+            int i = 0;
+            for (var log : new BlockState[] {net.minecraft.world.level.block.Blocks.BIRCH_LOG.defaultBlockState(),
+                    BlandfordsFoxMod.BIRCH_TRUNK_BASE.get().defaultBlockState(), net.minecraft.world.level.block.Blocks.OAK_LOG.defaultBlockState()}) {
+                BlockPos at = new BlockPos(near.getX() + 6 * i++, y, near.getZ());
+                level.setBlock(at, log, 3);
+                player.moveTo(at.getX() + 0.5, at.getY() + 1, at.getZ() - 1.5, 0, 0);
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_AXE));
+                var hit = new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(at), net.minecraft.core.Direction.NORTH, at, false);
+                var result = net.minecraft.world.item.Items.IRON_AXE.useOn(new net.minecraft.world.item.context.UseOnContext(player, net.minecraft.world.InteractionHand.MAIN_HAND, hit));
+                int paper = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(3),
+                        e -> e.getItem().is(net.minecraft.world.item.Items.PAPER)).stream().mapToInt(e -> e.getItem().getCount()).sum();
+                out += BuiltInRegistries.BLOCK.getKey(log.getBlock()).getPath() + " -> " + BuiltInRegistries.BLOCK.getKey(level.getBlockState(at).getBlock()).getPath()
+                        + " (" + result + "), paper " + paper + "; ";
+            }
+            report.append("stripping with an axe: ").append(out).append('\n');
+        } catch (Throwable t) {
+            report.append("strip test failed: ").append(t).append('\n');
         }
     }
 

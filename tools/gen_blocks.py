@@ -166,7 +166,7 @@ def bricks():
     unlock('mossy_limestone_bricks', [f'{NS}:mossy_limestone_bricks', 'minecraft:vine', 'minecraft:moss_block'], 'mossy_limestone_brick')
 
 
-def birch():
+def birch(prefix='birch_log', side_tex='minecraft:block/birch_log', blockstate_path=None):
     """A model per sideways shift, picked at random per block by the blockstate."""
     def u_auto(face, c):            # vanilla's default u for a point on a side face
         return {'north': 16 - c, 'south': c, 'west': c, 'east': 16 - c}[face]
@@ -191,13 +191,12 @@ def birch():
             cut = {'north': k, 'south': 16 - k, 'west': 16 - k, 'east': k}[face]
             elems.append(plane(face, 0, cut, k))
             elems.append(plane(face, cut, 16, k))
-        name = f'birch_log_slid_{k}'
+        name = f'{prefix}_slid_{k}'
         model(name, {'parent': 'minecraft:block/block',
-                     'textures': {'particle': 'minecraft:block/birch_log', 'side': 'minecraft:block/birch_log',
-                                  'end': 'minecraft:block/birch_log_top'},
+                     'textures': {'particle': side_tex, 'side': side_tex, 'end': 'minecraft:block/birch_log_top'},
                      'elements': elems})
         variants.append(f'{NS}:block/{name}')
-    put(os.path.join(A, 'minecraft', 'blockstates', 'birch_log.json'), {'variants': {
+    put(blockstate_path or os.path.join(A, 'minecraft', 'blockstates', 'birch_log.json'), {'variants': {
         'axis=y': [{'model': m} for m in variants],
         'axis=z': [{'model': m, 'x': 90} for m in variants],
         'axis=x': [{'model': m, 'x': 90, 'y': 90} for m in variants]}})
@@ -232,4 +231,13 @@ if __name__ == '__main__':
     bricks()
     birch()
     check_birch()
+    # the weathered base of natural birch trunks, slid the same way
+    birch('birch_trunk_base', f'{NS}:block/birch_trunk_base', os.path.join(A, NS, 'blockstates', 'birch_trunk_base.json'))
+    item('birch_trunk_base', f'{NS}:block/birch_trunk_base_slid_0')
+    put(os.path.join(D, NS, 'loot_table', 'blocks', 'birch_trunk_base.json'), {
+        'type': 'minecraft:block', 'random_sequence': f'{NS}:blocks/birch_trunk_base', 'pools': [{
+            'rolls': 1.0, 'bonus_rolls': 0.0, 'conditions': [{'condition': 'minecraft:survives_explosion'}],
+            'entries': [{'type': 'minecraft:item', 'name': f'{NS}:birch_trunk_base'}]}]})
+    for kind in ('block', 'item'):     # a birch log in every way: planks, charcoal, axe, leaves stay
+        add_tag(f'minecraft/tags/{kind}/birch_logs.json', [f'{NS}:birch_trunk_base'])
     print('done')

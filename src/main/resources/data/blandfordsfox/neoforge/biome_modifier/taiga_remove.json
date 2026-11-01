@@ -1,0 +1,10 @@
+{
+  "type": "neoforge:remove_features",
+  "biomes": "minecraft:taiga",
+  "features": [
+    "minecraft:trees_taiga",
+    "minecraft:patch_grass_taiga_2",
+    "minecraft:patch_sugar_cane"
+  ],
+  "steps": "vegetal_decoration"
+}

@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "minecraft:taiga",
+  "features": "blandfordsfox:taiga_podzol",
+  "step": "top_layer_modification"
+}

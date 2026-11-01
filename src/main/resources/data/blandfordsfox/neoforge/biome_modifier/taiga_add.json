@@ -1,0 +1,9 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "minecraft:taiga",
+  "features": [
+    "blandfordsfox:taiga_trees",
+    "blandfordsfox:taiga_ferns"
+  ],
+  "step": "vegetal_decoration"
+}

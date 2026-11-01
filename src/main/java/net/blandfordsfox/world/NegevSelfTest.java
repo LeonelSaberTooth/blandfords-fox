@@ -399,6 +399,7 @@ public final class NegevSelfTest {
                 java.util.Map<String, Integer> ground = new java.util.TreeMap<>(), plants = new java.util.TreeMap<>();
                 java.util.Map<String, Integer> riverGround = new java.util.TreeMap<>(), riverPlants = new java.util.TreeMap<>();
                 int riverColumns = 0, podzolUnderSnow = 0, podzolUnderSnowNotSnowy = 0;
+                java.util.List<String> sandSamples = new java.util.ArrayList<>();
                 java.util.Map<String, int[]> trees = new java.util.TreeMap<>();   // bottom log -> {count, total height}
                 int columns = 0;
                 BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
@@ -444,6 +445,11 @@ public final class NegevSelfTest {
                                 var noise = level.getChunk(x >> 4, z >> 4).getNoiseBiome(net.minecraft.core.QuartPos.fromBlock(x),
                                         net.minecraft.core.QuartPos.fromBlock(top), net.minecraft.core.QuartPos.fromBlock(z));
                                 id += "(around " + rule + ", chunk biome " + noise.unwrapKey().map(k -> k.location().getPath()).orElse("?") + ")";
+                                if (rule != null && sandSamples.size() < 6) {
+                                    var cellRule = TaigaFeatures.Ground.around(level, x & ~3, z & ~3);
+                                    sandSamples.add(x + "," + y + "," + z + " top " + top + " above " + BuiltInRegistries.BLOCK.getKey(level.getBlockState(p.above()).getBlock()).getPath()
+                                            + " cell rule " + cellRule + " wg-top " + level.getChunk(x >> 4, z >> 4).getHeight(Heightmap.Types.WORLD_SURFACE_WG, x & 15, z & 15));
+                                }
                             }
                             groundMap.merge(id, 1, Integer::sum);
                             break;
@@ -455,6 +461,7 @@ public final class NegevSelfTest {
                         .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t)
                         .append("; podzol under snow ").append(podzolUnderSnow).append(" (not snowy ").append(podzolUnderSnowNotSnowy).append(")")
                         .append("; river columns ").append(riverColumns).append(" ground ").append(riverGround).append(" plants ").append(riverPlants)
+                        .append(" sand samples ").append(sandSamples)
                         .append("; lynxes ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Lynx.class,
                                 new net.minecraft.world.phys.AABB(c).inflate(100, 200, 100), e -> true).size())
                         .append(", caracals ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Caracal.class,

@@ -144,7 +144,7 @@ public final class TaigaFeatures {
 
         /** The land biome around a river spot (from the climate, so no chunks are needed): taiga, snowy plains, or other. */
         @Nullable
-        private static Rule around(WorldGenLevel level, int x, int z) {
+        static Rule around(WorldGenLevel level, int x, int z) {
             ServerLevel server = level.getLevel();
             var source = server.getChunkSource().getGenerator().getBiomeSource();
             var sampler = server.getChunkSource().randomState().sampler();

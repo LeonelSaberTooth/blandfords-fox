@@ -439,6 +439,12 @@ public final class NegevSelfTest {
                             if (st.canBeReplaced() || !st.isSolid() && st.getFluidState().isEmpty()) continue;
                             if (st.is(net.minecraft.world.level.block.Blocks.SNOW_BLOCK)
                                     && level.getBlockState(p.below()).is(net.minecraft.world.level.block.Blocks.PODZOL)) id = "snow_block_on_podzol";
+                            if (riverCol && (st.is(net.minecraft.world.level.block.Blocks.SAND) || st.is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK))) {
+                                var rule = TaigaFeatures.Ground.around(level, x, z);
+                                var noise = level.getChunk(x >> 4, z >> 4).getNoiseBiome(net.minecraft.core.QuartPos.fromBlock(x),
+                                        net.minecraft.core.QuartPos.fromBlock(top), net.minecraft.core.QuartPos.fromBlock(z));
+                                id += "(around " + rule + ", chunk biome " + noise.unwrapKey().map(k -> k.location().getPath()).orElse("?") + ")";
+                            }
                             groundMap.merge(id, 1, Integer::sum);
                             break;
                         }

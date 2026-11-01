@@ -78,20 +78,21 @@ public final class TaigaFeatures {
 
         /** For the self-test: calls, logs seen, logs swapped. */
         public static final int[] STATS = new int[3];
-        public static final java.util.Set<String> SEEN = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
         @Override
         public void place(Context ctx) {
             STATS[0]++;
             STATS[1] += ctx.logs().size();
             if (ctx.logs().isEmpty()) return;
+            // the tree's log list also holds the dirt it puts under the trunk, so look for real birch logs
+            java.util.function.Predicate<BlockState> birch = st -> st.is(Blocks.BIRCH_LOG);
             int low = Integer.MAX_VALUE;
-            for (BlockPos p : ctx.logs()) low = Math.min(low, p.getY());
+            for (BlockPos p : ctx.logs()) if (ctx.level().isStateAtPosition(p, birch)) low = Math.min(low, p.getY());
+            if (low == Integer.MAX_VALUE) return;
             BlockState base = BlandfordsFoxMod.BIRCH_TRUNK_BASE.get().defaultBlockState()
                     .setValue(RotatedPillarBlock.AXIS, net.minecraft.core.Direction.Axis.Y);
             for (BlockPos p : ctx.logs())
-                if (p.getY() == low) {
-                    if (SEEN.size() < 8) ctx.level().isStateAtPosition(p, s -> { SEEN.add(s.toString()); return true; });
+                if (p.getY() == low && ctx.level().isStateAtPosition(p, birch)) {
                     ctx.setBlock(p, base);
                     STATS[2]++;
                 }

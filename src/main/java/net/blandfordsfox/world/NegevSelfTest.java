@@ -411,6 +411,7 @@ public final class NegevSelfTest {
                             if (st.is(net.minecraft.tags.BlockTags.LOGS)) {
                                 BlockState below = level.getBlockState(p.below());
                                 if (!below.is(net.minecraft.tags.BlockTags.LOGS) && below.isSolid()) {   // bottom of a trunk
+                                    id += "/on_" + BuiltInRegistries.BLOCK.getKey(below.getBlock()).getPath();
                                     int h = 0;
                                     while (level.getBlockState(p.above(h)).is(net.minecraft.tags.BlockTags.LOGS)) h++;
                                     int[] t = trees.computeIfAbsent(id, k -> new int[2]);
@@ -454,8 +455,7 @@ public final class NegevSelfTest {
                     .append(", decorator calls ").append(TaigaFeatures.BirchBase.STATS[0] - before[0])
                     .append(" logs ").append(TaigaFeatures.BirchBase.STATS[1] - before[1])
                     .append(" swapped ").append(TaigaFeatures.BirchBase.STATS[2] - before[2])
-                    .append("; all worldgen so far: ").append(java.util.Arrays.toString(TaigaFeatures.BirchBase.STATS))
-                    .append(", found at the bottom: ").append(TaigaFeatures.BirchBase.SEEN).append('\n');
+                    .append("; all worldgen so far: ").append(java.util.Arrays.toString(TaigaFeatures.BirchBase.STATS)).append('\n');
         } catch (Throwable t) {
             report.append("birch tree test failed: ").append(t).append('\n');
         }

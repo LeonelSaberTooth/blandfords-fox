@@ -78,6 +78,7 @@ public final class TaigaFeatures {
 
         /** For the self-test: calls, logs seen, logs swapped. */
         public static final int[] STATS = new int[3];
+        public static final java.util.Set<String> SEEN = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
         @Override
         public void place(Context ctx) {
@@ -89,7 +90,11 @@ public final class TaigaFeatures {
             BlockState base = BlandfordsFoxMod.BIRCH_TRUNK_BASE.get().defaultBlockState()
                     .setValue(RotatedPillarBlock.AXIS, net.minecraft.core.Direction.Axis.Y);
             for (BlockPos p : ctx.logs())
-                if (p.getY() == low && ctx.level().isStateAtPosition(p, s -> s.is(Blocks.BIRCH_LOG))) { ctx.setBlock(p, base); STATS[2]++; }
+                if (p.getY() == low) {
+                    if (SEEN.size() < 8) ctx.level().isStateAtPosition(p, s -> { SEEN.add(s.toString()); return true; });
+                    ctx.setBlock(p, base);
+                    STATS[2]++;
+                }
         }
     }
 }

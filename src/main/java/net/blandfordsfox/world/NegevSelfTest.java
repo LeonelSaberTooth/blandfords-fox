@@ -454,7 +454,8 @@ public final class NegevSelfTest {
                     .append(", decorator calls ").append(TaigaFeatures.BirchBase.STATS[0] - before[0])
                     .append(" logs ").append(TaigaFeatures.BirchBase.STATS[1] - before[1])
                     .append(" swapped ").append(TaigaFeatures.BirchBase.STATS[2] - before[2])
-                    .append("; all worldgen so far: ").append(java.util.Arrays.toString(TaigaFeatures.BirchBase.STATS)).append('\n');
+                    .append("; all worldgen so far: ").append(java.util.Arrays.toString(TaigaFeatures.BirchBase.STATS))
+                    .append(", found at the bottom: ").append(TaigaFeatures.BirchBase.SEEN).append('\n');
         } catch (Throwable t) {
             report.append("birch tree test failed: ").append(t).append('\n');
         }

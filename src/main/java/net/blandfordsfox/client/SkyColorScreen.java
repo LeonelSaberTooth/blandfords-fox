@@ -54,7 +54,7 @@ public class SkyColorScreen extends Screen {
             sat = lerp(v, SkyColor.SAT_MIN, SkyColor.SAT_MAX);
             offLine();
         }, v -> String.format("Saturation: %.0f%%", lerp(v, SkyColor.SAT_MIN, SkyColor.SAT_MAX) * 100)));
-        int by = y + 108, bw = (w - 8) / 3;
+        int by = y + 114, bw = (w - 8) / 3;
         addRenderableWidget(Button.builder(Component.literal("Copy"), b -> {
             int c = SkyColor.get(biome);
             minecraft.keyboardHandler.setClipboard(String.format("\"sky_color\": %d  (#%06X)", c, c));
@@ -81,7 +81,7 @@ public class SkyColorScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int c = SkyColor.get(biome), orig = SkyColor.original(biome);
-        g.fill(X, Y, X + W, Y + 160, 0xC0101018);
+        g.fill(X, Y, X + W, Y + 166, 0xC0101018);
         g.drawString(font, "Sky colour: " + biomeName, X + 6, Y + 6, 0xFFFFFF);
         g.drawString(font, "vanilla range only", X + 6, Y + 15, 0x9090A0);
         int sy = Y + 26 + 72;
@@ -89,7 +89,7 @@ public class SkyColorScreen extends Screen {
         g.renderOutline(X + 6, sy, 30, 24, 0xFFFFFFFF);
         g.drawString(font, String.format("#%06X   RGB %d, %d, %d", c, c >> 16 & 255, c >> 8 & 255, c & 255), X + 42, sy + 2, 0xFFFFFF);
         g.drawString(font, String.format("biome file: \"sky_color\": %d", c), X + 42, sy + 13, 0xFFFFA0);
-        g.drawString(font, String.format("this biome's own: #%06X (%d)  %s", orig, orig, copied), X + 6, Y + 26 + 132 - 6, 0x9090A0);
+        g.drawString(font, String.format("this biome's own: #%06X (%d)  %s", orig, orig, copied), X + 6, sy + 28, 0x9090A0);
         super.render(g, mouseX, mouseY, partialTick);
     }
 

@@ -19,10 +19,9 @@ import java.util.Map;
  * /middleeast skycolor: a small panel for trying sky colours on the biome you stand in.
  * Changes are on this client only and last until you leave the world.
  *
- * <p>Vanilla works a biome's sky colour out from its temperature:
- * hsv(0.6222 - 0.05 t/3, 0.5 + 0.1 t/3, 1) with t/3 clamped to -1..1. The panel stays inside
- * what vanilla biomes get from that (temperatures -0.7 to 2.0): hue and saturation within
- * those bounds, full brightness.
+ * <p>Any colour can be set. Vanilla works a biome's sky colour out from its temperature:
+ * hsv(0.6222 - 0.05 t/3, 0.5 + 0.1 t/3, 1) with t/3 clamped to -1..1; the panel's Warmth
+ * slider follows that for vanilla biome temperatures (-0.7 to 2.0).
  */
 @EventBusSubscriber(modid = BlandfordsFoxMod.MOD_ID, value = Dist.CLIENT)
 public final class SkyColor {

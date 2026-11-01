@@ -3,25 +3,29 @@ package net.blandfordsfox.client;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.biome.Biome;
 
 /**
- * The /middleeast skycolor panel: a small box in the top-left corner (the sky stays in view),
- * with a Warmth slider that walks vanilla's own temperature-to-sky line, Hue and Saturation
- * sliders to step off it (kept inside vanilla's bounds), the colour as a swatch, hex, RGB and
- * the decimal number a biome file uses, and Copy / Reset / Done.
+ * The /middleeast skycolor panel: a small box in the top-left corner (the sky stays in view).
+ * Any colour: Hue, Saturation and Brightness sliders over their full range, or type a hex
+ * code. The Warmth slider walks vanilla's own temperature-to-sky line, as a starting point.
+ * Shows the colour as a swatch, hex, RGB and the decimal number a biome file uses, with
+ * Copy / Reset / Done.
  */
 public class SkyColorScreen extends Screen {
-    private static final int W = 220, X = 6, Y = 6;
+    private static final int W = 230, X = 6, Y = 6, H = 214;
 
     private final Biome biome;
     private final String biomeName;
-    private float hue, sat;
-    private Float warmth;   // null when hue/saturation are off vanilla's line
-    private Slider warmthSlider, hueSlider, satSlider;
+    private float hue, sat, val;
+    private Float warmth;   // null when the colour is off vanilla's line
+    private Slider warmthSlider, hueSlider, satSlider, valSlider;
+    private EditBox hexBox;
+    private boolean updating;
     private String copied = "";
 
     public SkyColorScreen(Biome biome, String biomeName) {
@@ -29,9 +33,10 @@ public class SkyColorScreen extends Screen {
         this.biome = biome;
         this.biomeName = biomeName;
         float[] hsv = hsv(SkyColor.get(biome));
-        hue = Mth.clamp(hsv[0], SkyColor.HUE_MIN, SkyColor.HUE_MAX);
-        sat = Mth.clamp(hsv[1], SkyColor.SAT_MIN, SkyColor.SAT_MAX);
-        warmth = warmthFor(hue, sat);
+        hue = hsv[0];
+        sat = hsv[1];
+        val = hsv[2];
+        warmth = warmthFor(hue, sat, val);
     }
 
     @Override
@@ -42,19 +47,31 @@ public class SkyColorScreen extends Screen {
             warmth = lerp(v, SkyColor.TEMP_MIN, SkyColor.TEMP_MAX);
             hue = SkyColor.hueFor(warmth);
             sat = SkyColor.satFor(warmth);
-            hueSlider.set(unit(hue, SkyColor.HUE_MIN, SkyColor.HUE_MAX));
-            satSlider.set(unit(sat, SkyColor.SAT_MIN, SkyColor.SAT_MAX));
+            val = 1.0F;
+            syncSliders();
             apply();
-        }, v -> warmth == null ? "Warmth: (custom)" : String.format("Warmth (vanilla temperature): %.2f", lerp(v, SkyColor.TEMP_MIN, SkyColor.TEMP_MAX))));
-        hueSlider = addRenderableWidget(new Slider(x, y + 24, w, unit(hue, SkyColor.HUE_MIN, SkyColor.HUE_MAX), v -> {
-            hue = lerp(v, SkyColor.HUE_MIN, SkyColor.HUE_MAX);
-            offLine();
-        }, v -> String.format("Hue: %.1f°", lerp(v, SkyColor.HUE_MIN, SkyColor.HUE_MAX) * 360)));
-        satSlider = addRenderableWidget(new Slider(x, y + 48, w, unit(sat, SkyColor.SAT_MIN, SkyColor.SAT_MAX), v -> {
-            sat = lerp(v, SkyColor.SAT_MIN, SkyColor.SAT_MAX);
-            offLine();
-        }, v -> String.format("Saturation: %.0f%%", lerp(v, SkyColor.SAT_MIN, SkyColor.SAT_MAX) * 100)));
-        int by = y + 114, bw = (w - 8) / 3;
+        }, v -> warmth == null ? "Vanilla warmth: (off vanilla's line)" : String.format("Vanilla warmth (temperature): %.2f", lerp(v, SkyColor.TEMP_MIN, SkyColor.TEMP_MAX))));
+        hueSlider = addRenderableWidget(new Slider(x, y + 22, w, hue, v -> { hue = (float) v; changed(); },
+                v -> String.format("Hue: %.0f\u00b0", v * 360)));
+        satSlider = addRenderableWidget(new Slider(x, y + 44, w, sat, v -> { sat = (float) v; changed(); },
+                v -> String.format("Saturation: %.0f%%", v * 100)));
+        valSlider = addRenderableWidget(new Slider(x, y + 66, w, val, v -> { val = (float) v; changed(); },
+                v -> String.format("Brightness: %.0f%%", v * 100)));
+
+        hexBox = addRenderableWidget(new EditBox(font, x + 64, y + 118, 70, 16, Component.literal("Hex")));
+        hexBox.setMaxLength(7);
+        hexBox.setValue(String.format("#%06X", SkyColor.get(biome)));
+        hexBox.setResponder(text -> {
+            if (updating) return;
+            String t = text.startsWith("#") ? text.substring(1) : text;
+            if (!t.matches("[0-9a-fA-F]{6}")) return;
+            float[] hsv = hsv(Integer.parseInt(t, 16));
+            hue = hsv[0]; sat = hsv[1]; val = hsv[2];
+            syncSliders();
+            changed();
+        });
+
+        int by = y + 142, bw = (w - 8) / 3;
         addRenderableWidget(Button.builder(Component.literal("Copy"), b -> {
             int c = SkyColor.get(biome);
             minecraft.keyboardHandler.setClipboard(String.format("\"sky_color\": %d  (#%06X)", c, c));
@@ -67,29 +84,43 @@ public class SkyColorScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose()).bounds(x + 2 * (bw + 4), by, bw, 20).build());
     }
 
-    private void offLine() {
-        warmth = warmthFor(hue, sat);
+    private void syncSliders() {
+        hueSlider.set(hue);
+        satSlider.set(sat);
+        valSlider.set(val);
+    }
+
+    private void changed() {
+        warmth = warmthFor(hue, sat, val);
         warmthSlider.refresh();
         apply();
     }
 
     private void apply() {
-        SkyColor.set(biome, Mth.hsvToRgb(Mth.clamp(hue, 0, 1), Mth.clamp(sat, 0, 1), 1.0F));
+        int c = Mth.hsvToRgb(Mth.clamp(hue, 0, 0.9999F), Mth.clamp(sat, 0, 1), Mth.clamp(val, 0, 1));
+        SkyColor.set(biome, c);
+        if (hexBox != null && !hexBox.isFocused()) {
+            updating = true;
+            hexBox.setValue(String.format("#%06X", c));
+            updating = false;
+        }
         copied = "";
     }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int c = SkyColor.get(biome), orig = SkyColor.original(biome);
-        g.fill(X, Y, X + W, Y + 166, 0xC0101018);
+        int y = Y + 26;
+        g.fill(X, Y, X + W, Y + H, 0xC0101018);
         g.drawString(font, "Sky colour: " + biomeName, X + 6, Y + 6, 0xFFFFFF);
-        g.drawString(font, "vanilla range only", X + 6, Y + 15, 0x9090A0);
-        int sy = Y + 26 + 72;
-        g.fill(X + 6, sy, X + 36, sy + 24, 0xFF000000 | c);
-        g.renderOutline(X + 6, sy, 30, 24, 0xFFFFFFFF);
+        g.drawString(font, "any colour; warmth = vanilla's own skies", X + 6, Y + 15, 0x9090A0);
+        int sy = y + 90;
+        g.fill(X + 6, sy, X + 36, sy + 22, 0xFF000000 | c);
+        g.renderOutline(X + 6, sy, 30, 22, 0xFFFFFFFF);
         g.drawString(font, String.format("#%06X   RGB %d, %d, %d", c, c >> 16 & 255, c >> 8 & 255, c & 255), X + 42, sy + 2, 0xFFFFFF);
-        g.drawString(font, String.format("biome file: \"sky_color\": %d", c), X + 42, sy + 13, 0xFFFFA0);
-        g.drawString(font, String.format("this biome's own: #%06X (%d)  %s", orig, orig, copied), X + 6, sy + 28, 0x9090A0);
+        g.drawString(font, String.format("biome file: \"sky_color\": %d", c), X + 42, sy + 12, 0xFFFFA0);
+        g.drawString(font, "Type hex:", X + 6, y + 122, 0xFFFFFF);
+        g.drawString(font, String.format("this biome's own: #%06X (%d)  %s", orig, orig, copied), X + 6, y + 168, 0x9090A0);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
@@ -105,8 +136,9 @@ public class SkyColorScreen extends Screen {
 
     // ------------------------------------------------------------- helpers
 
-    /** The temperature whose vanilla sky is this hue and saturation, if they're on vanilla's line. */
-    private static Float warmthFor(float hue, float sat) {
+    /** The temperature whose vanilla sky is this colour, if it's on vanilla's line. */
+    private static Float warmthFor(float hue, float sat, float val) {
+        if (val < 0.995F) return null;
         float t = (0.62222224F - hue) / 0.05F * 3.0F;
         if (t < SkyColor.TEMP_MIN - 0.01F || t > SkyColor.TEMP_MAX + 0.01F) return null;
         return Math.abs(SkyColor.satFor(t) - sat) < 0.004F ? Mth.clamp(t, SkyColor.TEMP_MIN, SkyColor.TEMP_MAX) : null;

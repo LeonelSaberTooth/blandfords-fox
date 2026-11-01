@@ -100,7 +100,9 @@ public final class TaigaFeatures {
                 break;
             }
             int ground = y;
-            if (river) {   // no sand: gravel, bed and banks, a few blocks down
+            // river edges can fall in the land biome's columns: sand by a river is gravel too
+            boolean riverSand = river || level.getBlockState(pos.set(x, ground, z)).is(Blocks.SAND) && nearRiver(level, x, z);
+            if (riverSand) {   // no sand: gravel, bed and banks, a few blocks down
                 for (int k = 0; k < 6; k++) {
                     pos.set(x, ground - k, z);
                     if (level.getBlockState(pos).is(Blocks.SAND)) { level.setBlock(pos, Blocks.GRAVEL.defaultBlockState(), 2); changed = true; }
@@ -120,6 +122,20 @@ public final class TaigaFeatures {
                 level.setBlock(pos, podzol(above.is(BlockTags.SNOW)), 2);
             }
             return true;
+        }
+
+        /** A river within 8 blocks (from the climate, so no chunks are needed). */
+        private static boolean nearRiver(WorldGenLevel level, int x, int z) {
+            ServerLevel server = level.getLevel();
+            var source = server.getChunkSource().getGenerator().getBiomeSource();
+            var sampler = server.getChunkSource().randomState().sampler();
+            for (int r = 4; r <= 8; r += 4)
+                for (int a = 0; a < 8; a++) {
+                    int sx = x + (int) Math.round(r * Math.cos(a * Math.PI / 4)), sz = z + (int) Math.round(r * Math.sin(a * Math.PI / 4));
+                    if (source.getNoiseBiome(QuartPos.fromBlock(sx), QuartPos.fromBlock(64), QuartPos.fromBlock(sz), sampler).is(BiomeTags.IS_RIVER))
+                        return true;
+                }
+            return false;
         }
 
         private static BlockState podzol(boolean snowy) {

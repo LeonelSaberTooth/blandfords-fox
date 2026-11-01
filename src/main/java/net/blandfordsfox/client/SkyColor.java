@@ -2,15 +2,20 @@ package net.blandfordsfox.client;
 
 import net.blandfordsfox.BlandfordsFoxMod;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -59,6 +64,21 @@ public final class SkyColor {
     public static void set(Biome biome, int rgb) {
         ORIGINAL.putIfAbsent(biome, get(biome));
         biome.getSpecialEffects().skyColor = rgb & 0xFFFFFF;
+    }
+
+    // ------------------------------------------------------------- the mod's own sky colours
+
+    /** Sky colours this mod gives biomes (picked with this tool). */
+    public static final Map<ResourceKey<Biome>, Integer> DEFAULTS = Map.of(
+            Biomes.SNOWY_TAIGA, 0xD3DEED);
+
+    /** Sky colour only matters for drawing, so it is set here on the client when a world loads. */
+    @SubscribeEvent
+    public static void levelLoaded(LevelEvent.Load event) {
+        if (!(event.getLevel() instanceof ClientLevel level)) return;
+        ORIGINAL.clear();
+        var biomes = level.registryAccess().registryOrThrow(Registries.BIOME);
+        DEFAULTS.forEach((key, rgb) -> biomes.getOptional(key).ifPresent(b -> b.getSpecialEffects().skyColor = rgb));
     }
 
     // ------------------------------------------------------------- command

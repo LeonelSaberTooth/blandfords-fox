@@ -100,7 +100,7 @@ public final class BlandfordsFoxMod {
         DENSITY_FUNCTIONS.register("negev_detail", () -> NegevDensity.Detail.MAP_CODEC);
         FEATURES.register("negev_paint", () -> new NegevFeatures.Paint(NoneFeatureConfiguration.CODEC));
         FEATURES.register("negev_decorate", () -> new NegevFeatures.Decorate(NoneFeatureConfiguration.CODEC));
-        FEATURES.register("taiga_podzol", () -> new TaigaFeatures.Podzol(NoneFeatureConfiguration.CODEC));
+        FEATURES.register("cold_ground", () -> new TaigaFeatures.Ground(NoneFeatureConfiguration.CODEC));
     }
 
     // Same settings as the vanilla fox, sized down to this smaller model.

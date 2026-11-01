@@ -3,7 +3,10 @@
 - Taiga (minecraft:taiga): trees are 50% spruce, 25% pine (both spruce trees, as vanilla's
   2:1) and 25% birch, every trunk 2 blocks taller than vanilla with the same crown; short
   grass and sugar cane are gone and the grass patches are all ferns; the ground is podzol
-  (taiga_podzol, run last so berry bushes and trees still find grass to grow on first).
+  (cold_ground, run last so berry bushes and trees still find grass to grow on first).
+- Snowy plains: no short grass or sugar cane; snow layer, then a snow block, then podzol.
+- Rivers through either follow the biome around them (cold_ground): gravel for sand, podzol
+  banks, no sugar cane.
 
 Needs the vanilla 1.21.1 worldgen JSON in ../ref/va/wg (from misode/mcmeta).
 """
@@ -72,9 +75,9 @@ def main():
     placed['feature'] = f'{NS}:taiga_ferns'
     ours('placed_feature', 'taiga_ferns', placed)
 
-    # podzol ground
-    ours('configured_feature', 'taiga_podzol', {'type': f'{NS}:taiga_podzol', 'config': {}})
-    ours('placed_feature', 'taiga_podzol', {'feature': f'{NS}:taiga_podzol', 'placement': []})
+    # podzol ground (taiga, snowy plains, and rivers through them)
+    ours('configured_feature', 'cold_ground', {'type': f'{NS}:cold_ground', 'config': {}})
+    ours('placed_feature', 'cold_ground', {'feature': f'{NS}:cold_ground', 'placement': []})
 
     bm = lambda name, obj: put(os.path.join(D, NS, 'neoforge', 'biome_modifier', name + '.json'), obj)
     bm('taiga_remove', {'type': 'neoforge:remove_features', 'biomes': TAIGA,
@@ -82,8 +85,13 @@ def main():
                         'steps': 'vegetal_decoration'})
     bm('taiga_add', {'type': 'neoforge:add_features', 'biomes': TAIGA,
                      'features': [f'{NS}:taiga_trees', f'{NS}:taiga_ferns'], 'step': 'vegetal_decoration'})
-    bm('taiga_podzol', {'type': 'neoforge:add_features', 'biomes': TAIGA,
-                        'features': f'{NS}:taiga_podzol', 'step': 'top_layer_modification'})
+    bm('cold_ground', {'type': 'neoforge:add_features',
+                       'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:river', 'minecraft:frozen_river'],
+                       'features': f'{NS}:cold_ground', 'step': 'top_layer_modification'})
+    # snowy plains: no short grass or sugar cane
+    bm('snowy_plains_remove', {'type': 'neoforge:remove_features', 'biomes': 'minecraft:snowy_plains',
+                               'features': ['minecraft:patch_grass_badlands', 'minecraft:patch_sugar_cane'],
+                               'steps': 'vegetal_decoration'})
     print('heights: spruce', spruce['config']['trunk_placer'], spruce['config']['foliage_placer']['trunk_height'],
           '| pine', pine['config']['trunk_placer'], '| birch', birch['config']['trunk_placer'])
 

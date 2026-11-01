@@ -389,7 +389,7 @@ public final class NegevSelfTest {
 
     /** Taiga ground, plants and trees; birch trunk bases; stripping birch with an axe. */
     private static void taigaTest(ServerLevel level, BlockPos near, StringBuilder report) {
-        for (var biome : java.util.List.of(Biomes.TAIGA, Biomes.SNOWY_TAIGA, Biomes.GROVE, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.BIRCH_FOREST)) {
+        for (var biome : java.util.List.of(Biomes.TAIGA, Biomes.SNOWY_PLAINS, Biomes.SNOWY_TAIGA, Biomes.GROVE, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.BIRCH_FOREST)) {
             try {
                 Pair<BlockPos, Holder<Biome>> found = level.findClosestBiome3d(h -> h.is(biome), near.atY(64), 12000, 32, 64);
                 if (found == null) { report.append(biome.location().getPath()).append(": none found\n"); continue; }
@@ -397,17 +397,27 @@ public final class NegevSelfTest {
                 for (int cx = (c.getX() >> 4) - 6; cx <= (c.getX() >> 4) + 6; cx++)
                     for (int cz = (c.getZ() >> 4) - 6; cz <= (c.getZ() >> 4) + 6; cz++) level.getChunk(cx, cz);
                 java.util.Map<String, Integer> ground = new java.util.TreeMap<>(), plants = new java.util.TreeMap<>();
+                java.util.Map<String, Integer> riverGround = new java.util.TreeMap<>(), riverPlants = new java.util.TreeMap<>();
+                int riverColumns = 0, podzolUnderSnow = 0, podzolUnderSnowNotSnowy = 0;
                 java.util.Map<String, int[]> trees = new java.util.TreeMap<>();   // bottom log -> {count, total height}
                 int columns = 0;
                 BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
                 for (int x = c.getX() - 64; x < c.getX() + 64; x++)
                     for (int z = c.getZ() - 64; z < c.getZ() + 64; z++) {
                         int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
-                        if (!level.getBiome(new BlockPos(x, top, z)).is(biome)) continue;
-                        columns++;
+                        var colBiome = level.getBiome(new BlockPos(x, top, z));
+                        boolean riverCol = colBiome.is(net.minecraft.tags.BiomeTags.IS_RIVER);
+                        if (!colBiome.is(biome) && !riverCol) continue;
+                        var groundMap = riverCol ? riverGround : ground;
+                        var plantMap = riverCol ? riverPlants : plants;
+                        if (riverCol) riverColumns++; else columns++;
                         for (int y = top; y > top - 40; y--) {
                             BlockState st = level.getBlockState(p.set(x, y, z));
                             String id = BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath();
+                            if (st.is(net.minecraft.world.level.block.Blocks.PODZOL) && level.getBlockState(p.above()).is(net.minecraft.tags.BlockTags.SNOW)) {
+                                podzolUnderSnow++;
+                                if (!st.getValue(net.minecraft.world.level.block.SnowyDirtBlock.SNOWY)) podzolUnderSnowNotSnowy++;
+                            }
                             if (st.is(net.minecraft.tags.BlockTags.LOGS)) {
                                 BlockState below = level.getBlockState(p.below());
                                 if (!below.is(net.minecraft.tags.BlockTags.LOGS) && below.isSolid()) {   // bottom of a trunk
@@ -423,11 +433,13 @@ public final class NegevSelfTest {
                             if (st.is(net.minecraft.world.level.block.Blocks.SHORT_GRASS) || st.is(net.minecraft.world.level.block.Blocks.FERN)
                                     || st.is(net.minecraft.world.level.block.Blocks.SUGAR_CANE) || st.is(net.minecraft.world.level.block.Blocks.TALL_GRASS)
                                     || st.is(net.minecraft.world.level.block.Blocks.LARGE_FERN)) {
-                                plants.merge(id, 1, Integer::sum);
+                                plantMap.merge(id, 1, Integer::sum);
                                 continue;
                             }
                             if (st.canBeReplaced() || !st.isSolid() && st.getFluidState().isEmpty()) continue;
-                            ground.merge(id, 1, Integer::sum);
+                            if (st.is(net.minecraft.world.level.block.Blocks.SNOW_BLOCK)
+                                    && level.getBlockState(p.below()).is(net.minecraft.world.level.block.Blocks.PODZOL)) id = "snow_block_on_podzol";
+                            groundMap.merge(id, 1, Integer::sum);
                             break;
                         }
                     }
@@ -435,6 +447,8 @@ public final class NegevSelfTest {
                 trees.forEach((k, v) -> t.append(k).append(' ').append(v[0]).append(String.format(java.util.Locale.ROOT, " (trunk %.1f)", v[1] / (double) v[0])).append(", "));
                 report.append(biome.location().getPath()).append(" near ").append(c.toShortString()).append(": ").append(columns).append(" columns; ground ")
                         .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t)
+                        .append("; podzol under snow ").append(podzolUnderSnow).append(" (not snowy ").append(podzolUnderSnowNotSnowy).append(")")
+                        .append("; river columns ").append(riverColumns).append(" ground ").append(riverGround).append(" plants ").append(riverPlants)
                         .append("; lynxes ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Lynx.class,
                                 new net.minecraft.world.phys.AABB(c).inflate(100, 200, 100), e -> true).size())
                         .append(", caracals ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Caracal.class,

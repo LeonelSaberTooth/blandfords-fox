@@ -86,7 +86,8 @@ def main():
     bm('taiga_add', {'type': 'neoforge:add_features', 'biomes': TAIGA,
                      'features': [f'{NS}:taiga_trees', f'{NS}:taiga_ferns'], 'step': 'vegetal_decoration'})
     bm('cold_ground', {'type': 'neoforge:add_features',
-                       'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:river', 'minecraft:frozen_river'],
+                       'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:river', 'minecraft:frozen_river',
+                                  'minecraft:beach', 'minecraft:snowy_beach'],
                        'features': f'{NS}:cold_ground', 'step': 'top_layer_modification'})
     # snowy plains: no short grass or sugar cane
     bm('snowy_plains_remove', {'type': 'neoforge:remove_features', 'biomes': 'minecraft:snowy_plains',

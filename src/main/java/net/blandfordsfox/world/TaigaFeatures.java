@@ -59,7 +59,8 @@ public final class TaigaFeatures {
                     int x = x0 + dx, z = z0 + dz;
                     int top = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z);
                     Holder<Biome> here = chunk.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(top), QuartPos.fromBlock(z));
-                    boolean river = here.is(BiomeTags.IS_RIVER);
+                    // a river, or the beach where one widens out
+                    boolean river = here.is(BiomeTags.IS_RIVER) || here.is(BiomeTags.IS_BEACH) && nearRiver(level, x, z);
                     Rule rule;
                     if (river) {
                         int cell = (dx >> 2) * 4 + (dz >> 2);
@@ -158,8 +159,9 @@ public final class TaigaFeatures {
                     else if (b.is(Biomes.SNOWY_PLAINS)) snowy++;
                     else other++;
                 }
-            if (taiga > snowy && taiga >= other) return Rule.TAIGA;
-            if (snowy > taiga && snowy >= other) return Rule.SNOWY_PLAINS;
+            // a river along a border follows taiga / snowy plains if they make up a third or more of the land
+            if (taiga > 0 && taiga >= snowy && taiga * 2 >= other) return Rule.TAIGA;
+            if (snowy > 0 && snowy > taiga && snowy * 2 >= other) return Rule.SNOWY_PLAINS;
             return null;
         }
 

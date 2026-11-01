@@ -4,7 +4,9 @@
     "minecraft:taiga",
     "minecraft:snowy_plains",
     "minecraft:river",
-    "minecraft:frozen_river"
+    "minecraft:frozen_river",
+    "minecraft:beach",
+    "minecraft:snowy_beach"
   ],
   "features": "blandfordsfox:cold_ground",
   "step": "top_layer_modification"

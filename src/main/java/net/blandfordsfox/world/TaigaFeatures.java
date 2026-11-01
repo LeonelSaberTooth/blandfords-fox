@@ -170,4 +170,30 @@ public final class TaigaFeatures {
                     || s.is(Blocks.RED_MUSHROOM) || s.is(BlockTags.SAPLINGS);
         }
     }
+
+    /**
+     * Vanilla's underwater sand patches, but gravel in the taiga, the snowy plains and the
+     * rivers through them. (Placed from a neighbouring chunk, a patch can land after that
+     * chunk's ground was done, so Ground alone can't catch it.)
+     */
+    public static final class ColdDisk extends net.minecraft.world.level.levelgen.feature.DiskFeature {
+        public ColdDisk(com.mojang.serialization.Codec<net.minecraft.world.level.levelgen.feature.configurations.DiskConfiguration> codec) {
+            super(codec);
+        }
+
+        @Override
+        public boolean place(FeaturePlaceContext<net.minecraft.world.level.levelgen.feature.configurations.DiskConfiguration> ctx) {
+            WorldGenLevel level = ctx.level();
+            BlockPos o = ctx.origin();
+            Holder<Biome> b = level.getBiome(o);
+            boolean cold = b.is(Biomes.TAIGA) || b.is(Biomes.SNOWY_PLAINS)
+                    || (b.is(BiomeTags.IS_RIVER) || b.is(BiomeTags.IS_BEACH)) && Ground.around(level, o.getX(), o.getZ()) != null;
+            if (!cold) return super.place(ctx);
+            var cfg = ctx.config();
+            var gravel = new net.minecraft.world.level.levelgen.feature.stateproviders.RuleBasedBlockStateProvider(
+                    net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider.simple(Blocks.GRAVEL), cfg.stateProvider().rules());
+            var config = new net.minecraft.world.level.levelgen.feature.configurations.DiskConfiguration(gravel, cfg.target(), cfg.radius(), cfg.halfHeight());
+            return super.place(new FeaturePlaceContext<>(ctx.topFeature(), level, ctx.chunkGenerator(), ctx.random(), o, config));
+        }
+    }
 }

@@ -89,6 +89,18 @@ def main():
                        'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:river', 'minecraft:frozen_river',
                                   'minecraft:beach', 'minecraft:snowy_beach'],
                        'features': f'{NS}:cold_ground', 'step': 'top_layer_modification'})
+    # underwater sand patches: gravel in the cold biomes and their rivers (cold_disk decides)
+    disk = vanilla('configured_feature', 'disk_sand')
+    disk['type'] = f'{NS}:cold_disk'
+    ours('configured_feature', 'disk_sand_or_gravel', disk)
+    placed = vanilla('placed_feature', 'disk_sand')
+    placed['feature'] = f'{NS}:disk_sand_or_gravel'
+    ours('placed_feature', 'disk_sand_or_gravel', placed)
+    cold = [TAIGA, 'minecraft:snowy_plains', 'minecraft:river', 'minecraft:frozen_river']
+    bm('disk_sand_remove', {'type': 'neoforge:remove_features', 'biomes': cold, 'features': 'minecraft:disk_sand',
+                            'steps': 'underground_ores'})
+    bm('disk_sand_or_gravel', {'type': 'neoforge:add_features', 'biomes': cold, 'features': f'{NS}:disk_sand_or_gravel',
+                               'step': 'underground_ores'})
     # snowy plains: no short grass or sugar cane
     bm('snowy_plains_remove', {'type': 'neoforge:remove_features', 'biomes': 'minecraft:snowy_plains',
                                'features': ['minecraft:patch_grass_badlands', 'minecraft:patch_sugar_cane'],

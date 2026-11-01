@@ -72,6 +72,22 @@ public class Caracal extends Ocelot implements GeoEntity {
         return pos.getY() >= level.getSeaLevel() && level.getBlockState(pos.below()).is(SPAWNABLE_ON);
     }
 
+    /** The blocks it spawns on (the vanilla ocelot only allows grass blocks and leaves). */
+    protected TagKey<Block> spawnableOn() {
+        return SPAWNABLE_ON;
+    }
+
+    /**
+     * Vanilla's ocelot check, but on this cat's own ground: room to stand, no liquid, at or
+     * above sea level, on one of {@link #spawnableOn()}.
+     */
+    @Override
+    public boolean checkSpawnObstruction(net.minecraft.world.level.LevelReader level) {
+        if (!level.isUnobstructed(this) || level.containsAnyLiquid(getBoundingBox())) return false;
+        BlockPos pos = blockPosition();
+        return pos.getY() >= level.getSeaLevel() && level.getBlockState(pos.below()).is(spawnableOn());
+    }
+
     // ------------------------------------------------------------- gaits & speed
     //
     // Each moving animation's ground speed (how fast its paws travel back while on the

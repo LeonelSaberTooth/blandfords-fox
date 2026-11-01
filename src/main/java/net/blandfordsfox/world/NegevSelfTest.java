@@ -436,7 +436,9 @@ public final class NegevSelfTest {
                 report.append(biome.location().getPath()).append(" near ").append(c.toShortString()).append(": ").append(columns).append(" columns; ground ")
                         .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t)
                         .append("; lynxes ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Lynx.class,
-                                new net.minecraft.world.phys.AABB(c).inflate(100, 200, 100), e -> true).size()).append('\n');
+                                new net.minecraft.world.phys.AABB(c).inflate(100, 200, 100), e -> true).size())
+                        .append(", caracals ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Caracal.class,
+                                new net.minecraft.world.phys.AABB(c).inflate(100, 200, 100), e -> !(e instanceof net.blandfordsfox.entity.Lynx)).size()).append('\n');
             } catch (Throwable t) {
                 report.append(biome.location().getPath()).append(" test failed: ").append(t).append('\n');
             }

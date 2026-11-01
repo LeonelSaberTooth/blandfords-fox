@@ -33,6 +33,11 @@ public class Lynx extends Caracal {
     }
 
     @Override
+    protected TagKey<Block> spawnableOn() {
+        return SPAWNABLE_ON;
+    }
+
+    @Override
     protected String animationName() {
         return "lynx";
     }

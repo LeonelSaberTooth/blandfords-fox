@@ -24,11 +24,11 @@ public final class BirchStripping {
     public static void onStrip(BlockEvent.BlockToolModificationEvent event) {
         if (event.getItemAbility() != ItemAbilities.AXE_STRIP || event.isCanceled()) return;
         BlockState state = event.getState();
-        boolean base = state.is(BlandfordsFoxMod.BIRCH_TRUNK_BASE.get());
-        if (!base && !state.is(Blocks.BIRCH_LOG)) return;
-        if (base) event.setFinalState(Blocks.STRIPPED_BIRCH_LOG.defaultBlockState()
+        if (!state.is(BlandfordsFoxMod.BIRCH_TRUNK_BASE.get()) && !state.is(Blocks.BIRCH_LOG)) return;
+        // NeoForge asks before working out vanilla's stripped state, so set it here for both
+        event.setFinalState(Blocks.STRIPPED_BIRCH_LOG.defaultBlockState()
                 .setValue(RotatedPillarBlock.AXIS, state.getValue(RotatedPillarBlock.AXIS)));
-        if (event.isSimulated() || event.getFinalState() == null || event.getFinalState() == state) return;
+        if (event.isSimulated()) return;
         if (event.getLevel() instanceof Level level && !level.isClientSide) {
             Direction face = event.getContext() != null ? event.getContext().getClickedFace() : Direction.UP;
             Block.popResourceFromFace(level, event.getPos(), face, new ItemStack(Items.PAPER));

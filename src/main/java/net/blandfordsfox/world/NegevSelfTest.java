@@ -439,6 +439,26 @@ public final class NegevSelfTest {
             }
         }
         try {
+            // grow a vanilla birch tree by hand and look at its bottom log
+            var reg = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.CONFIGURED_FEATURE);
+            var key = net.minecraft.resources.ResourceLocation.withDefaultNamespace("birch");
+            var feature = reg.get(key);
+            String decorators = feature != null && feature.config() instanceof net.minecraft.world.level.levelgen.feature.configurations.TreeConfiguration tc
+                    ? tc.decorators.toString() : String.valueOf(feature);
+            int[] before = TaigaFeatures.BirchBase.STATS.clone();
+            BlockPos spot = drySpot(level, near, 80);
+            level.setBlock(spot.below(), net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+            boolean placed = feature != null && feature.place(level, level.getChunkSource().getGenerator(), level.getRandom(), spot);
+            report.append("birch tree by hand: decorators ").append(decorators).append(", placed ").append(placed)
+                    .append(", bottom log ").append(BuiltInRegistries.BLOCK.getKey(level.getBlockState(spot).getBlock()).getPath())
+                    .append(", decorator calls ").append(TaigaFeatures.BirchBase.STATS[0] - before[0])
+                    .append(" logs ").append(TaigaFeatures.BirchBase.STATS[1] - before[1])
+                    .append(" swapped ").append(TaigaFeatures.BirchBase.STATS[2] - before[2])
+                    .append("; all worldgen so far: ").append(java.util.Arrays.toString(TaigaFeatures.BirchBase.STATS)).append('\n');
+        } catch (Throwable t) {
+            report.append("birch tree test failed: ").append(t).append('\n');
+        }
+        try {
             var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
             int y = level.getMaxBuildHeight() - 20;
             String out = "";

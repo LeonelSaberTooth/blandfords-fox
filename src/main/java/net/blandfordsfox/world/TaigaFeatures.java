@@ -76,15 +76,20 @@ public final class TaigaFeatures {
             return BlandfordsFoxMod.BIRCH_BASE_DECORATOR.get();
         }
 
+        /** For the self-test: calls, logs seen, logs swapped. */
+        public static final int[] STATS = new int[3];
+
         @Override
         public void place(Context ctx) {
+            STATS[0]++;
+            STATS[1] += ctx.logs().size();
             if (ctx.logs().isEmpty()) return;
             int low = Integer.MAX_VALUE;
             for (BlockPos p : ctx.logs()) low = Math.min(low, p.getY());
             BlockState base = BlandfordsFoxMod.BIRCH_TRUNK_BASE.get().defaultBlockState()
                     .setValue(RotatedPillarBlock.AXIS, net.minecraft.core.Direction.Axis.Y);
             for (BlockPos p : ctx.logs())
-                if (p.getY() == low && ctx.level().isStateAtPosition(p, s -> s.is(Blocks.BIRCH_LOG))) ctx.setBlock(p, base);
+                if (p.getY() == low && ctx.level().isStateAtPosition(p, s -> s.is(Blocks.BIRCH_LOG))) { ctx.setBlock(p, base); STATS[2]++; }
         }
     }
 }

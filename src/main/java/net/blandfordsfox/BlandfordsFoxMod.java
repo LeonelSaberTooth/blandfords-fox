@@ -3,7 +3,6 @@ package net.blandfordsfox;
 import com.mojang.serialization.MapCodec;
 import net.blandfordsfox.entity.BlandfordsFox;
 import net.blandfordsfox.entity.Caracal;
-import net.blandfordsfox.entity.Hare;
 import net.blandfordsfox.entity.Hyena;
 import net.blandfordsfox.entity.Lynx;
 import net.blandfordsfox.entity.Onager;
@@ -141,17 +140,6 @@ public final class BlandfordsFoxMod {
     public static final DeferredItem<Item> HYENA_SPAWN_EGG = ITEMS.register("hyena_spawn_egg",
             () -> new DeferredSpawnEggItem(HYENA, 0xC9B79C, 0x4A3F35, new Item.Properties()));
 
-    // Rabbit settings, sized to the hare model (longer legs and ears than a rabbit).
-    public static final DeferredHolder<EntityType<?>, EntityType<Hare>> HARE = ENTITIES.register("hare",
-            () -> EntityType.Builder.of(Hare::new, MobCategory.CREATURE)
-                    .sized(0.5F, 0.8F)
-                    .eyeHeight(0.7F)
-                    .clientTrackingRange(8)
-                    .build(MOD_ID + ":hare"));
-
-    public static final DeferredItem<Item> HARE_SPAWN_EGG = ITEMS.register("hare_spawn_egg",
-            () -> new DeferredSpawnEggItem(HARE, 0xC8A878, 0x6E5238, new Item.Properties()));
-
     // Donkey settings: the onager is a donkey in all but looks.
     public static final DeferredHolder<EntityType<?>, EntityType<Onager>> ONAGER = ENTITIES.register("onager",
             () -> EntityType.Builder.of(Onager::new, MobCategory.CREATURE)
@@ -202,7 +190,6 @@ public final class BlandfordsFoxMod {
         event.put(BLANDFORDS_FOX.get(), BlandfordsFox.createAttributes().build());
         event.put(CARACAL.get(), Caracal.createAttributes().build());
         event.put(HYENA.get(), Hyena.createAttributes().build());
-        event.put(HARE.get(), Hare.createAttributes().build());
         event.put(ONAGER.get(), Onager.createBaseChestedHorseAttributes().build());
         event.put(PARTRIDGE.get(), Partridge.createAttributes().build());
         event.put(LYNX.get(), Lynx.createAttributes().build());
@@ -215,8 +202,6 @@ public final class BlandfordsFoxMod {
                 Caracal::checkCaracalSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
         event.register(HYENA.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 Hyena::checkHyenaSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
-        event.register(HARE.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                Hare::checkHareSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
         event.register(ONAGER.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 Onager::checkOnagerSpawnRules, RegisterSpawnPlacementsEvent.Operation.REPLACE);
         event.register(PARTRIDGE.get(), SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
@@ -245,7 +230,6 @@ public final class BlandfordsFoxMod {
             event.accept(SPAWN_EGG);
             event.accept(CARACAL_SPAWN_EGG);
             event.accept(HYENA_SPAWN_EGG);
-            event.accept(HARE_SPAWN_EGG);
             event.accept(ONAGER_SPAWN_EGG);
             event.accept(PARTRIDGE_SPAWN_EGG);
             event.accept(LYNX_SPAWN_EGG);

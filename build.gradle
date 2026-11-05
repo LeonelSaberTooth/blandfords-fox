@@ -42,6 +42,15 @@ neoForge {
             gameDirectory = project.file('run-selftest')
             systemProperty 'blandfordsfox.selftest', 'selftest'
         }
+        // Opens a copy of the test world in a real client, screenshots rabbits and birch logs with the
+        // resource pack (and EMF/ETF, put in run-clienttest/mods by CI), then quits (see ClientSelfTest)
+        clienttest {
+            client()
+            gameDirectory = project.file('run-clienttest')
+            systemProperty 'blandfordsfox.clienttest', 'true'
+            programArgument '--quickPlaySingleplayer'
+            programArgument 'test'
+        }
     }
 
     mods {

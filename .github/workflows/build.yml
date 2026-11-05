@@ -102,3 +102,31 @@ jobs:
         run: |
           gh release delete selftest --yes --cleanup-tag || true
           gh release create selftest selftest.zip --prerelease --title "World generation test" --notes "Blocks from a test world, for checking the desert terrain."
+
+      - name: Client test (screenshots with the resource pack)
+        if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[client]')
+        run: |
+          sudo apt-get update -q >/dev/null && sudo apt-get install -yq xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils >/dev/null
+          D=run-clienttest; rm -rf $D; mkdir -p $D/mods $D/saves $D/resourcepacks clientshots
+          cp -r run-selftest/world $D/saves/test
+          for p in entity-model-features entitytexturefeatures; do
+            url=$(curl -s "https://api.modrinth.com/v2/project/$p/version?loaders=%5B%22neoforge%22%5D&game_versions=%5B%221.21.1%22%5D" | jq -r '[.[] | select(.version_type=="release")][0].files[] | select(.primary) | .url')
+            echo "$p: $url" | tee -a clientshots/mods.txt
+            curl -sL -o $D/mods/$p.jar "$url"
+          done
+          cp -r resourcepack/MiddleEast $D/resourcepacks/MiddleEast
+          printf 'resourcePacks:["vanilla","mod_resources","file/MiddleEast"]\nonboardAccessibility:false\ntutorialStep:none\npauseOnLostFocus:false\nrenderDistance:5\nsimulationDistance:5\nfov:0.0\nsoundCategory_master:0.0\njoinedFirstServer:true\nskipMultiplayerWarning:true\n' > $D/options.txt
+          export LIBGL_ALWAYS_SOFTWARE=1
+          timeout 1800 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClienttest --stacktrace > clienttest.log 2>&1 || true
+          cp $D/screenshots/*.png clientshots/ 2>/dev/null || true
+          cp clienttest.log clientshots/ ; cp $D/logs/latest.log clientshots/ 2>/dev/null || true
+          grep -iE "emf|etf|entity_model|entity_texture|jem|clienttest" $D/logs/latest.log | head -400 > clientshots/emf.txt || true
+          cd clientshots && zip -qr ../clienttest.zip .
+
+      - name: Publish the client test
+        if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[client]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete clienttest --yes --cleanup-tag || true
+          gh release create clienttest clienttest.zip --prerelease --title "Client test" --notes "Screenshots from a real client with the resource pack."

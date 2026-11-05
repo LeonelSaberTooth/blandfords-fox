@@ -191,7 +191,7 @@ public final class NegevSelfTest {
         }
     }
 
-    /** Where hares, onagers and rabbits ended up, how a hare moves, and what onagers breed. */
+    /** Where onagers and rabbits ended up, and what onagers breed. */
     private static void animalTest(ServerLevel level, BlockPos near, net.minecraft.world.phys.AABB box, StringBuilder report) {
         try {
             // snowy plains: generate an area so its animals spawn
@@ -208,44 +208,12 @@ public final class NegevSelfTest {
                 for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Animal.class, b, e -> true)) {
                     String biome = level.getBiome(e.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("?");
                     String what = BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath();
-                    if (e instanceof net.blandfordsfox.entity.Hare hare) what += "/" + hare.getCoat().name().toLowerCase();
-                    if (!what.startsWith("hare") && !what.equals("rabbit") && !what.equals("onager")) continue;
+                    if (e instanceof net.minecraft.world.entity.animal.Rabbit rabbit) what += "/" + rabbit.getVariant().getSerializedName();
+                    if (!what.startsWith("rabbit") && !what.equals("onager")) continue;
                     count.merge(what + " in " + biome, 1, Integer::sum);
                 }
                 report.append(b == box ? "animals around the desert: " : "animals around snowy plains: ").append(count).append('\n');
             }
-
-            // a hare asked to run 24 blocks: ground speed, and whether it hops or runs
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, near.getX(), near.getZ());
-            net.blandfordsfox.entity.Hare hare = BlandfordsFoxMod.HARE.get().create(level);
-            hare.moveTo(near.getX() + 0.5, y, near.getZ() + 0.5, 0, 0);
-            level.addFreshEntity(hare);
-            for (int i = 0; i < 20; i++) { hare.tickCount++; hare.tick(); }
-            for (double mod : new double[] {0.6, 2.2}) {
-                net.minecraft.world.phys.Vec3 start = hare.position();
-                hare.getNavigation().moveTo(start.x + 24, start.y, start.z, mod);
-                int airborne = 0, ticks = 0, movingTicks = 0, bounds = 0;
-                double moved = 0, movingDist = 0;
-                boolean wasMoving = false;
-                for (int i = 0; i < 200 && !hare.getNavigation().isDone(); i++) {
-                    double x0 = hare.getX(), z0 = hare.getZ();
-                    hare.tickCount++;   // the level does this when it ticks an entity
-                    hare.tick();
-                    double step = Math.hypot(hare.getX() - x0, hare.getZ() - z0);
-                    boolean moving = step > 0.03;
-                    if (i >= 10) {
-                        moved += step; ticks++;
-                        if (!hare.onGround()) airborne++;
-                        if (moving) { movingTicks++; movingDist += step; if (!wasMoving) bounds++; }
-                    }
-                    wasMoving = moving;
-                }
-                report.append(String.format(java.util.Locale.ROOT,
-                        "hare run (speed x%.1f): average %.2f blocks/s, %.2f blocks/s while moving, moving %d of %d ticks in %d bounds, airborne %d, got %.1f blocks%n",
-                        mod, ticks > 0 ? moved / ticks * 20 : 0, movingTicks > 0 ? movingDist / movingTicks * 20 : 0,
-                        movingTicks, ticks, bounds, airborne, hare.position().distanceTo(start)));
-            }
-            hare.discard();
 
             // onager foals
             var a = BlandfordsFoxMod.ONAGER.get().create(level);

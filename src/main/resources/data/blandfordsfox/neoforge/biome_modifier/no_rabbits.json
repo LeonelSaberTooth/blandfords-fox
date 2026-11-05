@@ -1,9 +1,0 @@
-{
-  "type": "neoforge:remove_spawns",
-  "biomes": [
-    "minecraft:desert",
-    "minecraft:snowy_plains",
-    "minecraft:snowy_taiga"
-  ],
-  "entity_types": "minecraft:rabbit"
-}

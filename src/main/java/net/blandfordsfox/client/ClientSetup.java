@@ -16,7 +16,6 @@ public final class ClientSetup {
         event.registerEntityRenderer(BlandfordsFoxMod.CARACAL.get(), CaracalRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.LYNX.get(), ctx -> new CaracalRenderer(ctx, "lynx", 0.45F));
         event.registerEntityRenderer(BlandfordsFoxMod.HYENA.get(), HyenaRenderer::new);
-        event.registerEntityRenderer(BlandfordsFoxMod.HARE.get(), HareRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.ONAGER.get(), OnagerRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.PARTRIDGE.get(), PartridgeRenderer::new);
     }

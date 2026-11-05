@@ -229,6 +229,5 @@ def check_birch():
 
 if __name__ == '__main__':
     bricks()
-    birch()
-    check_birch()
+    # (the birch log variation now lives in the resource pack: tools/gen_resource_pack.py)
     print('done')

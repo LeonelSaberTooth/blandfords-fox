@@ -13,6 +13,7 @@ import java.util.EnumSet;
 /** Walks a free village maiden to where her day says she should be (see {@link Schedule}). */
 final class ScheduleGoal extends Goal {
     private final Maiden m;
+    private int cooldown;
     @Nullable private BlockPos to;
     private Schedule.Activity activity = Schedule.Activity.MORNING;
     private int repath, ticks;
@@ -26,7 +27,9 @@ final class ScheduleGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (m.tickCount % 20 != 0 || !m.hasVillageDuties() || !m.isFree() || m.isSleeping() || m.getTarget() != null) return false;
+        if (--cooldown > 0) return false;
+        cooldown = 10;     // (goals are only checked every other tick, so not tickCount % n)
+        if (!m.hasVillageDuties() || !m.isFree() || m.isSleeping() || m.getTarget() != null) return false;
         activity = Schedule.now(m);
         to = Schedule.place(m, activity);
         return to != null && !there();

@@ -23,6 +23,7 @@ final class VillageChoreGoal extends Goal {
     private static final int GIVE_UP = 600;
 
     private final Maiden m;
+    private int cooldown;
     @Nullable private Chore chore;
     private int ticks, repath, noPath;
     /** Closest she got so far, and when she last got closer. */
@@ -36,7 +37,9 @@ final class VillageChoreGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (m.tickCount % 20 != 0 || !m.hasVillageDuties() || !m.isFree() || m.isSleeping() || Schedule.now(m) == Schedule.Activity.SLEEP) return false;
+        if (--cooldown > 0) return false;
+        cooldown = 10;     // (goals are only checked every other tick, so not tickCount % n)
+        if (!m.hasVillageDuties() || !m.isFree() || m.isSleeping() || Schedule.now(m) == Schedule.Activity.SLEEP) return false;
         chore = Upkeep.take(m);
         return chore != null;
     }

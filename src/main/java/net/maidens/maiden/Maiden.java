@@ -2,6 +2,8 @@ package net.maidens.maiden;
 
 import net.maidens.maiden.ai.MaidenAi;
 import net.maidens.maiden.home.Residence;
+import net.maidens.maiden.home.Schedule;
+import net.maidens.maiden.social.Wishes;
 import net.maidens.maiden.social.Dialogue;
 import net.maidens.maiden.social.Relationships;
 import net.maidens.maiden.trade.MaidenTrading;
@@ -54,7 +56,8 @@ import java.util.UUID;
  *   <li>{@link Relationships}: affection per player, talking, gifts, marriage</li>
  *   <li>{@link Employment}: being hired, her jobs and her bag</li>
  *   <li>{@link MaidenTrading}: her trades and trade levels</li>
- *   <li>{@link Residence}: her village, bed, workstation and profession</li>
+ *   <li>{@link Residence}: her village, bed, workstation and profession; {@link Schedule}: her day</li>
+ *   <li>{@link Wishes}: her request on the village's requests board</li>
  *   <li>{@link MaidenMenu}: the right-click menu and its buttons</li>
  *   <li>{@link MaidenAi}: all her goals, in priority order</li>
  * </ul>
@@ -67,6 +70,9 @@ public class Maiden extends AbstractVillager {
     private final Employment employment = new Employment(this);
     private final MaidenTrading trading = new MaidenTrading(this);
     private final Residence residence = new Residence(this);
+    private final Wishes wishes = new Wishes(this);
+    /** Fighting for her village in a raid (checked every 2 s). */
+    private boolean defending;
 
     private boolean initialised;
     private Personality personality = Personality.SWEET;
@@ -105,6 +111,10 @@ public class Maiden extends AbstractVillager {
 
     public Residence residence() {
         return residence;
+    }
+
+    public Wishes wishes() {
+        return wishes;
     }
 
     // ------------------------------------------------------------------ who she is
@@ -180,9 +190,25 @@ public class Maiden extends AbstractVillager {
         return residence.inVillage() && !employment.isWorking() && !relationships.isMarried();
     }
 
-    /** Fights monsters: a hired guard. */
+    /** Fights monsters: a hired guard, or a village maiden defending her village in a raid. */
     public boolean isFighter() {
-        return employment.isGuarding();
+        return employment.isGuarding() || defending;
+    }
+
+    /** A raid on her village: free village maidens (and guards) take up a sword; when it's over, they put it away. */
+    private void updateDefending() {
+        boolean raid = residence.inVillage() && (hasVillageDuties() || employment.isGuarding()) && level() instanceof ServerLevel sl
+                && sl.getRaidAt(blockPosition()) != null && sl.getRaidAt(blockPosition()).isActive();
+        if (raid == defending) return;
+        defending = raid;
+        if (employment.isWorking()) return;
+        if (raid) {
+            if (isSleeping()) stopSleeping();
+            if (getMainHandItem().isEmpty()) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
+        } else if (getMainHandItem().is(Items.IRON_SWORD)) {
+            setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+            setTarget(null);
+        }
     }
 
     @Nullable
@@ -254,6 +280,9 @@ public class Maiden extends AbstractVillager {
         employment.tick();
         trading.tick();
         residence.tick();
+        wishes.tick();
+        Schedule.tick(this);
+        if (tickCount % 40 == 0) updateDefending();
         if (tickCount % 20 == 0) updateRestriction();
         if (tickCount % 100 == 0 && getHealth() < getMaxHealth() && getTarget() == null) heal(1.0F);
     }
@@ -262,6 +291,8 @@ public class Maiden extends AbstractVillager {
     private void updateRestriction() {
         Job job = employment.job();
         if (job == Job.GUARD) clearRestriction();
+        else if (hasVillageDuties() && VillageSocial.villageOf(this) instanceof net.maidens.village.VillageRecord v)
+            restrictTo(v.centre(), Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 24);
         else if (job.atWorkSpot() && employment.workPos() != null) restrictTo(employment.workPos(), job == Job.MINE ? 96 : 24);
         else if (home != null) restrictTo(home, 16);
         else clearRestriction();
@@ -276,6 +307,7 @@ public class Maiden extends AbstractVillager {
             return super.mobInteract(player, hand);
         }
         if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+        if (isSleeping()) stopSleeping();
         if (player instanceof ServerPlayer sp) MaidenMenu.open(this, sp);
         return InteractionResult.sidedSuccess(level().isClientSide);
     }
@@ -403,6 +435,7 @@ public class Maiden extends AbstractVillager {
         employment.save(tag);
         trading.save(tag);
         residence.save(tag);
+        wishes.save(tag);
     }
 
     @Override
@@ -416,6 +449,7 @@ public class Maiden extends AbstractVillager {
         employment.load(tag);
         trading.load(tag);
         residence.load(tag);
+        wishes.load(tag);
     }
 
     /** For the test command: a one-line summary of her. */

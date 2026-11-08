@@ -37,6 +37,9 @@ public final class VillageRecord {
     public String style = "plains";
     /** The last building started (its short name), for the village info. */
     public String project = "";
+    /** The village bell, where maidens gather in the evening (found in the blueprint; not saved). */
+    private BlockPos bell;
+    private boolean bellLooked;
     /** When the last new maiden moved in (game time). */
     long lastArrival = Long.MIN_VALUE / 2;
     /** What needs fixing right now (not saved: found again by the scan after a restart). */
@@ -52,6 +55,18 @@ public final class VillageRecord {
 
     public BlockPos centre() {
         return box.getCenter();
+    }
+
+    public BlockPos bell() {
+        if (!bellLooked || bell == null && blueprint.recordedPieces() < blueprint.pieceCount()) {
+            bellLooked = blueprint.recordedPieces() == blueprint.pieceCount();
+            BlockPos[] found = {null};
+            blueprint.forEachBlock((p, s) -> {
+                if (found[0] == null && s.is(net.minecraft.world.level.block.Blocks.BELL)) found[0] = p;
+            });
+            bell = found[0];
+        }
+        return bell;
     }
 
     public boolean isCitizen(UUID player) {

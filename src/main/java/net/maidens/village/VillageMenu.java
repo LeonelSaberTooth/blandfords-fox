@@ -1,5 +1,6 @@
 package net.maidens.village;
 
+import net.maidens.maiden.Maiden;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -24,6 +25,13 @@ public final class VillageMenu {
         p.sendSystemMessage(Component.literal("~ " + v.name + " ~").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         p.sendSystemMessage(Component.literal(citizen ? "You are a citizen here." : "You're a visitor. Citizens are those the maidens like, trade with often, or marry.")
                 .withStyle(ChatFormatting.GRAY));
+        StringBuilder board = new StringBuilder();
+        for (Maiden m : VillageSocial.residents(level, v)) {
+            String wish = m.wishes().describe();
+            if (!wish.isEmpty()) board.append(board.isEmpty() ? "" : "; ").append(m.name()).append(": ").append(wish);
+        }
+        p.sendSystemMessage(Component.literal(board.isEmpty() ? "Requests board: nobody needs anything right now." : "Requests board: " + board)
+                .withStyle(ChatFormatting.GREEN));
         if (v.blueprint.isBuilding()) {
             String what = v.project.startsWith(v.style + "_") ? v.project.substring(v.style.length() + 1) : v.project;
             p.sendSystemMessage(Component.literal("The maidens are building: " + what.replace('_', ' ') + ". One building at a time.")

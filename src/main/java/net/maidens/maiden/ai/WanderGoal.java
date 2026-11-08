@@ -14,6 +14,6 @@ final class WanderGoal extends WaterAvoidingRandomStrollGoal {
 
     @Override
     public boolean canUse() {
-        return !m.employment().isWorking() && super.canUse();
+        return !m.employment().isWorking() && !m.isSleeping() && super.canUse();
     }
 }

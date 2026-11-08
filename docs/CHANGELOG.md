@@ -9,6 +9,11 @@
 - Gossip: what you do to one maiden can reach the others.
 - Citizenship per village (liked by all, 30 trades, or marrying a resident), with the "One of Us" advancement.
   Citizens can change the village freely. Commands: `/maiden village`, `/maiden village citizen`.
+- Maidens repair broken or blown-up village blocks (after 30 s) and clear things put on roads.
+- Bedless maidens get a new vanilla house of the village's style, built block by block, with a road to it.
+  Free beds bring new maidens (one a day). Citizens pick buildings from the bell (or `/village`).
+- Free village maidens keep a daily routine (work, evening at the bell, sleep in bed), post requests for items
+  (paid in emeralds), and take up swords when their village is raided.
 - Fix: a crash when a hired maiden started working (her work tasks were made before her job existed).
 
 ## 0.2.0

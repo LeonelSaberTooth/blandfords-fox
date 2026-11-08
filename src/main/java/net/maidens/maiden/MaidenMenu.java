@@ -27,7 +27,10 @@ public final class MaidenMenu {
         m.startTalking(p);
         String reply = switch (action) {
             case ActionPayload.CHAT, ActionPayload.JOKE, ActionPayload.COMPLIMENT, ActionPayload.FLIRT -> m.relationships().talk(p, action);
-            case ActionPayload.GIFT -> m.relationships().gift(p);
+            case ActionPayload.GIFT -> {
+                String done = m.wishes().fulfil(p);      // what she asked for on the requests board
+                yield done != null ? done : m.relationships().gift(p);
+            }
             case ActionPayload.TRADE -> { m.trading().open(p); yield null; }
             case ActionPayload.BAG -> m.employment().openBag(p);
             case ActionPayload.HIRE -> m.employment().hire(p, Job.byId(arg));

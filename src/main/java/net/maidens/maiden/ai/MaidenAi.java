@@ -30,6 +30,7 @@ public final class MaidenAi {
         goals.addGoal(3, new FollowEmployerGoal(m));
         goals.addGoal(4, new WorkGoal(m));
         goals.addGoal(4, new VillageChoreGoal(m));          // only when not hired or married
+        goals.addGoal(5, new ScheduleGoal(m));              // a free village maiden's day
         goals.addGoal(5, new MoveTowardsRestrictionGoal(m, 0.6));
         goals.addGoal(6, new OpenDoorGoal(m, true));
         goals.addGoal(7, new WanderGoal(m));

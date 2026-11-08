@@ -1,6 +1,7 @@
 package net.maidens.maiden.ai;
 
 import net.maidens.maiden.Maiden;
+import net.maidens.maiden.home.Schedule;
 import net.maidens.village.Chore;
 import net.maidens.village.Upkeep;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -32,7 +33,7 @@ final class VillageChoreGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (m.tickCount % 20 != 0 || !m.hasVillageDuties() || !m.isFree()) return false;
+        if (m.tickCount % 20 != 0 || !m.hasVillageDuties() || !m.isFree() || m.isSleeping() || Schedule.now(m) == Schedule.Activity.SLEEP) return false;
         chore = Upkeep.take(m);
         return chore != null;
     }

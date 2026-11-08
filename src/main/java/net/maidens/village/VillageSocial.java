@@ -71,8 +71,13 @@ public final class VillageSocial {
         if (v != null) makeCitizen((ServerLevel) m.level(), v, p);
     }
 
-    /** Her greeting, with the village's welcome for strangers and neighbours. */
+    /** Her greeting, with the village's welcome for strangers and neighbours, and her request if she has one. */
     public static String greeting(Maiden m, Player p) {
+        String wish = m.wishes().describe();
+        return welcome(m, p) + (wish.isEmpty() ? "" : " If you have " + wish + ", I'd be grateful.");
+    }
+
+    private static String welcome(Maiden m, Player p) {
         String base = m.relationships().greeting(p);
         VillageRecord v = villageOf(m);
         if (v == null || m.relationships().isMarriedTo(p)) return base;

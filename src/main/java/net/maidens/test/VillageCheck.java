@@ -4,6 +4,12 @@ import com.mojang.datafixers.util.Pair;
 import net.maidens.maiden.Maiden;
 import net.maidens.maiden.home.Residence;
 import net.maidens.core.MaidensConfig;
+import net.maidens.maiden.MaidenMenu;
+import net.maidens.network.ActionPayload;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.raid.Raid;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.maidens.village.Buildings;
 import net.maidens.village.Housing;
 import net.maidens.village.Upkeep;
@@ -127,8 +133,19 @@ final class VillageCheck {
             case 2 -> {
                 if (house(level, st)) next(t, () -> arrival(level));
             }
-            default -> {
+            case 3 -> {
                 arrived(level);
+                next(t, () -> night(level));
+            }
+            case 4 -> {
+                bedtime(level);
+                wishes(level);
+                next(t, () -> raid(level));
+            }
+            case 5 -> {
+                if (raidCheck(level, st)) return true;
+            }
+            default -> {
                 return true;
             }
         }
@@ -176,6 +193,65 @@ final class VillageCheck {
         if (record == null) return;
         newcomer = Housing.arrive(level, record);
         log.accept("newcomer: " + (newcomer == null ? "none (no free bed)" : newcomer.name() + " arrived at " + newcomer.blockPosition().toShortString()));
+    }
+
+    // ------------------------------------------------------------------ Phase 5: their day, requests, raids
+
+    private void night(ServerLevel level) {
+        level.setDayTime(12500);
+        log.accept("schedule: night falls (time 12500)");
+    }
+
+    private void bedtime(ServerLevel level) {
+        List<Maiden> rs = VillageSocial.residents(level, record);
+        int free = 0, withBed = 0, asleep = 0;
+        for (Maiden m : rs) {
+            if (!m.hasVillageDuties()) continue;
+            free++;
+            if (m.residence().bed() != null) withBed++;
+            if (m.isSleeping()) asleep++;
+        }
+        log.accept("  after 400 ticks: " + asleep + " asleep of " + free + " free residents (" + withBed + " with a bed)");
+        level.setDayTime(1000);
+    }
+
+    private void wishes(ServerLevel level) {
+        List<Maiden> rs = VillageSocial.residents(level, record);
+        if (rs.isEmpty()) return;
+        int open = 0;
+        for (Maiden m : rs) if (m.wishes().item() != null) open++;
+        Maiden m = rs.get(0);
+        m.wishes().setForTest(Items.BREAD, 5);
+        tester.getInventory().clearContent();
+        tester.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 3));
+        int before = m.relationships().affection(tester);
+        MaidenMenu.handle(m, tester, ActionPayload.GIFT, 0);
+        String shortReply = "bread x3 -> still wants " + (m.wishes().item() != null);
+        tester.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 5));
+        MaidenMenu.handle(m, tester, ActionPayload.GIFT, 0);
+        log.accept("requests: " + open + " open requests on the board; " + shortReply + "; bread x5 -> still wants " + (m.wishes().item() != null)
+                + ", emeralds " + tester.getInventory().countItem(Items.EMERALD) + ", affection " + before + " -> " + m.relationships().affection(tester));
+    }
+
+    private void raid(ServerLevel level) {
+        BlockPos at = record.bell() != null ? record.bell() : record.centre();
+        tester.moveTo(at.getX() + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ()), at.getZ() + 0.5);
+        Raid raid = level.getRaids().createOrExtendRaid(tester, at);
+        log.accept("raid: " + (raid == null ? "couldn't start one here" : "started at " + at.toShortString()));
+    }
+
+    private boolean raidCheck(ServerLevel level, int t) {
+        List<Maiden> rs = VillageSocial.residents(level, record);
+        int fighters = 0, armed = 0;
+        for (Maiden m : rs) {
+            if (m.isFighter()) fighters++;
+            if (!m.getMainHandItem().isEmpty()) armed++;
+        }
+        Raid raid = level.getRaidAt(record.centre());
+        int raiders = raid == null ? 0 : raid.getTotalRaidersAlive();
+        log.accept("  after " + t + " ticks: " + fighters + " of " + rs.size() + " residents fighting (" + armed + " armed), "
+                + (raid == null ? "no raid" : "raid " + (raid.isActive() ? "active" : "over") + ", wave " + raid.getGroupsSpawned() + ", " + raiders + " raiders alive"));
+        return t >= 1200;
     }
 
     private void arrived(ServerLevel level) {

@@ -23,15 +23,15 @@ not in code.
 | `MaidensMod` | start-up: registers each system |
 | `core` | registries (`ModEntities`, `ModItems`) and `MaidensConfig` (every tunable number) |
 | `maiden` | the `Maiden` entity (looks, name, personality, home, saving) and `MaidenMenu` (her right-click menu, server side) |
-| `maiden.social` | `Relationships` (affection per player, talking, gifts, proposals), `Bond`, `Dialogue`, `Marriages` |
+| `maiden.social` | `Relationships` (affection per player, talking, gifts, proposals), `Bond`, `Dialogue`, `Marriages`, `Wishes` (her request) |
 | `maiden.work` | `Employment` (hiring, shift, bag), `WorkGoal` + one `WorkTask` per job (`FarmTask`, `WoodTask`, `MineTask`, `FishTask`) |
 | `maiden.trade` | `MaidenTrading` (trades by profession, levels, prices) |
-| `maiden.home` | `Residence` (her village, claimed bed and workstation, profession) |
+| `maiden.home` | `Residence` (her village, claimed bed and workstation, profession), `Schedule` (her day) |
 | `maiden.ai` | `MaidenAi` (every goal, in priority order) and the goals themselves |
-| `village` | `Villages` (saved list of maiden villages, the per-village coin flip), `VillageRecord` (name, area, citizens, trades), `Blueprint` (how the village looked), `VillageConversion` (villager to maiden swap), `VillageSocial` (gossip, anger, citizenship, greetings), `VillageEvents` (block break/place, blueprint recording) |
+| `village` | `Villages` (saved list of maiden villages, the per-village coin flip), `VillageRecord` (name, area, citizens, trades), `Blueprint` (how the village looked), `VillageConversion` (villager to maiden swap), `VillageSocial` (gossip, anger, citizenship, greetings), `VillageEvents` (block break/place, bell, the village tick), `Upkeep` + `Chore` (repairs, road clearing, building work), `Buildings` (vanilla buildings by style, sites, roads), `Housing` (houses for the bedless, newcomers), `VillageMenu` (the bell/`/village` chat menu) |
 | `network` | `MenuPayload` (server to client), `ActionPayload` (client to server), `Network` |
 | `client` | model, renderer, menu screen, client test |
-| `command` | `/maiden` test commands |
+| `command` | `/maiden` test commands (operators), `/village` (everyone) |
 | `test` | the automatic game test |
 
 ## Maidens (done)
@@ -91,6 +91,42 @@ Phase 2:
   blueprint, so maidens won't undo it.
 - `/maiden village` shows the village you stand in; `/maiden village citizen` makes you one (testing).
 
+Phase 3 (`Upkeep`, `Chore`, `VillageChoreGoal`):
+- Every 5 s a slice of each loaded village's blueprint is checked (8192 spots). A blueprint block that's gone
+  (air, a plant, fluid or fire in its place) becomes a REPAIR chore; something solid standing on a road
+  (block tag `maidens:village_road`, just dirt paths for now) becomes a CLEAR chore. A different solid block
+  where a blueprint block was isn't touched (someone put it there on purpose).
+- Chores wait `repairDelay` ticks (30 s) before a maiden takes them, so a player still busy there isn't undone.
+- A free village maiden (not hired, not married, not asleep) takes the lowest, then nearest, chore within
+  80 blocks, carries the block (or a shovel) there and does it. The two halves of a door or bed go back together.
+  Repairs cost nothing; cleared road obstacles drop as items. Chores aren't saved (the scan finds them again).
+
+Phase 4 (`Buildings`, `Housing`, `VillageMenu`, `/village`):
+- A village's buildings are read from its vanilla "houses" pool (`village/<style>/houses`), so they're exactly
+  the vanilla ones for that style (and any a datapack adds there).
+- A building is planned at a flat (slope <= 3), dry, free spot near the village (not touching other pieces),
+  with a foundation filled in under it, and a road from its door (the template's jigsaw) to the nearest village
+  road over walkable ground. Both are added to the blueprint as pieces "under construction", which also mark the
+  spots to clear (the air inside the house, terrain in the way). The maidens then build them through ordinary
+  chores, from the ground up. When nothing is left to do, the pieces become ordinary blueprint pieces.
+- Once a minute per loaded village: a resident who's had no bed for a minute gets a house with a bed (one
+  building at a time); otherwise a free bed brings a new maiden (at most one a day, at most 40 residents), who
+  appears on a road near it.
+- Citizens choose buildings by ringing the village bell or typing `/village`: a chat menu of the style's
+  buildings; clicking one runs `/village build <name>`, built near where they stand. Anyone gets the village's
+  name, their standing, the requests board and what's being built.
+
+Phase 5:
+- Schedule (`Schedule`, `ScheduleGoal`; free village maidens only, hired or married ones follow the player):
+  0-2000 morning around home, 2000-9000 at her workstation, 9000-11000 at the village bell, 11000-12000 home,
+  then asleep in her bed until morning. Talking to her or hurting her wakes her. No chores at night.
+- Requests board (`Wishes`): now and then (a 1 in 4 chance each minute when she has none) a village maiden wants
+  4-16 of something for her work (by profession), for 1-4 emeralds and +6 affection; it lasts three days. She
+  mentions it when greeting you; Gift while holding enough of it hands it over. The village menu lists them all.
+- Raid defence: while a raid is on her village, free village maidens (and hired guards) are fighters: they
+  take an iron sword if their hands are empty and attack raiders and monsters instead of fleeing; afterwards
+  they put the sword away.
+
 Decisions (user, 2026-11-08: all defaults accepted):
 
 1. All five vanilla village styles; abandoned (zombie) villages stay as they are.
@@ -122,6 +158,6 @@ prices follow affection (done); maidens defend in raids.
 0. Reorganize into systems, design doc, config. (done in 0.2.0)
 1. Maiden villages: replacement, workstations and beds (vanilla POIs), profession trades. (done in 0.3.0)
 2. Village records: name and title, blueprint, anger, gossip, citizenship and advancement. (done in 0.3.0)
-3. Repairs and road clearing.
-4. Housing: new houses, roads to them, the bell screen, new maidens arriving.
-5. Daily schedule, requests board, raid defence.
+3. Repairs and road clearing. (done in 0.3.0)
+4. Housing: new houses, roads to them, the bell menu, new maidens arriving. (done in 0.3.0)
+5. Daily schedule, requests board, raid defence. (done in 0.3.0)

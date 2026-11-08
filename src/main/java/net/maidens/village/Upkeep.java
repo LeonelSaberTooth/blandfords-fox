@@ -49,6 +49,8 @@ public final class Upkeep {
                 if (expected != null && missing(here, expected)) {
                     needed = true;
                     add(v, new Chore(Chore.Kind.REPAIR, pos.immutable(), expected, false, v.id, now(level, building)));
+                } else if (building && expected == null && v.blueprint.expected(pos) != null) {
+                    // "keep clear" here, but another piece (the house a road leads to...) wants a block: it wins
                 } else if (building && inTheWay(here, expected)) {
                     needed = true;
                     add(v, new Chore(Chore.Kind.CLEAR, pos.immutable(), null, false, v.id, now(level, building)));

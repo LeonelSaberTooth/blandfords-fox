@@ -185,7 +185,7 @@ final class VillageCheck {
         if (plan == null) return true;
         int left = 0, inWay = 0;
         for (var e : plan.blocks().entrySet()) if (!level.getBlockState(e.getKey()).is(e.getValue().getBlock())) left++;
-        for (BlockPos p : plan.clear()) if (!level.getBlockState(p).isAir()) inWay++;
+        for (BlockPos p : plan.clear()) if (!level.getBlockState(p).isAir() && record.blueprint.expected(p) == null) inWay++;
         log.accept("  after " + t + " ticks: " + left + " blocks still to place, " + inWay + " to clear, " + Upkeep.choreSummary(level, record)
                 + ", still building: " + record.blueprint.isBuilding() + "; " + goals(level));
         return (left == 0 && !record.blueprint.isBuilding()) || t >= 6000;

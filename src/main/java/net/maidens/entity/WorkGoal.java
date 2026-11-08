@@ -118,6 +118,12 @@ final class WorkGoal extends Goal {
         if (--repath <= 0) {
             repath = 20;
             boolean moving = m.getNavigation().moveTo(c.x, p.getY(), c.z, 0.6);
+            if (!moving && m.distanceToSqr(c) <= (reach + 1.0) * (reach + 1.0)) {
+                // as close as the pathfinder will take her: close enough
+                m.getLookControl().setLookAt(c.x, c.y, c.z);
+                stuck = 0;
+                return true;
+            }
             if (!moving || m.getNavigation().isStuck()) stuck += 20;
         }
         return false;
@@ -357,7 +363,7 @@ final class WorkGoal extends Goal {
             stuck = 0;
         }
         if (stuck > 300) { water = null; return; }
-        if (!reach(target, 1.2)) return;
+        if (!reach(target, 2.0)) return;
         m.getLookControl().setLookAt(Vec3.atCenterOf(water));
         if (m.getRandom().nextInt(40) == 0) {
             level.sendParticles(ParticleTypes.FISHING, water.getX() + 0.5, water.getY() + 0.95, water.getZ() + 0.5, 3, 0.2, 0.0, 0.2, 0.0);

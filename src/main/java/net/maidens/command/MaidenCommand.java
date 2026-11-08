@@ -2,7 +2,7 @@ package net.maidens.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import net.maidens.entity.Maiden;
+import net.maidens.maiden.Maiden;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -30,7 +30,7 @@ public final class MaidenCommand {
                     ServerPlayer p = c.getSource().getPlayerOrException();
                     Maiden m = nearest(p);
                     if (m == null) return fail(c.getSource());
-                    m.setAffection(p, IntegerArgumentType.getInteger(c, "value"));
+                    m.relationships().setAffection(p, IntegerArgumentType.getInteger(c, "value"));
                     c.getSource().sendSuccess(() -> Component.literal(m.describe(p)), false);
                     return 1;
                 }))));

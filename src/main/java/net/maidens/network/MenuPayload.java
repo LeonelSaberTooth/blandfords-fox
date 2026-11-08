@@ -11,11 +11,11 @@ import net.minecraft.resources.ResourceLocation;
  * married: 0 single, 1 married to you, 2 married to someone else. employer: 0 nobody, 1 you, 2 someone else.
  * shiftLeft is in ticks, -1 for no end.
  */
-public record MaidenMenu(int entityId, String name, String personality, int affection, int married, int job, int shiftLeft,
-                         int employer, String employerName, boolean canOpenBag, boolean freeWork, String message)
+public record MenuPayload(int entityId, String name, String personality, int affection, int married, int job, int shiftLeft,
+                         int employer, String employerName, boolean canOpenBag, boolean freeWork, int rent, String message)
         implements CustomPacketPayload {
-    public static final Type<MaidenMenu> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "menu"));
-    public static final StreamCodec<FriendlyByteBuf, MaidenMenu> STREAM_CODEC = CustomPacketPayload.codec(MaidenMenu::write, MaidenMenu::read);
+    public static final Type<MenuPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "menu"));
+    public static final StreamCodec<FriendlyByteBuf, MenuPayload> STREAM_CODEC = CustomPacketPayload.codec(MenuPayload::write, MenuPayload::read);
 
     private void write(FriendlyByteBuf buf) {
         buf.writeVarInt(entityId);
@@ -29,12 +29,13 @@ public record MaidenMenu(int entityId, String name, String personality, int affe
         buf.writeUtf(employerName);
         buf.writeBoolean(canOpenBag);
         buf.writeBoolean(freeWork);
+        buf.writeVarInt(rent);
         buf.writeUtf(message);
     }
 
-    private static MaidenMenu read(FriendlyByteBuf buf) {
-        return new MaidenMenu(buf.readVarInt(), buf.readUtf(), buf.readUtf(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
-                buf.readInt(), buf.readVarInt(), buf.readUtf(), buf.readBoolean(), buf.readBoolean(), buf.readUtf());
+    private static MenuPayload read(FriendlyByteBuf buf) {
+        return new MenuPayload(buf.readVarInt(), buf.readUtf(), buf.readUtf(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
+                buf.readInt(), buf.readVarInt(), buf.readUtf(), buf.readBoolean(), buf.readBoolean(), buf.readVarInt(), buf.readUtf());
     }
 
     @Override

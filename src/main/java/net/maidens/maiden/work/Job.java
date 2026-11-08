@@ -1,4 +1,4 @@
-package net.maidens.entity;
+package net.maidens.maiden.work;
 
 /** What a maiden has been hired to do. */
 public enum Job {

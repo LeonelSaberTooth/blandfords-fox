@@ -1,11 +1,13 @@
 package net.maidens.test;
 
+import net.maidens.core.ModEntities;
+import net.maidens.maiden.MaidenMenu;
 import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
 import net.maidens.MaidensMod;
-import net.maidens.entity.Job;
-import net.maidens.entity.Maiden;
-import net.maidens.network.MaidenAction;
+import net.maidens.maiden.work.Job;
+import net.maidens.maiden.Maiden;
+import net.maidens.network.ActionPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -118,7 +120,7 @@ public final class SelfTest {
             }
             log("house blocks: bed halves " + beds + ", door halves " + doors + ", wheat " + wheat + " (" + ripe + " ripe)");
             if (near.isEmpty()) {
-                maiden = MaidensMod.MAIDEN.get().create(level);
+                maiden = ModEntities.MAIDEN.get().create(level);
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, house.getX(), house.getZ());
                 maiden.moveTo(house.getX() + 0.5, y, house.getZ() + 0.5, 0, 0);
                 level.addFreshEntity(maiden);
@@ -136,38 +138,38 @@ public final class SelfTest {
         if (tick == 100) {
             tester = FakePlayerFactory.get(level, new GameProfile(UUID.fromString("3f2b5b9e-6c7a-4d52-9c3a-1e2f3a4b5c6d"), "Tester"));
             tester.moveTo(maiden.getX() + 1, maiden.getY(), maiden.getZ(), 0, 0);
-            log("talking (" + maiden.getPersonality().label + "), affection starts at " + maiden.affection(tester));
+            log("talking (" + maiden.getPersonality().label + "), affection starts at " + maiden.relationships().affection(tester));
             String[] names = {"chat", "joke", "compliment", "flirt"};
             for (int round = 0; round < 4; round++)
                 for (int a = 0; a < 4; a++) {
-                    int before = maiden.affection(tester);
-                    maiden.handleAction(tester, a, 0);
-                    log("  " + names[a] + " #" + (round + 1) + ": " + before + " -> " + maiden.affection(tester));
+                    int before = maiden.relationships().affection(tester);
+                    MaidenMenu.handle(maiden, tester, a, 0);
+                    log("  " + names[a] + " #" + (round + 1) + ": " + before + " -> " + maiden.relationships().affection(tester));
                 }
             Item[] gifts = {Items.CAKE, Items.DIAMOND, Items.GOAT_HORN, Items.SADDLE, Items.POPPY, Items.ROTTEN_FLESH, Items.APPLE, Items.APPLE, Items.STICK};
             for (Item it : gifts) {
-                int before = maiden.affection(tester);
+                int before = maiden.relationships().affection(tester);
                 tester.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(it));
-                maiden.handleAction(tester, MaidenAction.GIFT, 0);
-                log("  gift " + it + ": " + before + " -> " + maiden.affection(tester) + (tester.getMainHandItem().isEmpty() ? " (taken)" : " (kept)"));
+                MaidenMenu.handle(maiden, tester, ActionPayload.GIFT, 0);
+                log("  gift " + it + ": " + before + " -> " + maiden.relationships().affection(tester) + (tester.getMainHandItem().isEmpty() ? " (taken)" : " (kept)"));
             }
             var proposal = maiden.getPersonality().proposal;
-            maiden.setAffection(tester, 99);
+            maiden.relationships().setAffection(tester, 99);
             tester.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(proposal));
-            maiden.handleAction(tester, MaidenAction.GIFT, 0);
-            log("proposal with " + proposal + " at 99: married " + maiden.isMarried());
+            MaidenMenu.handle(maiden, tester, ActionPayload.GIFT, 0);
+            log("proposal with " + proposal + " at 99: married " + maiden.relationships().isMarried());
             // hiring for money (before the wedding)
             tester.getInventory().clearContent();
             tester.getInventory().add(new ItemStack(Items.EMERALD, 7));
-            maiden.handleAction(tester, MaidenAction.HIRE, Job.FARM.ordinal());
-            log("hired to farm: job " + maiden.getJob() + ", emeralds left " + tester.getInventory().countItem(Items.EMERALD) + " (7 - 5 = 2 expected)");
-            maiden.getBag().addItem(new ItemStack(Items.WHEAT_SEEDS, 8));
-            maiden.setAffection(tester, 100);
+            MaidenMenu.handle(maiden, tester, ActionPayload.HIRE, Job.FARM.ordinal());
+            log("hired to farm: job " + maiden.employment().job() + ", emeralds left " + tester.getInventory().countItem(Items.EMERALD) + " (7 - 5 = 2 expected)");
+            maiden.employment().bag().addItem(new ItemStack(Items.WHEAT_SEEDS, 8));
+            maiden.relationships().setAffection(tester, 100);
             tester.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(proposal));
-            maiden.handleAction(tester, MaidenAction.GIFT, 0);
-            log("proposal with " + proposal + " at 100: married " + maiden.isMarried() + ", to the tester " + maiden.isMarriedTo(tester));
-            log("trades offered: " + maiden.getOffers().size() + " (trade level " + maiden.getTradeLevel() + ")");
-            log("farming: " + maiden.getJob() + " around " + maiden.getHome());
+            MaidenMenu.handle(maiden, tester, ActionPayload.GIFT, 0);
+            log("proposal with " + proposal + " at 100: married " + maiden.relationships().isMarried() + ", to the tester " + maiden.relationships().isMarriedTo(tester));
+            log("trades offered: " + maiden.getOffers().size() + " (trade level " + maiden.trading().level() + ")");
+            log("farming: " + maiden.employment().job() + " around " + maiden.getHome());
             phase = 1;
             phaseStart = tick;
             return;
@@ -180,8 +182,8 @@ public final class SelfTest {
             return;
         }
         int t = tick - phaseStart;
-        if (t > 0 && t % 200 == 0 && phase < 5) log("    t=" + t + " " + maiden.workStatus());
-        boolean quit = maiden.getJob() == Job.NONE && t > 20;   // she gave up by herself
+        if (t > 0 && t % 200 == 0 && phase < 5) log("    t=" + t + " " + maiden.employment().status());
+        boolean quit = maiden.employment().job() == Job.NONE && t > 20;   // she gave up by herself
         switch (phase) {
             case 1 -> {   // farming: the wheat plot by her house
                 if (t < 1200 && !quit) return;
@@ -204,22 +206,22 @@ public final class SelfTest {
                                     .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, false), 3);
                         }
                 log("woodcutting: a 6-log oak built at " + base.toShortString());
-                maiden.getBag().addItem(new ItemStack(Items.OAK_SAPLING, 2));
-                maiden.hireForTest(Job.WOOD, tester);
+                maiden.employment().bag().addItem(new ItemStack(Items.OAK_SAPLING, 2));
+                maiden.employment().hireForTest(Job.WOOD, tester);
                 next();
             }
             case 2 -> {   // woodcutting
                 if (t < 1200 && !quit) return;
                 report("woodcutting");
-                maiden.getBag().addItem(new ItemStack(Items.TORCH, 8));
+                maiden.employment().bag().addItem(new ItemStack(Items.TORCH, 8));
                 mineStart = maiden.blockPosition();
-                maiden.hireForTest(Job.MINE, tester);
+                maiden.employment().hireForTest(Job.MINE, tester);
                 log("mining: from " + maiden.blockPosition().toShortString() + ", heading " + Direction.NORTH);
                 next();
             }
             case 3 -> {   // mining
                 if (t < 2000 && !quit) return;
-                log("mining: reached step " + maiden.getMineStep() + (quit ? " (she stopped by herself)" : ""));
+                log("mining: reached step " + maiden.employment().mineStep() + (quit ? " (she stopped by herself)" : ""));
                 report("mining");
                 // a pond beside where she started digging (on open ground, outside the house)
                 maiden.moveTo(mineStart.getX() + 0.5, mineStart.getY(), mineStart.getZ() + 0.5, 0, 0);
@@ -231,7 +233,7 @@ public final class SelfTest {
                         level.setBlock(c.offset(dx, 0, dz), Blocks.AIR.defaultBlockState(), 3);
                         level.setBlock(c.offset(dx, 1, dz), Blocks.AIR.defaultBlockState(), 3);
                     }
-                maiden.hireForTest(Job.FISH, tester);
+                maiden.employment().hireForTest(Job.FISH, tester);
                 log("fishing: pond dug next to " + c.toShortString());
                 next();
             }
@@ -244,8 +246,8 @@ public final class SelfTest {
                 zombie.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET));
                 zombie.setPersistenceRequired();
                 level.addFreshEntity(zombie);
-                maiden.getBag().addItem(new ItemStack(Items.IRON_SWORD));
-                maiden.hireForTest(Job.GUARD, tester);
+                maiden.employment().bag().addItem(new ItemStack(Items.IRON_SWORD));
+                maiden.employment().hireForTest(Job.GUARD, tester);
                 log("guard: a zombie 5 blocks away, an iron sword in her bag");
                 next();
             }
@@ -273,12 +275,12 @@ public final class SelfTest {
 
     private static void report(String what) {
         StringBuilder s = new StringBuilder();
-        var bag = maiden.getBag();
+        var bag = maiden.employment().bag();
         for (int i = 0; i < bag.getContainerSize(); i++) {
             ItemStack st = bag.getItem(i);
             if (!st.isEmpty()) s.append(st.getCount()).append(' ').append(st.getItem()).append(", ");
         }
-        log(what + ": job now " + maiden.getJob() + ", maiden at " + maiden.blockPosition().toShortString() + ", bag: " + (s.isEmpty() ? "empty" : s));
+        log(what + ": job now " + maiden.employment().job() + ", maiden at " + maiden.blockPosition().toShortString() + ", bag: " + (s.isEmpty() ? "empty" : s));
         bag.clearContent();
     }
 

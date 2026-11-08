@@ -1,7 +1,7 @@
 package net.maidens.client;
 
 import net.maidens.MaidensMod;
-import net.maidens.entity.Maiden;
+import net.maidens.maiden.Maiden;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;

@@ -1,4 +1,4 @@
-package net.maidens.world;
+package net.maidens.maiden.social;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;

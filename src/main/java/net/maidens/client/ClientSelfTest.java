@@ -1,9 +1,10 @@
 package net.maidens.client;
 
+import net.maidens.core.ModEntities;
 import com.mojang.logging.LogUtils;
 import net.maidens.MaidensMod;
-import net.maidens.entity.Maiden;
-import net.maidens.network.MaidenMenu;
+import net.maidens.maiden.Maiden;
+import net.maidens.network.MenuPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.core.BlockPos;
@@ -121,7 +122,7 @@ public final class ClientSelfTest {
         if (t == 460) {
             mc.options.hideGui = false;
             Maiden m = line.get(0);
-            ClientAccess.openMenu(new MaidenMenu(m.getId(), "Elowen", "Sweet", 63, 0, 0, 0, 0, "", false, false,
+            ClientAccess.openMenu(new MenuPayload(m.getId(), "Elowen", "Sweet", 63, 0, 0, 0, 0, "", false, false, 5,
                     "You think so? That's so kind of you, Tester. I've always dreamed someone would bake me a whole cake, just for me..."));
         }
         if (t == 470) shot(mc, "menu");
@@ -161,7 +162,7 @@ public final class ClientSelfTest {
                     for (int dy = 0; dy < 10; dy++) level.setBlock(spot.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
                 }
             for (int i = 0; i < Maiden.SKINS; i++) {
-                Maiden m = MaidensMod.MAIDEN.get().create(level);
+                Maiden m = ModEntities.MAIDEN.get().create(level);
                 m.moveTo(spot.getX() - 6.25 + i * 2.5, y, spot.getZ() + 3.5, 180, 0);
                 m.setNoAi(true);
                 m.setYHeadRot(180);

@@ -2,7 +2,7 @@ package net.maidens.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.maidens.MaidensMod;
-import net.maidens.entity.Maiden;
+import net.maidens.maiden.Maiden;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.resources.ResourceLocation;

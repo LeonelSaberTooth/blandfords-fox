@@ -1,9 +1,9 @@
 package net.maidens.client;
 
-import net.maidens.entity.Job;
-import net.maidens.entity.Maiden;
-import net.maidens.network.MaidenAction;
-import net.maidens.network.MaidenMenu;
+import net.maidens.maiden.work.Job;
+import net.maidens.maiden.Maiden;
+import net.maidens.network.ActionPayload;
+import net.maidens.network.MenuPayload;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -29,11 +29,11 @@ public class MaidenScreen extends Screen {
     private static final ResourceLocation HEART_FULL = ResourceLocation.withDefaultNamespace("hud/heart/full");
     private static final ResourceLocation HEART_HALF = ResourceLocation.withDefaultNamespace("hud/heart/half");
 
-    private MaidenMenu menu;
+    private MenuPayload menu;
     private boolean workPage;
     private int x0, y0;
 
-    public MaidenScreen(MaidenMenu menu) {
+    public MaidenScreen(MenuPayload menu) {
         super(Component.literal(menu.name()));
         this.menu = menu;
     }
@@ -42,7 +42,7 @@ public class MaidenScreen extends Screen {
         return menu.entityId();
     }
 
-    public void update(MaidenMenu newMenu) {
+    public void update(MenuPayload newMenu) {
         menu = newMenu;
         rebuildWidgets();
     }
@@ -59,7 +59,7 @@ public class MaidenScreen extends Screen {
     }
 
     private void send(int action, int arg) {
-        PacketDistributor.sendToServer(new MaidenAction(menu.entityId(), action, arg));
+        PacketDistributor.sendToServer(new ActionPayload(menu.entityId(), action, arg));
     }
 
     @Override
@@ -69,7 +69,7 @@ public class MaidenScreen extends Screen {
         int bx = x0 + 92, bw = 50, gap = 4, row1 = y0 + 118, row2 = row1 + 24, row3 = row2 + 26;
         if (!workPage) {
             String[] talk = {"Chat", "Joke", "Compliment", "Flirt"};
-            int[] acts = {MaidenAction.CHAT, MaidenAction.JOKE, MaidenAction.COMPLIMENT, MaidenAction.FLIRT};
+            int[] acts = {ActionPayload.CHAT, ActionPayload.JOKE, ActionPayload.COMPLIMENT, ActionPayload.FLIRT};
             int[] widths = {44, 44, 68, 44};
             for (int i = 0, x = bx; i < 4; x += widths[i] + gap, i++) {
                 int a = acts[i];
@@ -77,16 +77,16 @@ public class MaidenScreen extends Screen {
                         .bounds(x, row1, widths[i], 20).build());
             }
             ItemStack held = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.getMainHandItem() : ItemStack.EMPTY;
-            addRenderableWidget(Button.builder(Component.literal("Gift"), b -> send(MaidenAction.GIFT, 0))
+            addRenderableWidget(Button.builder(Component.literal("Gift"), b -> send(ActionPayload.GIFT, 0))
                     .bounds(bx, row2, bw, 20)
                     .tooltip(Tooltip.create(Component.literal(held.isEmpty() ? "Hold the item you want to give her."
                             : "Give her the " + held.getHoverName().getString() + " in your hand.")))
                     .build());
-            addRenderableWidget(Button.builder(Component.literal("Trade"), b -> send(MaidenAction.TRADE, 0))
+            addRenderableWidget(Button.builder(Component.literal("Trade"), b -> send(ActionPayload.TRADE, 0))
                     .bounds(bx + (bw + gap), row2, bw, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Work..."), b -> { workPage = true; rebuildWidgets(); })
                     .bounds(bx + 2 * (bw + gap), row2, bw, 20).build());
-            Button bag = addRenderableWidget(Button.builder(Component.literal("Bag"), b -> send(MaidenAction.BAG, 0))
+            Button bag = addRenderableWidget(Button.builder(Component.literal("Bag"), b -> send(ActionPayload.BAG, 0))
                     .bounds(bx + 3 * (bw + gap), row2, bw, 20)
                     .tooltip(Tooltip.create(Component.literal("What she gathered while working, and where to put tools, seeds, saplings, torches or a sword for her.")))
                     .build());
@@ -102,12 +102,12 @@ public class MaidenScreen extends Screen {
             for (int i = 0; i < jobs.length; i++) {
                 Job j = jobs[i];
                 int col = i % 3, row = i / 3;
-                Button b = addRenderableWidget(Button.builder(Component.literal(j.button), x -> send(MaidenAction.HIRE, j.ordinal()))
+                Button b = addRenderableWidget(Button.builder(Component.literal(j.button), x -> send(ActionPayload.HIRE, j.ordinal()))
                         .bounds(bx + col * (68 + gap), row == 0 ? row1 : row2, 68, 20)
                         .tooltip(Tooltip.create(Component.literal(tips[i]))).build());
                 b.active = menu.employer() != 2;
             }
-            Button stop = addRenderableWidget(Button.builder(Component.literal("Stop work"), b -> send(MaidenAction.STOP, 0))
+            Button stop = addRenderableWidget(Button.builder(Component.literal("Stop work"), b -> send(ActionPayload.STOP, 0))
                     .bounds(bx + 2 * (68 + gap), row2, 68, 20).build());
             stop.active = menu.job() != 0 && (menu.employer() == 1 || menu.married() == 1);
         }
@@ -154,7 +154,7 @@ public class MaidenScreen extends Screen {
         if (workPage) {
             String cost = menu.freeWork() ? "Free for you, my love. She works until you tell her to stop."
                     : menu.employer() == 1 ? "Switching jobs is free for the rest of her shift."
-                    : "A day's work costs " + Maiden.RENT + " emeralds.";
+                    : "A day's work costs " + menu.rent() + " emeralds.";
             g.drawString(font, cost, tx, y0 + 104, 0xFFB79AA8, false);
         }
     }

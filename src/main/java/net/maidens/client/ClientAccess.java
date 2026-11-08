@@ -1,13 +1,13 @@
 package net.maidens.client;
 
-import net.maidens.network.MaidenMenu;
+import net.maidens.network.MenuPayload;
 import net.minecraft.client.Minecraft;
 
 /** Client-only entry points the network code calls. */
 public final class ClientAccess {
     private ClientAccess() {}
 
-    public static void openMenu(MaidenMenu menu) {
+    public static void openMenu(MenuPayload menu) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof MaidenScreen s && s.entityId() == menu.entityId()) s.update(menu);
         else mc.setScreen(new MaidenScreen(menu));

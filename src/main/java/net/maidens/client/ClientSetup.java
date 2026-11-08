@@ -1,5 +1,6 @@
 package net.maidens.client;
 
+import net.maidens.core.ModEntities;
 import net.maidens.MaidensMod;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -12,7 +13,7 @@ public final class ClientSetup {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(MaidensMod.MAIDEN.get(), MaidenRenderer::new);
+        event.registerEntityRenderer(ModEntities.MAIDEN.get(), MaidenRenderer::new);
     }
 
     @SubscribeEvent

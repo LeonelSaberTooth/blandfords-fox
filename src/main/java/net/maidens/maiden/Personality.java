@@ -1,4 +1,4 @@
-package net.maidens.entity;
+package net.maidens.maiden;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.tags.ItemTags;
@@ -125,5 +125,5 @@ public enum Personality {
     }
 
     /** Items worth a gift at all: these always count as neutral at least. */
-    static final Set<Item> VALUABLE = Set.of(Items.EMERALD, Items.DIAMOND, Items.GOLD_INGOT, Items.IRON_INGOT);
+    public static final Set<Item> VALUABLE = Set.of(Items.EMERALD, Items.DIAMOND, Items.GOLD_INGOT, Items.IRON_INGOT);
 }

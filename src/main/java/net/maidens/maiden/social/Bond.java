@@ -1,4 +1,4 @@
-package net.maidens.entity;
+package net.maidens.maiden.social;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -15,13 +15,15 @@ public final class Bond {
     public int affection;
     long day = -1;
     int chats, jokes, compliments, flirts, gifts, tradeHearts;
+    /** Affection lost today to broken village blocks (capped by config). */
+    int angerToday;
     final Set<String> giftsToday = new HashSet<>();
 
     /** Starts a new day's counts when the day changes. */
     void today(long day) {
         if (this.day == day) return;
         this.day = day;
-        chats = jokes = compliments = flirts = gifts = tradeHearts = 0;
+        chats = jokes = compliments = flirts = gifts = tradeHearts = angerToday = 0;
         giftsToday.clear();
     }
 
@@ -39,6 +41,7 @@ public final class Bond {
         t.putInt("Flirts", flirts);
         t.putInt("Gifts", gifts);
         t.putInt("TradeHearts", tradeHearts);
+        t.putInt("AngerToday", angerToday);
         ListTag list = new ListTag();
         for (String s : giftsToday) list.add(StringTag.valueOf(s));
         t.put("GiftsToday", list);
@@ -55,6 +58,7 @@ public final class Bond {
         b.flirts = t.getInt("Flirts");
         b.gifts = t.getInt("Gifts");
         b.tradeHearts = t.getInt("TradeHearts");
+        b.angerToday = t.getInt("AngerToday");
         ListTag list = t.getList("GiftsToday", Tag.TAG_STRING);
         for (int i = 0; i < list.size(); i++) b.giftsToday.add(list.getString(i));
         return b;

@@ -90,6 +90,11 @@ final class WorkGoal extends Goal {
     @Override
     public void tick() {
         if (!(m.level() instanceof ServerLevel level)) return;
+        if (m.tickCount % 20 == 0) {
+            m.workNote = m.getJob() + " at " + m.blockPosition().toShortString() + " target " + (target == null ? "-" : target.toShortString())
+                    + " tree " + tree.size() + " water " + (water == null ? "-" : water.toShortString()) + " bite " + bite
+                    + " stuck " + stuck + " busy " + busy + " step " + m.mineStep + " nav " + (m.getNavigation().isDone() ? "idle" : "moving");
+        }
         switch (m.getJob()) {
             case FARM -> farm(level);
             case WOOD -> wood(level);
@@ -289,8 +294,10 @@ final class WorkGoal extends Goal {
         BlockState floor = level.getBlockState(feet.below());
         if (!floor.isSolid() || !floor.getFluidState().isEmpty()) {
             if (nearFluid(level, feet.below())) { m.giveUp("There's water or lava ahead, so I stopped digging."); return; }
-            ItemStack block = m.takeFromBag(st -> st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE) || st.is(Items.DIRT));
-            if (block.isEmpty()) { m.giveUp("There's a hole I can't fill. Put some cobblestone in my bag."); return; }
+            BlockPos hole = feet.below();
+            ItemStack block = m.takeFromBag(st -> st.getItem() instanceof BlockItem bi
+                    && bi.getBlock().defaultBlockState().isCollisionShapeFullBlock(level, hole) && !(bi.getBlock() instanceof net.minecraft.world.level.block.EntityBlock));
+            if (block.isEmpty()) { m.giveUp("There's a hole I can't fill. Put some cobblestone or dirt in my bag."); return; }
             level.setBlock(feet.below(), ((BlockItem) block.getItem()).getBlock().defaultBlockState(), Block.UPDATE_ALL);
         }
         if (step % 8 == 0 && level.getBlockState(feet).isAir() && level.getBlockState(feet.below()).isSolid()) {

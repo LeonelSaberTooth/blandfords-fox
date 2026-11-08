@@ -647,8 +647,17 @@ public class Maiden extends AbstractVillager {
         equipFor(Job.NONE);
     }
 
+    /** What her work is doing, for the self test. */
+    String workNote = "";
+    private String lastGiveUp = "";
+
+    public String workStatus() {
+        return workNote + (lastGiveUp.isEmpty() ? "" : " | gave up: " + lastGiveUp);
+    }
+
     /** Called by her work when she has to give up (lava ahead, a full bag...). */
     void giveUp(String why) {
+        lastGiveUp = why;
         Player p = getEmployerPlayer();
         if (p instanceof ServerPlayer sp) say(sp, why);
         stop();

@@ -105,10 +105,12 @@ public final class SelfTest {
             return;
         }
         if (tick == 80) {
-            List<Maiden> near = level.getEntitiesOfClass(Maiden.class, new AABB(house).inflate(48, 32, 48));
+            int hy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, house.getX(), house.getZ());
+            house = new BlockPos(house.getX(), hy, house.getZ());
+            List<Maiden> near = level.getEntitiesOfClass(Maiden.class, new AABB(house).inflate(48, 64, 48));
             log("maidens near the house: " + near.size());
             int beds = 0, doors = 0, wheat = 0, ripe = 0;
-            for (BlockPos p : BlockPos.betweenClosed(house.offset(-24, -10, -24), house.offset(24, 20, 24))) {
+            for (BlockPos p : BlockPos.betweenClosed(house.offset(-24, -16, -24), house.offset(24, 16, 24))) {
                 var s = level.getBlockState(p);
                 if (s.is(Blocks.RED_BED)) beds++;
                 if (s.is(Blocks.OAK_DOOR)) doors++;
@@ -178,6 +180,7 @@ public final class SelfTest {
             return;
         }
         int t = tick - phaseStart;
+        if (t > 0 && t % 200 == 0 && phase < 5) log("    t=" + t + " " + maiden.workStatus());
         boolean quit = maiden.getJob() == Job.NONE && t > 20;   // she gave up by herself
         switch (phase) {
             case 1 -> {   // farming: the wheat plot by her house
@@ -187,9 +190,16 @@ public final class SelfTest {
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
                 BlockPos base = new BlockPos(at.getX(), y, at.getZ());
                 level.setBlock(base.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-                var tree = level.registryAccess().registryOrThrow(Registries.CONFIGURED_FEATURE).getHolderOrThrow(TreeFeatures.OAK);
-                boolean grew = tree.value().place(level, level.getChunkSource().getGenerator(), level.getRandom(), base);
-                log("woodcutting: oak planted at " + base.toShortString() + ": " + grew);
+                for (int dy = 0; dy < 6; dy++) level.setBlock(base.above(dy), Blocks.OAK_LOG.defaultBlockState(), 3);
+                for (int dx = -2; dx <= 2; dx++)
+                    for (int dz = -2; dz <= 2; dz++)
+                        for (int dy = 3; dy <= 6; dy++) {
+                            if (dy == 6 && (Math.abs(dx) == 2 || Math.abs(dz) == 2)) continue;
+                            BlockPos q = base.offset(dx, dy, dz);
+                            if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState()
+                                    .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, false), 3);
+                        }
+                log("woodcutting: a 6-log oak built at " + base.toShortString());
                 maiden.getBag().addItem(new ItemStack(Items.OAK_SAPLING, 2));
                 maiden.hireForTest(Job.WOOD, tester);
                 next();

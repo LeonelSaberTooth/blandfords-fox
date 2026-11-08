@@ -70,10 +70,11 @@ public class MaidenScreen extends Screen {
         if (!workPage) {
             String[] talk = {"Chat", "Joke", "Compliment", "Flirt"};
             int[] acts = {MaidenAction.CHAT, MaidenAction.JOKE, MaidenAction.COMPLIMENT, MaidenAction.FLIRT};
-            for (int i = 0; i < 4; i++) {
+            int[] widths = {44, 44, 68, 44};
+            for (int i = 0, x = bx; i < 4; x += widths[i] + gap, i++) {
                 int a = acts[i];
                 addRenderableWidget(Button.builder(Component.literal(talk[i]), b -> send(a, 0))
-                        .bounds(bx + i * (bw + gap), row1, bw, 20).build());
+                        .bounds(x, row1, widths[i], 20).build());
             }
             ItemStack held = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.getMainHandItem() : ItemStack.EMPTY;
             addRenderableWidget(Button.builder(Component.literal("Gift"), b -> send(MaidenAction.GIFT, 0))

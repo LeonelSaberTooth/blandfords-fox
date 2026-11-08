@@ -98,9 +98,10 @@ final class VillageCheck {
                 net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
                 vi.addAdditionalSaveData(tag);
                 log.accept("  villager left at " + vi.blockPosition().toShortString() + ": in a village piece " + (Villages.villageAt(level, vi.blockPosition()) != null)
-                        + ", baby " + vi.isBaby() + ", profession " + vi.getVillagerData().getProfession() + ", age " + vi.tickCount);
+                        + ", baby " + vi.isBaby() + ", profession " + vi.getVillagerData().getProfession() + ", age " + vi.tickCount
+                        + ", entity-ticking " + level.isPositionEntityTicking(vi.blockPosition()) + ", noAI " + vi.isNoAi() + ", flag " + tag.getBoolean("AssignProfessionWhenSpawned"));
             }
-            for (Maiden m : maidens) if (!m.residence().inVillage()) log.accept("  maiden without a village at " + m.blockPosition().toShortString());
+            for (Maiden m : maidens) if (!m.residence().inVillage()) log.accept("  maiden without a village at " + m.blockPosition().toShortString() + ", age " + m.tickCount + ", noAI " + m.isNoAi() + ", name " + m.name());
             if (t == 600) log.accept("  free workstations in the area: " + level.getPoiManager().getCountInRange(
                     h -> net.minecraft.world.entity.npc.VillagerProfession.ALL_ACQUIRABLE_JOBS.test(h), village, 96,
                     net.minecraft.world.entity.ai.village.poi.PoiManager.Occupancy.HAS_SPACE)

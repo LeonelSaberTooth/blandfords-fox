@@ -59,10 +59,17 @@ public final class Schedule {
             return;
         }
         if (!night || bed == null || m.tickCount % 10 != 0 || m.distanceToSqr(bed.getX() + 0.5, bed.getY() + 0.5, bed.getZ() + 0.5) > 2.5 * 2.5) return;
+        goToBed(m);
+    }
+
+    /** Lies down in her bed if it's there and free. */
+    public static boolean goToBed(Maiden m) {
+        BlockPos bed = m.residence().bed();
+        if (bed == null) return false;
         BlockState s = m.level().getBlockState(bed);
-        if (s.getBlock() instanceof BedBlock && !s.getValue(BedBlock.OCCUPIED)) {
-            m.getNavigation().stop();
-            m.startSleeping(bed);
-        }
+        if (!(s.getBlock() instanceof BedBlock) || s.getValue(BedBlock.OCCUPIED)) return false;
+        m.getNavigation().stop();
+        m.startSleeping(bed);
+        return true;
     }
 }

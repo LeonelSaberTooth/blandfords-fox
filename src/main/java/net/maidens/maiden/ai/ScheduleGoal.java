@@ -16,6 +16,8 @@ final class ScheduleGoal extends Goal {
     @Nullable private BlockPos to;
     private Schedule.Activity activity = Schedule.Activity.MORNING;
     private int repath, ticks;
+    private double closest;
+    private int lastCloser;
 
     ScheduleGoal(Maiden m) {
         this.m = m;
@@ -43,11 +45,20 @@ final class ScheduleGoal extends Goal {
     public void start() {
         repath = 0;
         ticks = 0;
+        closest = Double.MAX_VALUE;
+        lastCloser = 0;
     }
 
     @Override
     public void tick() {
         ticks++;
+        double d = m.distanceToSqr(Vec3.atBottomCenterOf(to));
+        if (d < closest - 1) {
+            closest = d;
+            lastCloser = ticks;
+        }
+        // at bedtime, if she's close but can't quite get to her bed (a door, a step...), she gets in anyway
+        if (activity == Schedule.Activity.SLEEP && ticks - lastCloser > 100 && d < 8 * 8 && Schedule.goToBed(m)) return;
         if (--repath > 0) return;
         repath = 40;
         Vec3 c = Vec3.atBottomCenterOf(to);

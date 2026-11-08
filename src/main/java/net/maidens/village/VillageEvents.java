@@ -26,6 +26,7 @@ public final class VillageEvents {
             Villages villages = Villages.get(level);
             villages.recordLoadedPieces(level);
             Upkeep.tick(level, villages);
+            VillageConversion.sweep(level, villages);
             if (level.getGameTime() % 1200 == 0) Housing.tick(level, villages);
         }
     }

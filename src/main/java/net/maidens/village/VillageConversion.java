@@ -7,6 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -28,6 +29,19 @@ public final class VillageConversion {
         if (!fromVillageStructure(villager)) return;
         // decided on the next tick, once the chunk has finished loading: then looking up the village is safe
         level.getServer().execute(() -> convert(level, villager));
+    }
+
+    /**
+     * Every 5 s, catches structure villagers in maiden villages that slipped past the join check
+     * (some are loaded without ever ticking or being converted).
+     */
+    static void sweep(ServerLevel level, Villages villages) {
+        for (VillageRecord v : villages.all()) {
+            if (!level.isLoaded(v.centre())) continue;
+            for (Villager villager : level.getEntitiesOfClass(Villager.class, AABB.of(v.box).inflate(16), VillageConversion::fromVillageStructure)) {
+                convert(level, villager);
+            }
+        }
     }
 
     private static void convert(ServerLevel level, Villager villager) {

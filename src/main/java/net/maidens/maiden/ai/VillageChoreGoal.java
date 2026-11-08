@@ -20,7 +20,7 @@ import java.util.EnumSet;
  */
 final class VillageChoreGoal extends Goal {
     private static final double REACH = 3.5, MAX_REACH = 8;
-    private static final int GIVE_UP = 1200;
+    private static final int GIVE_UP = 600;
 
     private final Maiden m;
     @Nullable private Chore chore;
@@ -75,7 +75,7 @@ final class VillageChoreGoal extends Goal {
             lastCloser = ticks;
         }
         // close enough, or as close as she can get (a spot inside a wall or a hole): she reaches over
-        boolean stalled = ticks - lastCloser > 100 && d <= MAX_REACH * MAX_REACH;
+        boolean stalled = ticks - lastCloser > 60 && d <= MAX_REACH * MAX_REACH;
         if (d > REACH * REACH && !stalled) {
             if (--repath <= 0) {
                 repath = 20;

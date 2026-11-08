@@ -28,7 +28,7 @@ import java.util.Iterator;
 public final class Upkeep {
     /** Blocks that make up roads; whatever stands on them that the blueprint doesn't expect is cleared away. */
     public static final TagKey<Block> ROAD = BlockTags.create(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "village_road"));
-    private static final int SCAN_PER_TICK = 8192, MAX_CHORES = 128, REACH = 80, CLAIM_TIMEOUT = 1200, RETRY_LATER = 6000;
+    private static final int SCAN_PER_TICK = 8192, MAX_CHORES = 128, REACH = 80, CLAIM_TIMEOUT = 1200, RETRY_LATER = 1200;
 
     private Upkeep() {}
 
@@ -115,15 +115,16 @@ public final class Upkeep {
         if (v == null || v.chores.isEmpty()) return null;
         long now = level.getGameTime();
         long ready = now - MaidensConfig.REPAIR_DELAY.get();
-        // lowest first (buildings go up from the ground), then nearest
+        // near her and low down (buildings go up from the ground): each block up counts as 3 blocks further away
         Chore best = null;
-        double bestD = 0;
+        double bestScore = Double.MAX_VALUE;
         for (Chore c : v.chores.values()) {
             if (c.takenBy != null || c.since > ready) continue;
             double d = m.distanceToSqr(c.pos.getX() + 0.5, c.pos.getY(), c.pos.getZ() + 0.5);
             if (d > REACH * REACH) continue;
-            if (best == null || c.pos.getY() < best.pos.getY() || (c.pos.getY() == best.pos.getY() && d < bestD)) {
-                bestD = d;
+            double score = Math.sqrt(d) + 3.0 * c.pos.getY();
+            if (score < bestScore) {
+                bestScore = score;
                 best = c;
             }
         }

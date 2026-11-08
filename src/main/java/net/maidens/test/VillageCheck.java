@@ -188,7 +188,16 @@ final class VillageCheck {
         for (BlockPos p : plan.clear()) if (!level.getBlockState(p).isAir() && record.blueprint.expected(p) == null) inWay++;
         log.accept("  after " + t + " ticks: " + left + " blocks still to place, " + inWay + " to clear, " + Upkeep.choreSummary(level, record)
                 + ", still building: " + record.blueprint.isBuilding() + "; " + goals(level));
-        return (left == 0 && !record.blueprint.isBuilding()) || t >= 6000;
+        boolean done = (left == 0 && !record.blueprint.isBuilding()) || t >= 6000;
+        if (done) {
+            // where the new house is, for the client test to photograph
+            BlockPos c = plan.box().getCenter();
+            try {
+                java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("maidens.selftest"), "village.txt"), c.getX() + " " + c.getY() + " " + c.getZ());
+            } catch (java.io.IOException ignored) {
+            }
+        }
+        return done;
     }
 
     private void arrival(ServerLevel level) {

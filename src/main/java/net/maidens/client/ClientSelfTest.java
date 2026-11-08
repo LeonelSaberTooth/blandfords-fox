@@ -128,7 +128,24 @@ public final class ClientSelfTest {
         if (t == 470) shot(mc, "menu");
         if (t == 472 && mc.screen instanceof MaidenScreen s) s.showWorkPage();
         if (t == 480) shot(mc, "menu_work");
-        if (t == 490) mc.stop();
+        // the house the maidens built in the village (if the server test got that far)
+        if (t == 482) {
+            mc.options.hideGui = true;
+            if (mc.screen != null) mc.setScreen(null);
+            Path f = mc.gameDirectory.toPath().resolve("village.txt");
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                int x = Integer.parseInt(p[0]), y = Integer.parseInt(p[1]), z = Integer.parseInt(p[2]);
+                server.execute(() -> player(server).teleportTo(server.overworld(), x - 11.5, y + 7, z - 11.5, -45, 25));
+            }
+        }
+        if (t == 640) shot(mc, "village_house");
+        if (t == 642) server.execute(() -> {
+            ServerPlayer pl = player(server);
+            pl.teleportTo(server.overworld(), pl.getX() - 20, pl.getY() + 20, pl.getZ() - 20, -45, 35);
+        });
+        if (t == 760) shot(mc, "village_wide");
+        if (t == 770) mc.stop();
     }
 
     private static ServerPlayer player(MinecraftServer server) {

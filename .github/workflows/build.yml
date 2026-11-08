@@ -1,0 +1,121 @@
+name: Build mod
+
+on:
+  push:
+    branches: [main, maidens]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        shell: bash
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew build --stacktrace 2>&1 | tee build.log
+
+      - name: Keep the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Vanilla sources of the classes the mod uses (for reference while writing it)
+        if: always()
+        shell: bash
+        run: |
+          jar=""
+          for j in $(find build/moddev ~/.gradle -name "*sources*.jar" 2>/dev/null); do
+            if unzip -l "$j" 'net/minecraft/world/entity/npc/AbstractVillager.java' >/dev/null 2>&1; then jar="$j"; break; fi
+          done
+          echo "sources: $jar"
+          [ -n "$jar" ] || exit 0
+          mkdir -p mcsrc
+          { grep -rhoE "import net\.minecraft\.[A-Za-z0-9_.]+;" src | sed 's/import //; s/;//'
+            printf '%s\n' net.minecraft.world.entity.npc.Villager net.minecraft.world.entity.npc.WanderingTrader \
+              net.minecraft.world.item.trading.Merchant net.minecraft.world.entity.Mob net.minecraft.world.entity.LivingEntity \
+              net.minecraft.world.entity.PathfinderMob net.minecraft.client.renderer.entity.LivingEntityRenderer \
+              net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate \
+              net.minecraft.world.level.levelgen.structure.pools.SinglePoolElement net.minecraft.client.gui.GuiGraphics; } \
+            | sort -u | sed 's|\.|/|g; s|$|.java|' > want.txt
+          while read -r f; do unzip -q -o "$jar" "$f" -d mcsrc 2>/dev/null || true; done < want.txt
+          find mcsrc -name "*.java" | wc -l
+
+      - name: Keep the reference sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcsrc
+          path: mcsrc
+          if-no-files-found: ignore
+
+      - name: Keep the jar with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: maidens-jar
+          path: build/libs/*.jar
+
+      - name: Publish as the "latest" release
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$([ "$GITHUB_REF_NAME" = maidens ] && echo maidens-latest || echo latest)
+          gh release delete $tag --yes --cleanup-tag || true
+          gh release create $tag build/libs/*.jar --target "$GITHUB_SHA" \
+            --title "Maidens (latest build)" \
+            --notes "Drop the .jar into your mods folder. Needs NeoForge 1.21.1, nothing else."
+
+      - name: Game test (a fresh world, the house, and everything she does)
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens')
+        run: |
+          rm -rf run-selftest && mkdir -p run-selftest
+          echo "eula=true" > run-selftest/eula.txt
+          printf "level-seed=20261108\nonline-mode=false\nlevel-name=world\nmax-tick-time=-1\nspawn-protection=0\n" > run-selftest/server.properties
+          timeout 1500 ./gradlew runSelftest --stacktrace > selftest.log 2>&1 || true
+          mkdir -p run-selftest/selftest
+          cp selftest.log run-selftest/selftest/
+          grep -iE "error|exception|failed|maidens" run-selftest/logs/latest.log | head -300 > run-selftest/selftest/problems.txt || true
+          cat run-selftest/selftest/report.txt || true
+
+      - name: Keep the game test results
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens')
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest
+          path: run-selftest/selftest
+
+      - name: Client test (screenshots)
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens') && contains(github.event.head_commit.message, '[client]')
+        run: |
+          sudo apt-get update -q >/dev/null && sudo apt-get install -yq xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils >/dev/null
+          D=run-clienttest; rm -rf $D; mkdir -p $D/saves clientshots
+          cp -r run-selftest/world $D/saves/test
+          cp run-selftest/selftest/house.txt $D/ 2>/dev/null || true
+          printf 'onboardAccessibility:false\ntutorialStep:none\npauseOnLostFocus:false\nrenderDistance:6\nsimulationDistance:5\nfov:0.0\nguiScale:2\nsoundCategory_master:0.0\njoinedFirstServer:true\nskipMultiplayerWarning:true\n' > $D/options.txt
+          export LIBGL_ALWAYS_SOFTWARE=1
+          timeout 1500 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClienttest --stacktrace > clienttest.log 2>&1 || true
+          cp $D/screenshots/*.png clientshots/ 2>/dev/null || true
+          cp clienttest.log clientshots/ ; cp $D/logs/latest.log clientshots/ 2>/dev/null || true
+
+      - name: Keep the client test
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens') && contains(github.event.head_commit.message, '[client]')
+        uses: actions/upload-artifact@v4
+        with:
+          name: clienttest
+          path: clientshots

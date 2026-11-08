@@ -119,27 +119,32 @@ public final class Buildings {
      */
     @Nullable
     public static Plan build(ServerLevel level, VillageRecord v, ResourceLocation template, BlockPos near) {
-        Plan plan = findSite(level, v, template, near);
-        if (plan == null) return null;
-        v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear());
-        if (plan.door() != null) {
-            Plan road = road(level, v, plan);
-            if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear());
+        // the nearest good spot whose door can be joined to the village's roads by a walkable path
+        int tried = 0;
+        for (Site site : findSites(level, v, template, near)) {
+            if (++tried > 12) break;
+            Plan plan = withFoundation(level, read(level, template, site.origin(), site.rot()));
+            Plan road = plan.door() == null ? null : road(level, v, plan);
+            if (road == null) continue;
+            v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear());
+            v.blueprint.addBuilding(road.box(), road.blocks(), road.clear());
+            v.project = shortName(template);
+            Villages.get(level).setDirty();
+            return plan;
         }
-        v.project = shortName(template);
-        Villages.get(level).setDirty();
-        return plan;
+        lastSearch += "; " + tried + " checked for a road, none could be joined";
+        return null;
     }
 
-    @Nullable
-    private static Plan findSite(ServerLevel level, VillageRecord v, ResourceLocation template, BlockPos near) {
+    private record Site(BlockPos origin, Rotation rot, double distance) {}
+
+    /** Flat, dry, free spots for the building near a place, nearest first. */
+    private static List<Site> findSites(ServerLevel level, VillageRecord v, ResourceLocation template, BlockPos near) {
         RandomSource r = RandomSource.create(level.getGameTime() ^ v.id);
         StructureTemplate t = level.getStructureManager().getOrCreate(template);
-        BlockPos bestOrigin = null;
-        Rotation bestRot = Rotation.NONE;
+        List<Site> sites = new ArrayList<>();
         BoundingBox allowed = v.box.inflatedBy(40);
-        double bestD = Double.MAX_VALUE;
-        int unloaded = 0, outside = 0, overlap = 0, ground = 0, ok = 0;
+        int unloaded = 0, outside = 0, overlap = 0, ground = 0;
         for (int i = 0; i < TRIES; i++) {
             double angle = r.nextDouble() * Math.PI * 2;
             // anywhere from right here out to past the village's edge
@@ -155,18 +160,12 @@ public final class Buildings {
             if (v.blueprint.overlaps(fp.inflatedBy(2))) { overlap++; continue; }
             int base = groundLevel(level, fp);
             if (base == Integer.MIN_VALUE) { ground++; continue; }
-            ok++;
-            double d = near.distSqr(fp.getCenter());
-            if (d < bestD) {
-                bestD = d;
-                bestOrigin = new BlockPos(x, base, z);
-                bestRot = rot;
-            }
+            sites.add(new Site(new BlockPos(x, base, z), rot, near.distSqr(fp.getCenter())));
         }
-        lastSearch = shortName(template) + ": " + ok + " good spots of " + TRIES + " tried (" + overlap + " on other buildings, " + ground
+        lastSearch = shortName(template) + ": " + sites.size() + " good spots of " + TRIES + " tried (" + overlap + " on other buildings, " + ground
                 + " too steep or wet, " + unloaded + " not loaded, " + outside + " too far)";
-        if (bestOrigin == null) return null;
-        return withFoundation(level, read(level, template, bestOrigin, bestRot));
+        sites.sort((p, q) -> Double.compare(p.distance(), q.distance()));
+        return sites;
     }
 
     /** The height to build at (the top of the ground, averaged), or MIN_VALUE if it's too steep or wet here. */

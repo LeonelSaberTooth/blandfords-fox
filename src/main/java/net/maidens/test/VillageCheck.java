@@ -213,6 +213,14 @@ final class VillageCheck {
             if (m.isSleeping()) asleep++;
         }
         log.accept("  after 400 ticks: " + asleep + " asleep of " + free + " free residents (" + withBed + " with a bed)");
+        int shown = 0;
+        for (Maiden m : rs) {
+            if (!m.hasVillageDuties() || m.isSleeping() || m.residence().bed() == null || shown++ >= 4) continue;
+            BlockPos b = m.residence().bed();
+            log.accept("    " + m.name() + " at " + m.blockPosition().toShortString() + ", bed " + b.toShortString() + " ("
+                    + Math.round(Math.sqrt(m.distanceToSqr(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5))) + " away), bed block "
+                    + level.getBlockState(b).getBlock() + ", goals: " + m.runningGoals() + ", free " + m.isFree() + ", target " + m.getTarget());
+        }
         level.setDayTime(1000);
     }
 

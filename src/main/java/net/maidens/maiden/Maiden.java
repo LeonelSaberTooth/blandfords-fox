@@ -452,6 +452,13 @@ public class Maiden extends AbstractVillager {
         wishes.load(tag);
     }
 
+    /** For the self test: the goals running right now. */
+    public String runningGoals() {
+        StringBuilder s = new StringBuilder();
+        for (var g : goalSelector.getAvailableGoals()) if (g.isRunning()) s.append(g.getGoal().getClass().getSimpleName()).append(' ');
+        return s.toString().trim();
+    }
+
     /** For the test command: a one-line summary of her. */
     public String describe(Player p) {
         return name() + " (" + personality.label + "), likes you " + relationships.affection(p) + "/100, dreams of: "

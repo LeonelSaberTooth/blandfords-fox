@@ -19,12 +19,15 @@ import java.util.EnumSet;
  * (or a shovel, to clear a road) and does it.
  */
 final class VillageChoreGoal extends Goal {
-    private static final double REACH = 3.5;
+    private static final double REACH = 3.5, MAX_REACH = 8;
     private static final int GIVE_UP = 1200;
 
     private final Maiden m;
     @Nullable private Chore chore;
-    private int ticks, repath;
+    private int ticks, repath, noPath;
+    /** Closest she got so far, and when she last got closer. */
+    private double closest;
+    private int lastCloser;
 
     VillageChoreGoal(Maiden m) {
         this.m = m;
@@ -40,13 +43,17 @@ final class VillageChoreGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return chore != null && m.hasVillageDuties() && m.isFree() && ticks < GIVE_UP && Upkeep.stillNeeded(m, chore);
+        return chore != null && m.hasVillageDuties() && m.isFree() && ticks < GIVE_UP && Schedule.now(m) != Schedule.Activity.SLEEP
+                && noPath < 6 && Upkeep.stillNeeded(m, chore);
     }
 
     @Override
     public void start() {
         ticks = 0;
         repath = 0;
+        noPath = 0;
+        closest = Double.MAX_VALUE;
+        lastCloser = 0;
         ItemStack held = chore.kind == Chore.Kind.CLEAR ? new ItemStack(Items.IRON_SHOVEL) : new ItemStack(chore.block.getBlock().asItem());
         m.setItemSlot(EquipmentSlot.MAINHAND, held);
     }
@@ -62,13 +69,20 @@ final class VillageChoreGoal extends Goal {
         ticks++;
         Vec3 c = Vec3.atCenterOf(chore.pos);
         m.getLookControl().setLookAt(c.x, c.y, c.z);
-        if (m.distanceToSqr(c) > REACH * REACH) {
+        double d = m.distanceToSqr(c);
+        if (d < closest - 1) {
+            closest = d;
+            lastCloser = ticks;
+        }
+        // close enough, or as close as she can get (a spot inside a wall or a hole): she reaches over
+        boolean stalled = ticks - lastCloser > 100 && d <= MAX_REACH * MAX_REACH;
+        if (d > REACH * REACH && !stalled) {
             if (--repath <= 0) {
                 repath = 20;
                 // far away: walk there in stages (a path can only be planned so far ahead)
-                Vec3 to = m.distanceToSqr(c) > 30 * 30 ? LandRandomPos.getPosTowards(m, 20, 7, c) : c;
+                Vec3 to = d > 30 * 30 ? LandRandomPos.getPosTowards(m, 20, 7, c) : c;
                 if (to == null) to = c;
-                m.getNavigation().moveTo(to.x, to == c ? chore.pos.getY() : to.y, to.z, 0.6);
+                if (!m.getNavigation().moveTo(to.x, to == c ? chore.pos.getY() : to.y, to.z, 0.6)) noPath++;
             }
             return;
         }
@@ -78,7 +92,7 @@ final class VillageChoreGoal extends Goal {
 
     @Override
     public void stop() {
-        if (chore != null) Upkeep.giveBack(chore, ticks >= GIVE_UP, m.level().getGameTime());
+        if (chore != null) Upkeep.giveBack(chore, ticks >= GIVE_UP || noPath >= 6, m.level().getGameTime());
         chore = null;
         m.getNavigation().stop();
         if (!m.employment().isWorking()) m.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);

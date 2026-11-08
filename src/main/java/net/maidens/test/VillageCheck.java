@@ -221,6 +221,7 @@ final class VillageCheck {
         int open = 0;
         for (Maiden m : rs) if (m.wishes().item() != null) open++;
         Maiden m = rs.get(0);
+        tester.moveTo(m.getX() + 1, m.getY(), m.getZ());
         m.wishes().setForTest(Items.BREAD, 5);
         tester.getInventory().clearContent();
         tester.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD, 3));

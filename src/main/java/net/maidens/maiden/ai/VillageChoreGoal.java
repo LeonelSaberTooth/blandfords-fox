@@ -47,7 +47,7 @@ final class VillageChoreGoal extends Goal {
     @Override
     public boolean canContinueToUse() {
         return chore != null && m.hasVillageDuties() && m.isFree() && ticks < GIVE_UP && Schedule.now(m) != Schedule.Activity.SLEEP
-                && noPath < 6 && Upkeep.stillNeeded(m, chore);
+                && Upkeep.stillNeeded(m, chore);
     }
 
     @Override
@@ -79,6 +79,12 @@ final class VillageChoreGoal extends Goal {
         }
         // close enough, or as close as she can get (a spot inside a wall or a hole): she reaches over
         boolean stalled = ticks - lastCloser > 60 && d <= MAX_REACH * MAX_REACH;
+        // stuck far away for 10 s: she finds her own way there
+        if (!stalled && ticks - lastCloser > 200 && m.arriveNear(chore.pos)) {
+            lastCloser = ticks;
+            closest = m.distanceToSqr(c);
+            return;
+        }
         if (d > REACH * REACH && !stalled) {
             if (--repath <= 0) {
                 repath = 20;

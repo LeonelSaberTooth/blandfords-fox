@@ -49,7 +49,22 @@ public final class Housing {
         for (ResourceLocation t : Buildings.templates(level, v.style)) if (Buildings.beds(level, t) > 0) houses.add(t);
         if (houses.isEmpty()) return null;
         ResourceLocation pick = houses.get(level.getRandom().nextInt(houses.size()));
-        return Buildings.build(level, v, pick, v.centre());
+        return Buildings.build(level, v, pick, homeArea(level, v));
+    }
+
+    /** Where the residents live: the middle of their beds (a village on a hillside may have its centre up a slope). */
+    private static BlockPos homeArea(ServerLevel level, VillageRecord v) {
+        long x = 0, y = 0, z = 0;
+        int n = 0;
+        for (Maiden m : VillageSocial.residents(level, v)) {
+            BlockPos b = m.residence().bed();
+            if (b == null) continue;
+            x += b.getX();
+            y += b.getY();
+            z += b.getZ();
+            n++;
+        }
+        return n == 0 ? v.centre() : new BlockPos((int) (x / n), (int) (y / n), (int) (z / n));
     }
 
     /** A new maiden moves in, if there's a free bed: she appears on a road near it. Returns her, or null. */

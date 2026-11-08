@@ -37,7 +37,8 @@ final class ScheduleGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return to != null && m.hasVillageDuties() && m.isFree() && m.getTarget() == null && Schedule.now(m) == activity && !there() && ticks < 1200;
+        return to != null && !m.isSleeping() && m.hasVillageDuties() && m.isFree() && m.getTarget() == null && Schedule.now(m) == activity
+                && !there() && ticks < 1200;
     }
 
     private boolean there() {
@@ -62,6 +63,12 @@ final class ScheduleGoal extends Goal {
         }
         // at bedtime, if she's close but can't quite get to her bed (a door, a step...), she gets in anyway
         if (activity == Schedule.Activity.SLEEP && ticks - lastCloser > 100 && d < 8 * 8 && Schedule.goToBed(m)) return;
+        // stuck far away for 10 s: she finds her own way there
+        if (ticks - lastCloser > 200 && m.arriveNear(to)) {
+            lastCloser = ticks;
+            closest = m.distanceToSqr(Vec3.atBottomCenterOf(to));
+            return;
+        }
         if (--repath > 0) return;
         repath = 40;
         Vec3 c = Vec3.atBottomCenterOf(to);

@@ -246,6 +246,25 @@ public class Maiden extends AbstractVillager {
                 .append(Component.literal(line).withStyle(ChatFormatting.WHITE)));
     }
 
+    /**
+     * When she's been stuck a long way from where she needs to be (a cliff, a river, a path the pathfinder can't
+     * plan), she finds her own way: puts her on a free standing spot within 3 blocks of it. Returns false if none.
+     */
+    public boolean arriveNear(BlockPos target) {
+        for (BlockPos p : BlockPos.withinManhattan(target, 3, 3, 3)) {
+            if (p.equals(target) || p.above().equals(target)) continue;     // not in the spot she's about to fill
+            if (level().getBlockState(p.below()).isFaceSturdy(level(), p.below(), net.minecraft.core.Direction.UP)
+                    && level().getBlockState(p).getCollisionShape(level(), p).isEmpty()
+                    && level().getBlockState(p.above()).getCollisionShape(level(), p.above()).isEmpty()
+                    && level().getFluidState(p).isEmpty()) {
+                getNavigation().stop();
+                teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Particles above her head. */
     public void burst(ParticleOptions type, int count) {
         if (level() instanceof ServerLevel sl) sl.sendParticles(type, getX(), getY() + getBbHeight() + 0.3, getZ(), count, 0.4, 0.3, 0.4, 0.02);

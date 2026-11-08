@@ -28,41 +28,13 @@ jobs:
           set -o pipefail
           ./gradlew build --stacktrace 2>&1 | tee build.log
 
-      - name: Keep the build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-
-      - name: Vanilla sources of the classes the mod uses (for reference while writing it)
-        if: always()
-        shell: bash
+      - name: Publish the build log if it failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          jar=""
-          for j in $(find build/moddev ~/.gradle -name "*sources*.jar" 2>/dev/null); do
-            if unzip -l "$j" 'net/minecraft/world/entity/npc/AbstractVillager.java' >/dev/null 2>&1; then jar="$j"; break; fi
-          done
-          echo "sources: $jar"
-          [ -n "$jar" ] || exit 0
-          mkdir -p mcsrc
-          { grep -rhoE "import net\.minecraft\.[A-Za-z0-9_.]+;" src | sed 's/import //; s/;//'
-            printf '%s\n' net.minecraft.world.entity.npc.Villager net.minecraft.world.entity.npc.WanderingTrader \
-              net.minecraft.world.item.trading.Merchant net.minecraft.world.entity.Mob net.minecraft.world.entity.LivingEntity \
-              net.minecraft.world.entity.PathfinderMob net.minecraft.client.renderer.entity.LivingEntityRenderer \
-              net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate \
-              net.minecraft.world.level.levelgen.structure.pools.SinglePoolElement net.minecraft.client.gui.GuiGraphics; } \
-            | sort -u | sed 's|\.|/|g; s|$|.java|' > want.txt
-          while read -r f; do unzip -q -o "$jar" "$f" -d mcsrc 2>/dev/null || true; done < want.txt
-          find mcsrc -name "*.java" | wc -l
-
-      - name: Keep the reference sources
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mcsrc
-          path: mcsrc
-          if-no-files-found: ignore
+          gh release delete maidens-build-log --yes --cleanup-tag || true
+          gh release create maidens-build-log build.log --prerelease --target "$GITHUB_SHA" --title "Maidens: failed build log" --notes "Output of the last failed build."
 
       - name: Keep the jar with this run
         uses: actions/upload-artifact@v4
@@ -93,12 +65,14 @@ jobs:
           grep -iE "error|exception|failed|maidens" run-selftest/logs/latest.log | head -300 > run-selftest/selftest/problems.txt || true
           cat run-selftest/selftest/report.txt || true
 
-      - name: Keep the game test results
+      - name: Publish the game test results
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens')
-        uses: actions/upload-artifact@v4
-        with:
-          name: selftest
-          path: run-selftest/selftest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd run-selftest/selftest && zip -qr ../../selftest.zip . && cd ../..
+          gh release delete maidens-tests --yes --cleanup-tag || true
+          gh release create maidens-tests selftest.zip --prerelease --target "$GITHUB_SHA" --title "Maidens test results" --notes "Game test report and logs, and the client test screenshots when that runs."
 
       - name: Client test (screenshots)
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens') && contains(github.event.head_commit.message, '[client]')
@@ -113,9 +87,10 @@ jobs:
           cp $D/screenshots/*.png clientshots/ 2>/dev/null || true
           cp clienttest.log clientshots/ ; cp $D/logs/latest.log clientshots/ 2>/dev/null || true
 
-      - name: Keep the client test
+      - name: Publish the client test
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens') && contains(github.event.head_commit.message, '[client]')
-        uses: actions/upload-artifact@v4
-        with:
-          name: clienttest
-          path: clientshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd clientshots && zip -qr ../clienttest.zip . && cd ..
+          gh release upload maidens-tests clienttest.zip --clobber

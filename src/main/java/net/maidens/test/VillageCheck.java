@@ -81,7 +81,7 @@ final class VillageCheck {
         if (t == 100 || t == 600) {
             AABB area = new AABB(village).inflate(96, 64, 96);
             List<Maiden> maidens = level.getEntitiesOfClass(Maiden.class, area);
-            List<Villager> villagers = level.getEntitiesOfClass(Villager.class, area);
+            List<Villager> villagers = level.getEntitiesOfClass(Villager.class, area, v -> !v.isRemoved());
             int inVillage = 0, beds = 0, sites = 0;
             TreeMap<String, Integer> jobs = new TreeMap<>();
             for (Maiden m : maidens) {
@@ -139,6 +139,7 @@ final class VillageCheck {
                 next(t, () -> night(level));
             }
             case 4 -> {
+                if (st < 1600) return false;
                 bedtime(level);
                 wishes(level);
                 next(t, () -> raid(level));
@@ -199,8 +200,8 @@ final class VillageCheck {
     // ------------------------------------------------------------------ Phase 5: their day, requests, raids
 
     private void night(ServerLevel level) {
-        level.setDayTime(12500);
-        log.accept("schedule: night falls (time 12500)");
+        level.setDayTime(11000);
+        log.accept("schedule: evening (time 11000): home at 11000, bed at 12000");
     }
 
     private void bedtime(ServerLevel level) {
@@ -212,7 +213,7 @@ final class VillageCheck {
             if (m.residence().bed() != null) withBed++;
             if (m.isSleeping()) asleep++;
         }
-        log.accept("  after 400 ticks: " + asleep + " asleep of " + free + " free residents (" + withBed + " with a bed)");
+        log.accept("  at time 12600: " + asleep + " asleep of " + free + " free residents (" + withBed + " with a bed)");
         int shown = 0;
         for (Maiden m : rs) {
             if (!m.hasVillageDuties() || m.isSleeping() || m.residence().bed() == null || shown++ >= 4) continue;

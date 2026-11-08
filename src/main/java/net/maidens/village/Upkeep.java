@@ -159,7 +159,10 @@ public final class Upkeep {
             v.chores.remove(c.pos.asLong());
             return true;
         }
-        if (!level.getEntitiesOfClass(LivingEntity.class, new AABB(c.pos)).isEmpty()) return false;
+        // a maiden standing in the gap (often the builder herself) steps aside; anyone else is waited for
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c.pos))) {
+            if (!(e instanceof Maiden other) || !other.arriveNear(c.pos)) return false;
+        }
         place(level, c.pos, c.block);
         v.chores.remove(c.pos.asLong());
         // the other half of a door or bed, or the rest of the same block next to it, goes back at the same time

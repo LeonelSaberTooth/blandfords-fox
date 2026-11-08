@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:adventure/root",
+  "display": {
+    "icon": { "id": "minecraft:bell" },
+    "title": { "translate": "advancements.maidens.citizen.title" },
+    "description": { "translate": "advancements.maidens.citizen.description" },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true
+  },
+  "criteria": {
+    "citizen": { "trigger": "minecraft:impossible" }
+  }
+}

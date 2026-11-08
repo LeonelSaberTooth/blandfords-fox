@@ -7,6 +7,7 @@ import net.maidens.maiden.social.Relationships;
 import net.maidens.maiden.trade.MaidenTrading;
 import net.maidens.maiden.work.Employment;
 import net.maidens.maiden.work.Job;
+import net.maidens.village.VillageSocial;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
@@ -174,6 +175,11 @@ public class Maiden extends AbstractVillager {
         return !isTrading() && getTalker() == null;
     }
 
+    /** A village maiden nobody has claimed: not hired and not married. Only she does village chores and routine. */
+    public boolean hasVillageDuties() {
+        return residence.inVillage() && !employment.isWorking() && !relationships.isMarried();
+    }
+
     /** Fights monsters: a hired guard. */
     public boolean isFighter() {
         return employment.isGuarding();
@@ -190,12 +196,20 @@ public class Maiden extends AbstractVillager {
         getNavigation().stop();
     }
 
-    /** A player changed how she feels about them (hook for village gossip). */
+    /** A player changed how she feels about them: her village hears about it. */
     public void onAffectionChanged(Player player, int amount) {
+        VillageSocial.onAffectionChanged(this, player, amount);
     }
 
-    /** A player traded with her (hook for village citizenship). */
+    /** A player traded with her: counts towards citizenship of her village. */
     public void onTraded(Player player) {
+        VillageSocial.onTraded(this, player);
+    }
+
+    /** She just married this player. */
+    public void onMarried(Player player) {
+        employment.onMarried(player);
+        VillageSocial.onMarried(this, player);
     }
 
     // ------------------------------------------------------------------ small helpers for her parts

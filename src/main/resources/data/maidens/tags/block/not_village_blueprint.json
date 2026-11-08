@@ -1,0 +1,89 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "#minecraft:replaceable",
+      "required": false
+    },
+    {
+      "id": "#minecraft:leaves",
+      "required": false
+    },
+    {
+      "id": "#minecraft:flowers",
+      "required": false
+    },
+    {
+      "id": "#minecraft:saplings",
+      "required": false
+    },
+    {
+      "id": "#minecraft:crops",
+      "required": false
+    },
+    {
+      "id": "#minecraft:dirt",
+      "required": false
+    },
+    {
+      "id": "#minecraft:base_stone_overworld",
+      "required": false
+    },
+    {
+      "id": "#minecraft:sand",
+      "required": false
+    },
+    {
+      "id": "#minecraft:snow",
+      "required": false
+    },
+    {
+      "id": "#minecraft:ice",
+      "required": false
+    },
+    {
+      "id": "minecraft:gravel",
+      "required": false
+    },
+    {
+      "id": "minecraft:clay",
+      "required": false
+    },
+    {
+      "id": "minecraft:pumpkin",
+      "required": false
+    },
+    {
+      "id": "minecraft:melon",
+      "required": false
+    },
+    {
+      "id": "minecraft:sweet_berry_bush",
+      "required": false
+    },
+    {
+      "id": "minecraft:sugar_cane",
+      "required": false
+    },
+    {
+      "id": "minecraft:cactus",
+      "required": false
+    },
+    {
+      "id": "minecraft:bamboo",
+      "required": false
+    },
+    {
+      "id": "minecraft:vine",
+      "required": false
+    },
+    {
+      "id": "minecraft:moss_carpet",
+      "required": false
+    },
+    {
+      "id": "minecraft:fire",
+      "required": false
+    }
+  ]
+}

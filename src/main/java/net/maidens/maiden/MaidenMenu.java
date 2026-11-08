@@ -1,5 +1,7 @@
 package net.maidens.maiden;
 
+import net.maidens.village.VillageSocial;
+
 import net.maidens.core.MaidensConfig;
 import net.maidens.maiden.work.Job;
 import net.maidens.network.ActionPayload;
@@ -30,7 +32,7 @@ public final class MaidenMenu {
             case ActionPayload.BAG -> m.employment().openBag(p);
             case ActionPayload.HIRE -> m.employment().hire(p, Job.byId(arg));
             case ActionPayload.STOP -> m.employment().stopBy(p);
-            default -> m.relationships().greeting(p);
+            default -> VillageSocial.greeting(m, p);
         };
         if (reply != null) {
             m.say(p, reply);

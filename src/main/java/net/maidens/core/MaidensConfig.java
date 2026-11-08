@@ -28,6 +28,7 @@ public final class MaidensConfig {
     public static final ModConfigSpec.IntValue CITIZEN_AVERAGE_AFFECTION;
     public static final ModConfigSpec.IntValue CITIZEN_TRADES;
     public static final ModConfigSpec.BooleanValue REPAIRS;
+    public static final ModConfigSpec.IntValue REPAIR_DELAY;
     public static final ModConfigSpec.BooleanValue HOUSING;
 
     static {
@@ -47,10 +48,11 @@ public final class MaidensConfig {
         MAIDEN_VILLAGE_CHANCE = b.comment("Chance that a newly generated village is lived in by maidens instead of villagers.").defineInRange("maidenVillageChance", 0.5, 0.0, 1.0);
         ANGER_PER_BLOCK = b.comment("Affection every maiden of a village loses when a non-citizen breaks one of its blocks.").defineInRange("angerPerBlock", 2, 0, 100);
         ANGER_PER_DAY = b.comment("Most affection a player can lose per maiden per day from breaking village blocks.").defineInRange("angerPerDay", 20, 0, 100);
-        GOSSIP_SHARE_PERCENT = b.comment("Percent of an affection change that spreads to the other maidens of her village.").defineInRange("gossipSharePercent", 25, 0, 100);
+        GOSSIP_SHARE_PERCENT = b.comment("Percent chance that each other maiden of her village hears about an affection change a player caused.").defineInRange("gossipSharePercent", 25, 0, 100);
         CITIZEN_AVERAGE_AFFECTION = b.comment("Average affection of a village's maidens that makes a player a citizen.").defineInRange("citizenAverageAffection", 50, 0, 100);
         CITIZEN_TRADES = b.comment("Trades in one village that make a player a citizen.").defineInRange("citizenTrades", 30, 1, 10000);
         REPAIRS = b.comment("Maidens repair their village and clear its roads.").define("repairs", true);
+        REPAIR_DELAY = b.comment("Ticks a block must stay broken (or a road blocked) before a maiden fixes it.").defineInRange("repairDelay", 600, 0, 1000000);
         HOUSING = b.comment("Maiden villages build houses for maidens without a bed.").define("housing", true);
         b.pop();
         SPEC = b.build();

@@ -14,8 +14,8 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * Every goal a maiden has, in priority order (lower number first). This is the one place to see what
- * overrides what: talking and trading stop everything; then danger; then a guard's duties; then hired work;
- * then her own routine.
+ * overrides what: talking and trading stop everything; then danger; then a guard's duties; then hired work
+ * (or, for a free village maiden, village chores); then her own routine.
  */
 public final class MaidenAi {
     private MaidenAi() {}
@@ -29,6 +29,7 @@ public final class MaidenAi {
         goals.addGoal(2, new GuardAttackGoal(m));
         goals.addGoal(3, new FollowEmployerGoal(m));
         goals.addGoal(4, new WorkGoal(m));
+        goals.addGoal(4, new VillageChoreGoal(m));          // only when not hired or married
         goals.addGoal(5, new MoveTowardsRestrictionGoal(m, 0.6));
         goals.addGoal(6, new OpenDoorGoal(m, true));
         goals.addGoal(7, new WanderGoal(m));

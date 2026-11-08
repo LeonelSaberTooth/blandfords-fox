@@ -211,7 +211,7 @@ public final class Relationships {
         spouse = p.getUUID();
         spouseName = n;
         marriages.marry(p.getUUID(), m.getUUID());
-        m.employment().onMarried(p);
+        m.onMarried(p);
         m.burst(ParticleTypes.HEART, 20);
         m.level().playSound(null, m.blockPosition(), SoundEvents.PLAYER_LEVELUP, m.getSoundSource(), 1.0F, 1.0F);
         return "Yes! Yes, " + n + ", I'll marry you! From now on, what's mine is yours.";

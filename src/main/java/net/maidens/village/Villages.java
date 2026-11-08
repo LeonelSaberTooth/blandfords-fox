@@ -9,6 +9,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.StructureTags;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.Nullable;
@@ -48,11 +49,25 @@ public final class Villages extends SavedData {
         long id = start.getChunkPos().toLong();
         VillageRecord r = records.get(id);
         if (r == null) {
-            r = new VillageRecord(id, start.getBoundingBox());
+            Blueprint bp = new Blueprint();
+            for (StructurePiece piece : start.getPieces()) bp.addPiece(piece.getBoundingBox());
+            r = new VillageRecord(id, start.getBoundingBox(), bp);
             records.put(id, r);
             setDirty();
         }
         return r;
+    }
+
+    /** The maiden village whose area contains this spot, or null. */
+    @Nullable
+    public VillageRecord at(BlockPos pos) {
+        for (VillageRecord r : records.values()) if (r.box.isInside(pos)) return r;
+        return null;
+    }
+
+    /** Records any blueprint pieces whose chunks have loaded since last time. */
+    public void recordLoadedPieces(ServerLevel level) {
+        for (VillageRecord r : records.values()) if (r.blueprint.recordLoadedPieces(level)) setDirty();
     }
 
     @Nullable
@@ -68,7 +83,7 @@ public final class Villages extends SavedData {
         Villages v = new Villages();
         ListTag list = tag.getList("Villages", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
-            VillageRecord r = VillageRecord.load(list.getCompound(i));
+            VillageRecord r = VillageRecord.load(list.getCompound(i), registries);
             v.records.put(r.id, r);
         }
         return v;

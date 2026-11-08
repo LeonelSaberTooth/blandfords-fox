@@ -28,7 +28,7 @@ not in code.
 | `maiden.trade` | `MaidenTrading` (trades by profession, levels, prices) |
 | `maiden.home` | `Residence` (her village, claimed bed and workstation, profession) |
 | `maiden.ai` | `MaidenAi` (every goal, in priority order) and the goals themselves |
-| `village` | `Villages` (saved list of maiden villages, the per-village coin flip), `VillageRecord`, `VillageConversion` (villager to maiden swap) |
+| `village` | `Villages` (saved list of maiden villages, the per-village coin flip), `VillageRecord` (name, area, citizens, trades), `Blueprint` (how the village looked), `VillageConversion` (villager to maiden swap), `VillageSocial` (gossip, anger, citizenship, greetings), `VillageEvents` (block break/place, blueprint recording) |
 | `network` | `MenuPayload` (server to client), `ActionPayload` (client to server), `Network` |
 | `client` | model, renderer, menu screen, client test |
 | `command` | `/maiden` test commands |
@@ -76,6 +76,21 @@ How it works (Phase 1):
   Her bed becomes her home. Dying frees both.
 - The menu shows her profession next to her personality.
 
+Phase 2:
+- Each village gets a name from its id (Ashford, Willowmere...). Strangers are welcomed to it as "traveller",
+  citizens are greeted as "neighbour".
+- `Blueprint`: each structure piece (house, road...) is recorded block by block once all its chunks are loaded.
+  Natural blocks are left out (block tag `maidens:not_village_blueprint`: terrain, plants, leaves, crops), and so
+  are air and fluids.
+- Breaking a blueprint block (non-citizen) costs `angerPerBlock` with every loaded resident, capped at `angerPerDay`
+  per maiden per day; the nearest resident scolds you (at most every 30 s). Explosions don't anger (repairs, Phase 3).
+- Gossip: when a player changes one maiden's affection by their own action, each other resident has
+  `gossipSharePercent` chance to hear the same change. Hearsay and anger don't spread further.
+- Citizenship (any of): residents' average affection >= `citizenAverageAffection`, `citizenTrades` trades in the
+  village, or marrying a resident. Gives the "One of Us" advancement. A citizen's breaking and placing updates the
+  blueprint, so maidens won't undo it.
+- `/maiden village` shows the village you stand in; `/maiden village citizen` makes you one (testing).
+
 Decisions (user, 2026-11-08: all defaults accepted):
 
 1. All five vanilla village styles; abandoned (zombie) villages stay as they are.
@@ -106,7 +121,7 @@ prices follow affection (done); maidens defend in raids.
 
 0. Reorganize into systems, design doc, config. (done in 0.2.0)
 1. Maiden villages: replacement, workstations and beds (vanilla POIs), profession trades. (done in 0.3.0)
-2. Village records: name and title, blueprint, anger, gossip, citizenship and advancement.
+2. Village records: name and title, blueprint, anger, gossip, citizenship and advancement. (done in 0.3.0)
 3. Repairs and road clearing.
 4. Housing: new houses, roads to them, the bell screen, new maidens arriving.
 5. Daily schedule, requests board, raid defence.

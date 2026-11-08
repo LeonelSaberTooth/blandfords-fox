@@ -1,4 +1,6 @@
 {
   "entity.maidens.maiden": "Maiden",
-  "item.maidens.maiden_spawn_egg": "Maiden Spawn Egg"
+  "item.maidens.maiden_spawn_egg": "Maiden Spawn Egg",
+  "advancements.maidens.citizen.title": "One of Us",
+  "advancements.maidens.citizen.description": "Become a citizen of a maiden village"
 }

@@ -177,7 +177,7 @@ public final class SelfTest {
             return;
         }
         if (phase == 0) return;
-        if (tick > 14000 && phase < 7) {
+        if (tick > 18000 && phase < 7) {
             log("TIMED OUT in phase " + phase);
             phase = 7;
             finish(server);
@@ -263,7 +263,8 @@ public final class SelfTest {
                 }
             }
             case 6 -> {   // a maiden village
-                if (villages.step(level, house, t)) {
+                villages.setTester(tester);
+                if (villages.step(level, house)) {
                     phase = 7;
                     finish(server);
                 }
@@ -279,7 +280,9 @@ public final class SelfTest {
     /** Every village becomes a maiden village in the test world, so the village check has one to look at. */
     @SubscribeEvent
     public static void beforeStart(ServerAboutToStartEvent event) {
-        if (OUT != null) MaidensConfig.MAIDEN_VILLAGE_CHANCE.set(1.0);
+        if (OUT == null) return;
+        MaidensConfig.MAIDEN_VILLAGE_CHANCE.set(1.0);
+        MaidensConfig.REPAIR_DELAY.set(100);
     }
 
     private static void next() {

@@ -170,13 +170,13 @@ final class VillageCheck {
         level.setDayTime(1000);
         plan = Housing.houseFor(level, record);
         if (plan == null) {
-            log.accept("housing: no site found for a house (style " + record.style + ", " + Buildings.templates(level, record.style).size() + " buildings known)");
+            log.accept("housing: no site found for a house (style " + record.style + ", " + Buildings.templates(level, record.style).size() + " buildings known); " + Buildings.lastSearch);
             return;
         }
         log.accept("housing: " + record.style + " buildings known: " + Buildings.templates(level, record.style).size() + "; building "
                 + Buildings.shortName(plan.template()) + " at " + plan.box().getCenter().toShortString() + ", " + plan.blocks().size() + " blocks, "
                 + plan.clear().size() + " to clear, " + plan.beds() + " bed(s), door " + (plan.door() == null ? "none" : plan.door().toShortString())
-                + ", pieces now " + record.blueprint.pieceCount());
+                + ", pieces now " + record.blueprint.pieceCount() + "; " + Buildings.lastSearch);
     }
 
     private boolean house(ServerLevel level, int t) {

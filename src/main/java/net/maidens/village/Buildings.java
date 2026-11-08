@@ -51,7 +51,10 @@ import java.util.regex.Pattern;
 public final class Buildings {
     private static final Pattern TEMPLATE_NAME = Pattern.compile("([a-z0-9_.-]+:[a-z0-9_/.-]+)");
     private static final Map<String, List<ResourceLocation>> BY_STYLE = new HashMap<>();
-    private static final int TRIES = 96, MAX_SLOPE = 3, ROAD_SEARCH = 6000;
+    private static final int TRIES = 400, MAX_SLOPE = 3, ROAD_SEARCH = 6000;
+
+    /** How the last site search went, for the self test and /maiden village. */
+    public static String lastSearch = "";
 
     private Buildings() {}
 
@@ -136,20 +139,23 @@ public final class Buildings {
         Rotation bestRot = Rotation.NONE;
         BoundingBox allowed = v.box.inflatedBy(40);
         double bestD = Double.MAX_VALUE;
+        int unloaded = 0, outside = 0, overlap = 0, ground = 0, ok = 0;
         for (int i = 0; i < TRIES; i++) {
             double angle = r.nextDouble() * Math.PI * 2;
-            double dist = 6 + r.nextDouble() * 40;
+            // anywhere from right here out to past the village's edge
+            double dist = 6 + r.nextDouble() * (Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2.0 + 40);
             int x = near.getX() + (int) (Math.cos(angle) * dist);
             int z = near.getZ() + (int) (Math.sin(angle) * dist);
             Rotation rot = Rotation.getRandom(r);
-            if (!level.hasChunkAt(new BlockPos(x, 0, z))) continue;
+            if (!level.hasChunkAt(new BlockPos(x, 0, z))) { unloaded++; continue; }
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
             BoundingBox fp = t.getBoundingBox(new StructurePlaceSettings().setRotation(rot), new BlockPos(x, y, z));
-            if (!allowed.isInside(new BlockPos(fp.getCenter().getX(), allowed.minY(), fp.getCenter().getZ()))) continue;
-            if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) continue;
-            if (v.blueprint.overlaps(fp.inflatedBy(2))) continue;
+            if (!allowed.isInside(new BlockPos(fp.getCenter().getX(), allowed.minY(), fp.getCenter().getZ()))) { outside++; continue; }
+            if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) { unloaded++; continue; }
+            if (v.blueprint.overlaps(fp.inflatedBy(2))) { overlap++; continue; }
             int base = groundLevel(level, fp);
-            if (base == Integer.MIN_VALUE) continue;
+            if (base == Integer.MIN_VALUE) { ground++; continue; }
+            ok++;
             double d = near.distSqr(fp.getCenter());
             if (d < bestD) {
                 bestD = d;
@@ -157,6 +163,8 @@ public final class Buildings {
                 bestRot = rot;
             }
         }
+        lastSearch = shortName(template) + ": " + ok + " good spots of " + TRIES + " tried (" + overlap + " on other buildings, " + ground
+                + " too steep or wet, " + unloaded + " not loaded, " + outside + " too far)";
         if (bestOrigin == null) return null;
         return withFoundation(level, read(level, template, bestOrigin, bestRot));
     }

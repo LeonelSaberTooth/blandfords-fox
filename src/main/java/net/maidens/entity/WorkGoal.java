@@ -49,6 +49,7 @@ final class WorkGoal extends Goal {
     // woodcutting: the logs of the tree being cut, in order, and where its trunk stands
     private final List<BlockPos> tree = new ArrayList<>();
     private BlockPos treeBase;
+    private final Set<BlockPos> unreachable = new HashSet<>();
     // fishing
     private BlockPos water;
     private int bite;
@@ -79,6 +80,7 @@ final class WorkGoal extends Goal {
         scan = 0;
         busy = 0;
         tree.clear();
+        unreachable.clear();
         water = null;
     }
 
@@ -92,7 +94,7 @@ final class WorkGoal extends Goal {
         if (!(m.level() instanceof ServerLevel level)) return;
         if (m.tickCount % 20 == 0) {
             m.workNote = m.getJob() + " at " + m.blockPosition().toShortString() + " target " + (target == null ? "-" : target.toShortString())
-                    + " tree " + tree.size() + " water " + (water == null ? "-" : water.toShortString()) + " bite " + bite
+                    + " tree " + tree.size() + " base " + (treeBase == null ? "-" : treeBase.toShortString()) + " water " + (water == null ? "-" : water.toShortString()) + " bite " + bite
                     + " stuck " + stuck + " busy " + busy + " step " + m.mineStep + " nav " + (m.getNavigation().isDone() ? "idle" : "moving");
         }
         switch (m.getJob()) {
@@ -201,10 +203,21 @@ final class WorkGoal extends Goal {
             collectTree(level, base);
             stuck = 0;
         }
-        if (stuck > 300) { tree.clear(); treeBase = null; return; }
-        if (!reach(treeBase, 3.0)) return;
+        if (stuck > 300) {                       // can't get there: try another tree
+            unreachable.add(treeBase);
+            tree.clear();
+            treeBase = null;
+            return;
+        }
         BlockPos log = tree.get(0);
         if (!level.getBlockState(log).is(BlockTags.LOGS)) { tree.remove(0); return; }
+        double dx = m.getX() - (treeBase.getX() + 0.5), dz = m.getZ() - (treeBase.getZ() + 0.5);
+        boolean atTrunk = dx * dx + dz * dz <= 2.5 * 2.5 && log.getY() - m.getY() <= 7;
+        if (!atTrunk && !MaidenGoals.near(m, log, 4.5)) {
+            reach(treeBase, 2.2);
+            return;
+        }
+        m.getNavigation().stop();
         m.getLookControl().setLookAt(Vec3.atCenterOf(log));
         harvest(level, log, AXE, false);
         tree.remove(0);
@@ -216,7 +229,7 @@ final class WorkGoal extends Goal {
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
         for (BlockPos p : BlockPos.betweenClosed(c.offset(-14, -3, -14), c.offset(14, 6, 14))) {
-            if (!level.getBlockState(p).is(BlockTags.LOGS)) continue;
+            if (!level.getBlockState(p).is(BlockTags.LOGS) || unreachable.contains(p)) continue;
             BlockState below = level.getBlockState(p.below());
             if (!below.is(BlockTags.DIRT)) continue;                      // a trunk standing on the ground, not a house beam
             if (!level.getBlockState(p.above()).is(BlockTags.LOGS)) continue;

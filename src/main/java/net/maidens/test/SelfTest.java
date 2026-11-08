@@ -186,10 +186,14 @@ public final class SelfTest {
             case 1 -> {   // farming: the wheat plot by her house
                 if (t < 1200 && !quit) return;
                 report("farm");
-                BlockPos at = maiden.blockPosition().offset(7, 0, 0);
-                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
-                BlockPos base = new BlockPos(at.getX(), y, at.getZ());
-                level.setBlock(base.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                // a small clearing beside her, at her own height, with a tree in it
+                BlockPos base = maiden.blockPosition().offset(5, 0, 0);
+                for (int dx = -3; dx <= 3; dx++)
+                    for (int dz = -3; dz <= 3; dz++) {
+                        level.setBlock(base.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                        for (int dy = 0; dy < 9; dy++) level.setBlock(base.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
+                    }
+                for (int dx = -5; dx <= 0; dx++) level.setBlock(base.offset(dx, -1, 0), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
                 for (int dy = 0; dy < 6; dy++) level.setBlock(base.above(dy), Blocks.OAK_LOG.defaultBlockState(), 3);
                 for (int dx = -2; dx <= 2; dx++)
                     for (int dz = -2; dz <= 2; dz++)
@@ -208,6 +212,7 @@ public final class SelfTest {
                 if (t < 1200 && !quit) return;
                 report("woodcutting");
                 maiden.getBag().addItem(new ItemStack(Items.TORCH, 8));
+                mineStart = maiden.blockPosition();
                 maiden.hireForTest(Job.MINE, tester);
                 log("mining: from " + maiden.blockPosition().toShortString() + ", heading " + Direction.NORTH);
                 next();
@@ -216,9 +221,9 @@ public final class SelfTest {
                 if (t < 2000 && !quit) return;
                 log("mining: reached step " + maiden.getMineStep() + (quit ? " (she stopped by herself)" : ""));
                 report("mining");
-                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, house.getX(), house.getZ());
-                maiden.moveTo(house.getX() + 0.5, y, house.getZ() + 0.5, 0, 0);
-                BlockPos c = maiden.blockPosition();
+                // a pond beside where she started digging (on open ground, outside the house)
+                maiden.moveTo(mineStart.getX() + 0.5, mineStart.getY(), mineStart.getZ() + 0.5, 0, 0);
+                BlockPos c = mineStart;
                 for (int dx = 3; dx <= 5; dx++)
                     for (int dz = -1; dz <= 1; dz++) {
                         level.setBlock(c.offset(dx, -1, dz), Blocks.WATER.defaultBlockState(), 3);
@@ -258,6 +263,7 @@ public final class SelfTest {
     }
 
     private static int phase;
+    private static BlockPos mineStart;
 
     private static void next() {
         phase++;

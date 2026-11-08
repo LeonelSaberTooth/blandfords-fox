@@ -28,7 +28,7 @@ import java.util.Iterator;
 public final class Upkeep {
     /** Blocks that make up roads; whatever stands on them that the blueprint doesn't expect is cleared away. */
     public static final TagKey<Block> ROAD = BlockTags.create(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "village_road"));
-    private static final int SCAN_PER_TICK = 8192, MAX_CHORES = 128, REACH = 80, CLAIM_TIMEOUT = 1200, RETRY_LATER = 1200;
+    private static final int SCAN_PER_TICK = 8192, MAX_CHORES = 128, REACH = 128, CLAIM_TIMEOUT = 1200, RETRY_LATER = 1200;
 
     private Upkeep() {}
 
@@ -192,5 +192,16 @@ public final class Upkeep {
 
     public static int chores(VillageRecord v) {
         return v.chores.size();
+    }
+
+    /** For the self test: chores listed, taken, and waiting to be retried. */
+    public static String choreSummary(ServerLevel level, VillageRecord v) {
+        int taken = 0, later = 0;
+        long ready = level.getGameTime() - MaidensConfig.REPAIR_DELAY.get();
+        for (Chore c : v.chores.values()) {
+            if (c.takenBy != null) taken++;
+            else if (c.since > ready) later++;
+        }
+        return v.chores.size() + " chores (" + taken + " taken, " + later + " waiting)";
     }
 }

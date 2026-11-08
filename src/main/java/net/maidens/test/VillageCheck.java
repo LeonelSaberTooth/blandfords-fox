@@ -99,7 +99,7 @@ final class VillageCheck {
                 vi.addAdditionalSaveData(tag);
                 log.accept("  villager left at " + vi.blockPosition().toShortString() + ": in a village piece " + (Villages.villageAt(level, vi.blockPosition()) != null)
                         + ", baby " + vi.isBaby() + ", profession " + vi.getVillagerData().getProfession() + ", age " + vi.tickCount
-                        + ", entity-ticking " + level.isPositionEntityTicking(vi.blockPosition()) + ", noAI " + vi.isNoAi() + ", flag " + tag.getBoolean("AssignProfessionWhenSpawned"));
+                        + ", removed " + vi.getRemovalReason() + ", entity-ticking " + level.isPositionEntityTicking(vi.blockPosition()) + ", noAI " + vi.isNoAi() + ", flag " + tag.getBoolean("AssignProfessionWhenSpawned"));
             }
             for (Maiden m : maidens) if (!m.residence().inVillage()) log.accept("  maiden without a village at " + m.blockPosition().toShortString() + ", age " + m.tickCount + ", noAI " + m.isNoAi() + ", name " + m.name());
             if (t == 600) log.accept("  free workstations in the area: " + level.getPoiManager().getCountInRange(
@@ -185,8 +185,8 @@ final class VillageCheck {
         int left = 0, inWay = 0;
         for (var e : plan.blocks().entrySet()) if (!level.getBlockState(e.getKey()).is(e.getValue().getBlock())) left++;
         for (BlockPos p : plan.clear()) if (!level.getBlockState(p).isAir()) inWay++;
-        log.accept("  after " + t + " ticks: " + left + " blocks still to place, " + inWay + " to clear, " + Upkeep.chores(record)
-                + " chores listed, still building: " + record.blueprint.isBuilding());
+        log.accept("  after " + t + " ticks: " + left + " blocks still to place, " + inWay + " to clear, " + Upkeep.choreSummary(level, record)
+                + ", still building: " + record.blueprint.isBuilding() + "; " + goals(level));
         return (left == 0 && !record.blueprint.isBuilding()) || t >= 6000;
     }
 
@@ -302,7 +302,7 @@ final class VillageCheck {
         int missing = blast == null ? 0 : Upkeep.missingNear(level, record, blast, 4);
         boolean blocked = obstacle != null && !level.getBlockState(obstacle).isAir();
         log.accept("  after " + t + " ticks: " + missing + " missing near the blast, road " + (obstacle == null ? "-" : blocked ? "still blocked" : "cleared")
-                + ", " + Upkeep.chores(record) + " chores listed");
+                + ", " + Upkeep.choreSummary(level, record) + "; " + goals(level));
         return (missing == 0 && !blocked) || t >= 4000;
     }
 
@@ -356,6 +356,16 @@ final class VillageCheck {
             breakAs(level, last);
             log.accept("  citizen breaks a block: affection " + before + " -> " + affections(rs) + ", still in blueprint: " + (v.blueprint.expected(last) != null));
         }
+    }
+
+    /** What the residents are doing: how many run each goal. */
+    private String goals(ServerLevel level) {
+        TreeMap<String, Integer> n = new TreeMap<>();
+        for (Maiden m : VillageSocial.residents(level, record)) {
+            String g = m.runningGoals();
+            for (String s : (g.isEmpty() ? "idle" : g).split(" ")) n.merge(s, 1, Integer::sum);
+        }
+        return n.toString();
     }
 
     private void breakAs(ServerLevel level, BlockPos p) {

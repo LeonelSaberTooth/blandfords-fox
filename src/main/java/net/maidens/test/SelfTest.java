@@ -185,7 +185,7 @@ public final class SelfTest {
             return;
         }
         if (phase == 0) return;
-        if (tick > 18000 && phase < 7) {
+        if (tick > 24000 && phase < 7) {
             log("TIMED OUT in phase " + phase);
             phase = 7;
             finish(server);

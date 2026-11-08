@@ -45,13 +45,14 @@ public final class Villages extends SavedData {
     }
 
     /** The record for a maiden village, made the first time it's needed. */
-    public VillageRecord record(StructureStart start) {
+    public VillageRecord record(ServerLevel level, StructureStart start) {
         long id = start.getChunkPos().toLong();
         VillageRecord r = records.get(id);
         if (r == null) {
             Blueprint bp = new Blueprint();
             for (StructurePiece piece : start.getPieces()) bp.addPiece(piece.getBoundingBox());
             r = new VillageRecord(id, start.getBoundingBox(), bp);
+            r.style = styleOf(level, start);
             records.put(id, r);
             setDirty();
         }
@@ -68,6 +69,18 @@ public final class Villages extends SavedData {
     /** Records any blueprint pieces whose chunks have loaded since last time. */
     public void recordLoadedPieces(ServerLevel level) {
         for (VillageRecord r : records.values()) if (r.blueprint.recordLoadedPieces(level)) setDirty();
+    }
+
+    /** "plains" for minecraft:village_plains and so on; plains for villages from other mods. */
+    private static String styleOf(ServerLevel level, StructureStart start) {
+        var key = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getKey(start.getStructure());
+        if (key == null) return "plains";
+        String p = key.getPath();
+        String style = p.startsWith("village_") ? p.substring(8) : p;
+        return switch (style) {
+            case "plains", "desert", "savanna", "snowy", "taiga" -> style;
+            default -> "plains";
+        };
     }
 
     @Nullable

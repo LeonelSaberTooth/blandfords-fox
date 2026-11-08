@@ -4,6 +4,8 @@ import com.mojang.datafixers.util.Pair;
 import net.maidens.maiden.Maiden;
 import net.maidens.maiden.home.Residence;
 import net.maidens.core.MaidensConfig;
+import net.maidens.village.Buildings;
+import net.maidens.village.Housing;
 import net.maidens.village.Upkeep;
 import net.maidens.village.VillageEvents;
 import net.maidens.village.VillageRecord;
@@ -86,6 +88,18 @@ final class VillageCheck {
             log.accept("  after " + t + " ticks: " + maidens.size() + " maidens (" + inVillage + " know their village), "
                     + villagers.size() + " villagers; " + beds + " have a bed, " + sites + " a workstation; professions " + jobs);
             log.accept("  maiden villages on record: " + count(Villages.get(level).all()));
+            for (Villager vi : villagers) {
+                net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+                vi.addAdditionalSaveData(tag);
+                log.accept("  villager left at " + vi.blockPosition().toShortString() + ": in a village piece " + (Villages.villageAt(level, vi.blockPosition()) != null)
+                        + ", baby " + vi.isBaby() + ", profession " + vi.getVillagerData().getProfession() + ", age " + vi.tickCount);
+            }
+            for (Maiden m : maidens) if (!m.residence().inVillage()) log.accept("  maiden without a village at " + m.blockPosition().toShortString());
+            if (t == 600) log.accept("  free workstations in the area: " + level.getPoiManager().getCountInRange(
+                    h -> net.minecraft.world.entity.npc.VillagerProfession.ALL_ACQUIRABLE_JOBS.test(h), village, 96,
+                    net.minecraft.world.entity.ai.village.poi.PoiManager.Occupancy.HAS_SPACE)
+                    + ", taken " + level.getPoiManager().getCountInRange(h -> net.minecraft.world.entity.npc.VillagerProfession.ALL_ACQUIRABLE_JOBS.test(h), village, 96,
+                    net.minecraft.world.entity.ai.village.poi.PoiManager.Occupancy.IS_OCCUPIED));
             if (t == 600) {
                 for (Maiden m : maidens) {
                     if (m.residence().profession() == null) continue;
@@ -100,10 +114,72 @@ final class VillageCheck {
         if (t == 620) {
             social(level);
             damage(level);
+            stage = 1;
+            stageStart = t;
             return false;
         }
-        if (t > 620 && (t - 620) % 400 == 0) return repairs(level, t - 620);
+        int st = t - stageStart;
+        if (t < 620 || st == 0 || st % 400 != 0) return false;
+        switch (stage) {
+            case 1 -> {
+                if (repairs(level, st)) next(t, () -> startHouse(level));
+            }
+            case 2 -> {
+                if (house(level, st)) next(t, () -> arrival(level));
+            }
+            default -> {
+                arrived(level);
+                return true;
+            }
+        }
         return false;
+    }
+
+    private int stage, stageStart;
+
+    private void next(int t, Runnable start) {
+        stage++;
+        stageStart = t;
+        start.run();
+    }
+
+    // ------------------------------------------------------------------ Phase 4: a new house, a newcomer
+
+    private Buildings.Plan plan;
+    private Maiden newcomer;
+
+    private void startHouse(ServerLevel level) {
+        if (record == null) return;
+        level.setDayTime(1000);
+        plan = Housing.houseFor(level, record);
+        if (plan == null) {
+            log.accept("housing: no site found for a house (style " + record.style + ", " + Buildings.templates(level, record.style).size() + " buildings known)");
+            return;
+        }
+        log.accept("housing: " + record.style + " buildings known: " + Buildings.templates(level, record.style).size() + "; building "
+                + Buildings.shortName(plan.template()) + " at " + plan.box().getCenter().toShortString() + ", " + plan.blocks().size() + " blocks, "
+                + plan.clear().size() + " to clear, " + plan.beds() + " bed(s), door " + (plan.door() == null ? "none" : plan.door().toShortString())
+                + ", pieces now " + record.blueprint.pieceCount());
+    }
+
+    private boolean house(ServerLevel level, int t) {
+        if (plan == null) return true;
+        int left = 0, inWay = 0;
+        for (var e : plan.blocks().entrySet()) if (!level.getBlockState(e.getKey()).is(e.getValue().getBlock())) left++;
+        for (BlockPos p : plan.clear()) if (!level.getBlockState(p).isAir()) inWay++;
+        log.accept("  after " + t + " ticks: " + left + " blocks still to place, " + inWay + " to clear, " + Upkeep.chores(record)
+                + " chores listed, still building: " + record.blueprint.isBuilding());
+        return (left == 0 && !record.blueprint.isBuilding()) || t >= 6000;
+    }
+
+    private void arrival(ServerLevel level) {
+        if (record == null) return;
+        newcomer = Housing.arrive(level, record);
+        log.accept("newcomer: " + (newcomer == null ? "none (no free bed)" : newcomer.name() + " arrived at " + newcomer.blockPosition().toShortString()));
+    }
+
+    private void arrived(ServerLevel level) {
+        if (newcomer != null) log.accept("  newcomer's bed after 400 ticks: " + (newcomer.residence().bed() == null ? "none" : newcomer.residence().bed().toShortString()));
     }
 
     // ------------------------------------------------------------------ Phase 3: repairs and road clearing
@@ -141,7 +217,7 @@ final class VillageCheck {
         boolean blocked = obstacle != null && !level.getBlockState(obstacle).isAir();
         log.accept("  after " + t + " ticks: " + missing + " missing near the blast, road " + (obstacle == null ? "-" : blocked ? "still blocked" : "cleared")
                 + ", " + Upkeep.chores(record) + " chores listed");
-        return (missing == 0 && !blocked) || t >= 3600;
+        return (missing == 0 && !blocked) || t >= 4000;
     }
 
     /** Phase 2: the village's name and blueprint, anger, gossip and citizenship. */

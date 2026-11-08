@@ -33,6 +33,12 @@ public final class VillageRecord {
     public final Blueprint blueprint;
     final Set<UUID> citizens = new HashSet<>();
     final Map<UUID, Integer> trades = new HashMap<>();
+    /** The village style ("plains", "desert"...), which decides what it can build. */
+    public String style = "plains";
+    /** The last building started (its short name), for the village info. */
+    public String project = "";
+    /** When the last new maiden moved in (game time). */
+    long lastArrival = Long.MIN_VALUE / 2;
     /** What needs fixing right now (not saved: found again by the scan after a restart). */
     final Map<Long, Chore> chores = new LinkedHashMap<>();
 
@@ -67,6 +73,9 @@ public final class VillageRecord {
         CompoundTag tr = new CompoundTag();
         trades.forEach((u, n) -> tr.putInt(u.toString(), n));
         t.put("Trades", tr);
+        t.putString("Style", style);
+        t.putString("Project", project);
+        t.putLong("LastArrival", lastArrival);
         return t;
     }
 
@@ -76,6 +85,9 @@ public final class VillageRecord {
         VillageRecord r = new VillageRecord(t.getLong("Id"), box, Blueprint.load(t.getCompound("Blueprint"), registries));
         ListTag cit = t.getList("Citizens", Tag.TAG_INT_ARRAY);
         for (Tag u : cit) r.citizens.add(NbtUtils.loadUUID(u));
+        if (t.contains("Style")) r.style = t.getString("Style");
+        r.project = t.getString("Project");
+        if (t.contains("LastArrival")) r.lastArrival = t.getLong("LastArrival");
         CompoundTag tr = t.getCompound("Trades");
         for (String k : tr.getAllKeys()) {
             try {

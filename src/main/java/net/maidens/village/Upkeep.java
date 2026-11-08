@@ -28,7 +28,7 @@ import java.util.Iterator;
 public final class Upkeep {
     /** Blocks that make up roads; whatever stands on them that the blueprint doesn't expect is cleared away. */
     public static final TagKey<Block> ROAD = BlockTags.create(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "village_road"));
-    private static final int SCAN_PER_TICK = 8192, MAX_CHORES = 128, REACH = 48, CLAIM_TIMEOUT = 1200, RETRY_LATER = 6000;
+    private static final int SCAN_PER_TICK = 8192, MAX_CHORES = 128, REACH = 80, CLAIM_TIMEOUT = 1200, RETRY_LATER = 6000;
 
     private Upkeep() {}
 

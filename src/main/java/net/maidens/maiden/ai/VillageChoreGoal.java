@@ -5,6 +5,7 @@ import net.maidens.village.Chore;
 import net.maidens.village.Upkeep;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
@@ -18,7 +19,7 @@ import java.util.EnumSet;
  */
 final class VillageChoreGoal extends Goal {
     private static final double REACH = 3.5;
-    private static final int GIVE_UP = 600;
+    private static final int GIVE_UP = 1200;
 
     private final Maiden m;
     @Nullable private Chore chore;
@@ -56,13 +57,17 @@ final class VillageChoreGoal extends Goal {
 
     @Override
     public void tick() {
+        if (chore == null) return;     // done; the goal ends at its next check
         ticks++;
         Vec3 c = Vec3.atCenterOf(chore.pos);
         m.getLookControl().setLookAt(c.x, c.y, c.z);
         if (m.distanceToSqr(c) > REACH * REACH) {
             if (--repath <= 0) {
                 repath = 20;
-                m.getNavigation().moveTo(c.x, chore.pos.getY(), c.z, 0.6);
+                // far away: walk there in stages (a path can only be planned so far ahead)
+                Vec3 to = m.distanceToSqr(c) > 30 * 30 ? LandRandomPos.getPosTowards(m, 20, 7, c) : c;
+                if (to == null) to = c;
+                m.getNavigation().moveTo(to.x, to == c ? chore.pos.getY() : to.y, to.z, 0.6);
             }
             return;
         }

@@ -196,6 +196,19 @@ public final class Blueprint {
         for (int i = 0; i < piece.cells.length; i++) if (piece.cells[i] == KEEP_CLEAR) piece.cells[i] = NOTHING;
     }
 
+    /** Every recorded block of the blueprint. */
+    public void forEachBlock(java.util.function.BiConsumer<BlockPos, BlockState> action) {
+        for (Piece piece : pieces) {
+            if (piece.cells == null) continue;
+            BoundingBox b = piece.box;
+            int xs = b.getXSpan(), zs = b.getZSpan();
+            for (int i = 0; i < piece.cells.length; i++) {
+                int id = piece.cells[i];
+                if (id > 0) action.accept(new BlockPos(b.minX() + i % xs, b.minY() + i / (xs * zs), b.minZ() + (i / xs) % zs), palette.get(id));
+            }
+        }
+    }
+
     public int recordedPieces() {
         int n = 0;
         for (Piece p : pieces) if (p.cells != null) n++;

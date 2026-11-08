@@ -7,6 +7,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.minecraft.world.level.block.Blocks;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 
@@ -24,6 +26,7 @@ public final class VillageEvents {
             Villages villages = Villages.get(level);
             villages.recordLoadedPieces(level);
             Upkeep.tick(level, villages);
+            if (level.getGameTime() % 1200 == 0) Housing.tick(level, villages);
         }
     }
 
@@ -32,6 +35,15 @@ public final class VillageEvents {
         if (event.getLevel() instanceof ServerLevel level && event.getPlayer() instanceof ServerPlayer p) {
             playerBroke(level, p, event.getPos(), event.getState());
         }
+    }
+
+    /** A citizen ringing their village's bell gets to choose what's built next. */
+    @SubscribeEvent
+    public static void onBell(PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getLevel() instanceof ServerLevel level) || !(event.getEntity() instanceof ServerPlayer p)) return;
+        if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND || !level.getBlockState(event.getPos()).is(Blocks.BELL)) return;
+        VillageRecord v = Villages.get(level).at(event.getPos());
+        if (v != null) VillageMenu.show(level, v, p);
     }
 
     @SubscribeEvent
@@ -53,7 +65,7 @@ public final class VillageEvents {
         BlockState expected = v.blueprint.expected(pos);
         if (expected == null || !expected.is(state.getBlock())) return;
         if (v.isCitizen(p.getUUID())) {
-            v.blueprint.set(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+            v.blueprint.set(pos, Blocks.AIR.defaultBlockState());
             villages.setDirty();
         } else {
             VillageSocial.onBlueprintBroken(level, v, p, pos);

@@ -1,6 +1,8 @@
 package net.maidens.maiden.home;
 
 import net.maidens.maiden.Maiden;
+import net.maidens.village.VillageRecord;
+import net.maidens.village.Villages;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -20,7 +22,8 @@ import java.util.function.Predicate;
  * Where a village maiden belongs: her village, the bed she sleeps in, and the workstation that gives her a
  * profession (and so her trades). Beds and workstations are claimed the same way villagers claim them,
  * so a maiden and a villager never share one. Once she has traded, her profession stays even if her
- * workstation is broken (as for villagers); she then looks for another of the same kind.
+ * workstation is broken (as for villagers); she then looks for another of the same kind. She looks all over her
+ * village, so a house built at its edge still finds its maiden.
  * Maidens outside villages (the lone house) don't use any of this.
  */
 public final class Residence {
@@ -32,6 +35,7 @@ public final class Residence {
     @Nullable private BlockPos bed;
     @Nullable private BlockPos jobSite;
     @Nullable private VillagerProfession profession;
+    private long nextJobSearch;
 
     public Residence(Maiden m) {
         this.m = m;
@@ -76,7 +80,8 @@ public final class Residence {
         }
         // her workstation
         if (jobSite != null && !poi.exists(jobSite, h -> profession != null && profession.heldJobSite().test(h))) jobSite = null;
-        if (jobSite == null) {
+        if (jobSite == null && level.getGameTime() >= nextJobSearch) {
+            nextJobSearch = level.getGameTime() + 600;     // no free workstation: look again in 30 s
             boolean locked = profession != null && m.trading().xp() > 0;
             Predicate<Holder<PoiType>> wanted = locked ? profession.acquirableJobSite() : VillagerProfession.ALL_ACQUIRABLE_JOBS;
             jobSite = take(poi, wanted);
@@ -91,9 +96,17 @@ public final class Residence {
         m.trading().resetForNewProfession();
     }
 
+    /** Claims the nearest free one in her village (anywhere in it, including buildings added at its edge). */
     @Nullable
     private BlockPos take(PoiManager poi, Predicate<Holder<PoiType>> type) {
-        Optional<BlockPos> found = poi.take(type, (h, pos) -> true, m.blockPosition(), SEARCH);
+        BlockPos from = m.blockPosition();
+        int radius = SEARCH;
+        VillageRecord v = Villages.get((ServerLevel) m.level()).byId(village);
+        if (v != null) {
+            from = v.centre();
+            radius = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 48;
+        }
+        Optional<BlockPos> found = poi.take(type, (h, pos) -> true, from, radius);
         return found.orElse(null);
     }
 

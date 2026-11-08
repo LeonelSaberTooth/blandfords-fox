@@ -34,7 +34,7 @@ public final class VillageConversion {
         if (villager.isRemoved()) return;
         StructureStart village = Villages.villageAt(level, villager.blockPosition());
         if (village == null || !Villages.rollsMaidens(level, village)) return;
-        VillageRecord record = Villages.get(level).record(village);
+        VillageRecord record = Villages.get(level).record(level, village);
         villager.discard();
         if (villager.isBaby()) return;
         Maiden m = ModEntities.MAIDEN.get().create(level);

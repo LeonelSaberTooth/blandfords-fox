@@ -1,5 +1,6 @@
 package net.maidens.test;
 
+import net.maidens.core.MaidensConfig;
 import net.maidens.core.ModEntities;
 import net.maidens.maiden.MaidenMenu;
 import com.mojang.authlib.GameProfile;
@@ -33,6 +34,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,9 +177,9 @@ public final class SelfTest {
             return;
         }
         if (phase == 0) return;
-        if (tick > 12000 && phase < 6) {
+        if (tick > 14000 && phase < 7) {
             log("TIMED OUT in phase " + phase);
-            phase = 6;
+            phase = 7;
             finish(server);
             return;
         }
@@ -256,7 +258,13 @@ public final class SelfTest {
                 log("  after " + t + " ticks: zombie " + (zombie.isAlive() ? "alive, " + zombie.getHealth() + " hp" : "dead")
                         + ", maiden " + maiden.getHealth() + " hp, holding " + maiden.getMainHandItem());
                 if (!zombie.isAlive() || t >= 600) {
-                    phase = 6;
+                    log("villages (every village set to maidens for the test):");
+                    next();
+                }
+            }
+            case 6 -> {   // a maiden village
+                if (villages.step(level, house, t)) {
+                    phase = 7;
                     finish(server);
                 }
             }
@@ -266,6 +274,13 @@ public final class SelfTest {
 
     private static int phase;
     private static BlockPos mineStart;
+    private static final VillageCheck villages = new VillageCheck(SelfTest::log);
+
+    /** Every village becomes a maiden village in the test world, so the village check has one to look at. */
+    @SubscribeEvent
+    public static void beforeStart(ServerAboutToStartEvent event) {
+        if (OUT != null) MaidensConfig.MAIDEN_VILLAGE_CHANCE.set(1.0);
+    }
 
     private static void next() {
         phase++;

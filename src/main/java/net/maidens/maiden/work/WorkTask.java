@@ -20,12 +20,15 @@ import java.util.List;
  */
 public abstract class WorkTask {
     protected final Maiden m;
-    protected final Employment job;
     protected int busy, scan, repath, stuck;
 
     protected WorkTask(Maiden m) {
         this.m = m;
-        this.job = m.employment();
+    }
+
+    /** Her employment. Looked up each time: goals are made before the maiden's own fields exist. */
+    protected Employment job() {
+        return m.employment();
     }
 
     /** One tick of work (server side). */
@@ -79,7 +82,7 @@ public abstract class WorkTask {
                 }
             }
         }
-        for (ItemStack d : drops) job.store(d);
+        for (ItemStack d : drops) job().store(d);
     }
 
     /** Wanders back towards a spot when there's nothing to do. */
@@ -90,6 +93,6 @@ public abstract class WorkTask {
     }
 
     protected BlockPos centre() {
-        return job.workPos != null ? job.workPos : m.blockPosition();
+        return job().workPos != null ? job().workPos : m.blockPosition();
     }
 }

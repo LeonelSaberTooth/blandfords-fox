@@ -40,7 +40,7 @@ final class FishTask extends WorkTask {
             scan = 40;
             water = findWater(level);
             shore = water == null ? null : shoreFor(level, water);
-            if (water == null || shore == null) { water = null; idleNear(job.workPos); return; }
+            if (water == null || shore == null) { water = null; idleNear(job().workPos); return; }
             bite = 200 + m.getRandom().nextInt(400);
             stuck = 0;
         }
@@ -61,8 +61,8 @@ final class FishTask extends WorkTask {
                 .withParameter(LootContextParams.TOOL, new ItemStack(Items.FISHING_ROD))
                 .withParameter(LootContextParams.THIS_ENTITY, m)
                 .create(LootContextParamSets.FISHING);
-        for (ItemStack s : table.getRandomItems(params)) job.store(s);
-        if (job.bagFull()) job.giveUp("My bag's full of fish! Come and empty it.");
+        for (ItemStack s : table.getRandomItems(params)) job().store(s);
+        if (job().bagFull()) job().giveUp("My bag's full of fish! Come and empty it.");
     }
 
     private BlockPos findWater(ServerLevel level) {

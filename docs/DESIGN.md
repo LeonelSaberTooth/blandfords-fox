@@ -26,8 +26,9 @@ not in code.
 | `maiden.social` | `Relationships` (affection per player, talking, gifts, proposals), `Bond`, `Dialogue`, `Marriages` |
 | `maiden.work` | `Employment` (hiring, shift, bag), `WorkGoal` + one `WorkTask` per job (`FarmTask`, `WoodTask`, `MineTask`, `FishTask`) |
 | `maiden.trade` | `MaidenTrading` (trades by profession, levels, prices) |
+| `maiden.home` | `Residence` (her village, claimed bed and workstation, profession) |
 | `maiden.ai` | `MaidenAi` (every goal, in priority order) and the goals themselves |
-| `village` | maiden villages (Phase 1 on) |
+| `village` | `Villages` (saved list of maiden villages, the per-village coin flip), `VillageRecord`, `VillageConversion` (villager to maiden swap) |
 | `network` | `MenuPayload` (server to client), `ActionPayload` (client to server), `Network` |
 | `client` | model, renderer, menu screen, client test |
 | `command` | `/maiden` test commands |
@@ -46,7 +47,7 @@ not in code.
 - Hiring: `rentEmeralds` for a `shiftTicks` shift (husband: free, no end). Jobs: farm (around her house),
   guard (follows and fights; weapon from her bag), woodcutter, miner (staircase then tunnel), fisher.
   What she gathers goes in her bag (employer, last employer or husband can open it).
-- Trades: farmer trades (or her profession's, Phase 1), levels like a villager, daily restock.
+- Trades: farmer trades (or her workstation's profession in a village), levels like a villager, daily restock.
   **Prices follow affection**: up to `maxAffectionDiscount` off at 100; husband pays `marriedPriceFactor`.
 - Model: vanilla humanoid animation with a smaller walk swing (legs 14°, arms 10°) and limited look-up (20°).
 
@@ -62,7 +63,18 @@ not in code.
 Village duties (Phase 1+) slot in below hired work and above wandering: **anything a player asked of her
 (hire, marriage) overrides village life.**
 
-## Maiden villages (planned)
+## Maiden villages
+
+How it works (Phase 1):
+- `VillageConversion`: a villager joining the world for the first time with vanilla's "pick a profession on
+  first tick" flag (only villagers placed by a village structure have it) is checked on the next tick; if the
+  village it stands in rolls maidens, it's removed (babies) or swapped for a maiden. Nothing about world
+  generation changes.
+- `Residence` (village maidens only): every 5 s claims a free bed and a free workstation within 48 blocks,
+  through vanilla's POI tickets, so maidens and villagers never share one. The workstation sets her profession
+  and trades; once she has traded, the profession stays (she looks for another workstation of that kind).
+  Her bed becomes her home. Dying frees both.
+- The menu shows her profession next to her personality.
 
 Decisions (user, 2026-11-08: all defaults accepted):
 
@@ -93,7 +105,7 @@ prices follow affection (done); maidens defend in raids.
 ## Phases
 
 0. Reorganize into systems, design doc, config. (done in 0.2.0)
-1. Maiden villages: replacement, workstations and beds (vanilla POIs), profession trades.
+1. Maiden villages: replacement, workstations and beds (vanilla POIs), profession trades. (done in 0.3.0)
 2. Village records: name and title, blueprint, anger, gossip, citizenship and advancement.
 3. Repairs and road clearing.
 4. Housing: new houses, roads to them, the bell screen, new maidens arriving.

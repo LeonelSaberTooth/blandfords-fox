@@ -42,7 +42,7 @@ public final class MaidenMenu {
         var rel = m.relationships();
         var job = m.employment();
         int married = !rel.isMarried() ? 0 : rel.isMarriedTo(p) ? 1 : 2;
-        PacketDistributor.sendToPlayer(p, new MenuPayload(m.getId(), m.name(), m.getPersonality().label, rel.affection(p), married,
+        PacketDistributor.sendToPlayer(p, new MenuPayload(m.getId(), m.name(), m.title(), rel.affection(p), married,
                 job.job().ordinal(), job.shiftLeft(), job.employerFor(p), job.employerName(), job.canOpenBag(p), rel.isMarriedTo(p),
                 MaidensConfig.RENT_EMERALDS.get(), message));
     }

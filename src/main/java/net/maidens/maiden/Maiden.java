@@ -1,6 +1,7 @@
 package net.maidens.maiden;
 
 import net.maidens.maiden.ai.MaidenAi;
+import net.maidens.maiden.home.Residence;
 import net.maidens.maiden.social.Dialogue;
 import net.maidens.maiden.social.Relationships;
 import net.maidens.maiden.trade.MaidenTrading;
@@ -52,6 +53,7 @@ import java.util.UUID;
  *   <li>{@link Relationships}: affection per player, talking, gifts, marriage</li>
  *   <li>{@link Employment}: being hired, her jobs and her bag</li>
  *   <li>{@link MaidenTrading}: her trades and trade levels</li>
+ *   <li>{@link Residence}: her village, bed, workstation and profession</li>
  *   <li>{@link MaidenMenu}: the right-click menu and its buttons</li>
  *   <li>{@link MaidenAi}: all her goals, in priority order</li>
  * </ul>
@@ -63,6 +65,7 @@ public class Maiden extends AbstractVillager {
     private final Relationships relationships = new Relationships(this);
     private final Employment employment = new Employment(this);
     private final MaidenTrading trading = new MaidenTrading(this);
+    private final Residence residence = new Residence(this);
 
     private boolean initialised;
     private Personality personality = Personality.SWEET;
@@ -97,6 +100,10 @@ public class Maiden extends AbstractVillager {
 
     public MaidenTrading trading() {
         return trading;
+    }
+
+    public Residence residence() {
+        return residence;
     }
 
     // ------------------------------------------------------------------ who she is
@@ -136,10 +143,16 @@ public class Maiden extends AbstractVillager {
         return getName().getString();
     }
 
-    /** Her profession from a village workstation, or null (Phase 1). */
+    /** Her profession from a village workstation, or null. */
     @Nullable
     public VillagerProfession profession() {
-        return null;
+        return residence.profession();
+    }
+
+    /** "Sweet" or "Sweet · Librarian", for her menu. */
+    public String title() {
+        String job = residence.professionName();
+        return job.isEmpty() ? personality.label : personality.label + " \u00b7 " + job;
     }
 
     /** Rolls her looks, personality and name the first time she's in the world (also called by the tests). */
@@ -226,6 +239,7 @@ public class Maiden extends AbstractVillager {
         if (talkTicks > 0) talkTicks--;
         employment.tick();
         trading.tick();
+        residence.tick();
         if (tickCount % 20 == 0) updateRestriction();
         if (tickCount % 100 == 0 && getHealth() < getMaxHealth() && getTarget() == null) heal(1.0F);
     }
@@ -327,6 +341,7 @@ public class Maiden extends AbstractVillager {
             Containers.dropContents(level(), this, employment.bag());
             UUID spouse = relationships.spouse();
             relationships.onDeath();
+            residence.release();
             if (spouse != null && level().getPlayerByUUID(spouse) instanceof ServerPlayer sp) {
                 sp.sendSystemMessage(Component.literal(name() + ", your wife, has died.").withStyle(ChatFormatting.RED));
             }
@@ -373,6 +388,7 @@ public class Maiden extends AbstractVillager {
         relationships.save(tag);
         employment.save(tag);
         trading.save(tag);
+        residence.save(tag);
     }
 
     @Override
@@ -385,6 +401,7 @@ public class Maiden extends AbstractVillager {
         relationships.load(tag);
         employment.load(tag);
         trading.load(tag);
+        residence.load(tag);
     }
 
     /** For the test command: a one-line summary of her. */

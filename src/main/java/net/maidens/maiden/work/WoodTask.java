@@ -48,7 +48,7 @@ final class WoodTask extends WorkTask {
             if (--scan > 0) return;
             scan = 40;
             BlockPos found = find(level);
-            if (found == null) { idleNear(job.workPos); return; }
+            if (found == null) { idleNear(job().workPos); return; }
             base = found;
             collect(level, found);
             stuck = 0;
@@ -112,7 +112,7 @@ final class WoodTask extends WorkTask {
 
     private void replant(ServerLevel level, BlockPos at) {
         if (!level.getBlockState(at).isAir() || !level.getBlockState(at.below()).is(BlockTags.DIRT)) return;
-        ItemStack sapling = job.takeFromBag(st -> st.is(ItemTags.SAPLINGS));
+        ItemStack sapling = job().takeFromBag(st -> st.is(ItemTags.SAPLINGS));
         if (sapling.getItem() instanceof BlockItem bi) {
             level.setBlock(at, bi.getBlock().defaultBlockState(), Block.UPDATE_ALL);
             m.swing(InteractionHand.MAIN_HAND);

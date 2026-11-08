@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+- Maiden villages: each village has a 50% chance (fixed by the world seed) that its villagers are maidens instead.
+- Village maidens claim beds and workstations like villagers; the workstation sets their profession and trades,
+  locked once they've traded. The menu shows the profession.
+- Fix: a crash when a hired maiden started working (her work tasks were made before her job existed).
+
 ## 0.2.0
 - Code reorganized into systems (see DESIGN.md, "Code map"); no behaviour change except:
 - Trade prices now drop with affection (up to 30% off at 100); husband still pays half.

@@ -35,7 +35,7 @@ final class FarmTask extends WorkTask {
             if (--scan > 0) return;
             scan = 40;
             target = find(level);
-            if (target == null) { idleNear(job.workPos); return; }
+            if (target == null) { idleNear(job().workPos); return; }
         }
         BlockState s = level.getBlockState(target);
         boolean ripe = s.getBlock() instanceof CropBlock c && c.isMaxAge(s);
@@ -44,7 +44,7 @@ final class FarmTask extends WorkTask {
         if (!reach(target, 2.6)) return;
         if (ripe) harvest(level, target, ItemStack.EMPTY, true);
         else {
-            ItemStack seed = job.takeFromBag(FarmTask::isSeed);
+            ItemStack seed = job().takeFromBag(FarmTask::isSeed);
             if (seed.getItem() instanceof BlockItem bi) {
                 level.setBlock(target, bi.getBlock().defaultBlockState(), Block.UPDATE_ALL);
                 m.swing(InteractionHand.MAIN_HAND);
@@ -61,7 +61,7 @@ final class FarmTask extends WorkTask {
 
     private BlockPos find(ServerLevel level) {
         BlockPos c = centre();
-        boolean seeds = job.bagHas(FarmTask::isSeed);
+        boolean seeds = job().bagHas(FarmTask::isSeed);
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
         for (BlockPos p : BlockPos.betweenClosed(c.offset(-12, -3, -12), c.offset(12, 3, 12))) {

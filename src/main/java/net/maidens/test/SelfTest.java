@@ -55,6 +55,8 @@ import java.util.UUID;
 public final class SelfTest {
     private static final Logger LOG = LoggerFactory.getLogger("maidens/selftest");
     private static final String OUT = System.getProperty("maidens.selftest");
+    /** Set by CI when the commit message has [villages]: skips the job tests to get to the villages faster. */
+    private static final boolean ONLY_VILLAGES = new java.io.File("run-selftest-villages-only").exists() || new java.io.File("../run-selftest-villages-only").exists();
 
     private static int tick = -1;
     private static final StringBuilder report = new StringBuilder();
@@ -174,6 +176,12 @@ public final class SelfTest {
             log("farming: " + maiden.employment().job() + " around " + maiden.getHome());
             phase = 1;
             phaseStart = tick;
+            if (ONLY_VILLAGES) {
+                maiden.employment().stop();
+                log("(jobs skipped: villages only)");
+                log("villages (every village set to maidens for the test):");
+                phase = 6;
+            }
             return;
         }
         if (phase == 0) return;

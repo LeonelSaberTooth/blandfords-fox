@@ -45,11 +45,11 @@ public final class Upkeep {
             if (v.chores.size() >= MAX_CHORES) continue;
             boolean done = v.blueprint.scan(level, SCAN_PER_TICK, (pos, expected, building) -> {
                 boolean needed = false;
-                BlockState now = level.getBlockState(pos);
-                if (expected != null && missing(now, expected)) {
+                BlockState here = level.getBlockState(pos);
+                if (expected != null && missing(here, expected)) {
                     needed = true;
                     add(v, new Chore(Chore.Kind.REPAIR, pos.immutable(), expected, false, v.id, now(level, building)));
-                } else if (building && inTheWay(now, expected)) {
+                } else if (building && inTheWay(here, expected)) {
                     needed = true;
                     add(v, new Chore(Chore.Kind.CLEAR, pos.immutable(), null, false, v.id, now(level, building)));
                 }

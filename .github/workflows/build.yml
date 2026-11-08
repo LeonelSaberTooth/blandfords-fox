@@ -55,9 +55,12 @@ jobs:
 
       - name: Game test (a fresh world, the house, and everything she does)
         if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/maidens')
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           rm -rf run-selftest && mkdir -p run-selftest
           echo "eula=true" > run-selftest/eula.txt
+          if [[ "$COMMIT_MSG" == *"[villages]"* ]]; then touch run-selftest/run-selftest-villages-only; fi
           printf "level-seed=20261108\nonline-mode=false\nlevel-name=world\nmax-tick-time=-1\nspawn-protection=0\n" > run-selftest/server.properties
           timeout 1500 ./gradlew runSelftest --stacktrace > selftest.log 2>&1 || true
           mkdir -p run-selftest/selftest

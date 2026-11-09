@@ -42,19 +42,27 @@ public final class WarParties {
 
     private static final class Raid {
         final KnownVillage from, to;
+        /** The dimension it's in: every level ticks this class, and only that one may look at the raid. */
+        final net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension;
         final long started;
         final List<UUID> raiders = new ArrayList<>();
         final Set<UUID> fighters = new HashSet<>();
         int stolen;
 
-        Raid(KnownVillage from, KnownVillage to, long started) {
+        Raid(KnownVillage from, KnownVillage to, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension, long started) {
             this.from = from;
             this.to = to;
+            this.dimension = dimension;
             this.started = started;
         }
     }
 
     private WarParties() {}
+
+    /** The server is stopping: raids don't carry over (into the next world, in single player). */
+    public static void clear() {
+        ACTIVE.clear();
+    }
 
     /** Whether a village is being raided right now. */
     public static boolean raidOn(long village) {
@@ -63,7 +71,7 @@ public final class WarParties {
 
     /** Every 5 s: raids in progress; once a minute: whether a new one starts somewhere. */
     public static void tick(ServerLevel level, Villages villages) {
-        for (Raid r : new ArrayList<>(ACTIVE.values())) update(level, r);
+        for (Raid r : new ArrayList<>(ACTIVE.values())) if (r.dimension == level.dimension()) update(level, r);
         if (level.getGameTime() % 1200 != 0) return;
         Network network = Network.get(level);
         long today = level.getDayTime() / 24000L;
@@ -94,7 +102,7 @@ public final class WarParties {
         KnownVillage to = network.know(level, target);
         BlockPos at = edgeFacing(level, target, attacker);
         if (at == null) return null;
-        Raid raid = new Raid(attacker, to, level.getGameTime());
+        Raid raid = new Raid(attacker, to, level.dimension(), level.getGameTime());
         RandomSource r = level.getRandom();
         int count = 3 + r.nextInt(3);
         int colour = colourOf(attacker.id);
@@ -103,6 +111,7 @@ public final class WarParties {
             if (m == null) continue;
             m.moveTo(at.getX() + 0.5 + r.nextInt(5) - 2, at.getY(), at.getZ() + 0.5 + r.nextInt(5) - 2, r.nextFloat() * 360, 0);
             m.ensureInitialised();
+            m.setPersistenceRequired();     // not despawned mid-raid (she's removed when the raid is over)
             m.raider().start(target.id, attacker.id, at);
             // their village's colours, and swords
             ItemStack tunic = new ItemStack(Items.LEATHER_CHESTPLATE);

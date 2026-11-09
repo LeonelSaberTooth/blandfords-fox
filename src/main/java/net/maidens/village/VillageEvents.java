@@ -42,6 +42,11 @@ public final class VillageEvents {
     }
 
     @SubscribeEvent
+    public static void onServerStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        WarParties.clear();
+    }
+
+    @SubscribeEvent
     public static void onBreak(BlockEvent.BreakEvent event) {
         if (event.getLevel() instanceof ServerLevel level && event.getPlayer() instanceof ServerPlayer p) {
             playerBroke(level, p, event.getPos(), event.getState());

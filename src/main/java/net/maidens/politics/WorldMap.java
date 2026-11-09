@@ -31,9 +31,9 @@ public final class WorldMap {
     /** Blocks per pixel, and pixels across. */
     public static final int SCALE = 8, PIXELS = 256;
     private static final int SAMPLE_Y = 96;
-    private static final Map<Long, byte[]> PICTURES = new LinkedHashMap<>(16, 0.75F, true) {
+    private static final Map<String, byte[]> PICTURES = new LinkedHashMap<>(16, 0.75F, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<Long, byte[]> e) {
+        protected boolean removeEldestEntry(Map.Entry<String, byte[]> e) {
             return size() > 24;
         }
     };
@@ -56,7 +56,8 @@ public final class WorldMap {
             reply(level, p, fx, fz, null, viewer);
             return;
         }
-        long key = ((long) (fx / 64) << 32) ^ (fz / 64 & 0xFFFFFFFFL);
+        // per world (seed) and dimension too: the cache outlives a world in single player
+        String key = level.getSeed() + "/" + level.dimension().location() + "/" + fx + "/" + fz;
         byte[] cached;
         synchronized (PICTURES) {
             cached = PICTURES.get(key);

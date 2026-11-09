@@ -28,16 +28,17 @@ not in code.
 | Package | What it is |
 |---|---|
 | `MaidensMod` | start-up: registers each system |
-| `core` | registries (`ModEntities`, `ModItems`) and `MaidensConfig` (every tunable number) |
+| `core` | registries (`ModEntities`, `ModItems`, `ModBlocks`) and `MaidensConfig` (every tunable number) |
+| `block` | the marked chest (`MarkedChestBlock`, `MarkedChestBlockEntity`) |
 | `maiden` | the `Maiden` entity (looks, name, personality, home, saving) and `MaidenMenu` (her right-click menu, server side) |
-| `maiden.social` | `Relationships` (affection per player, talking, gifts, proposals), `Bond`, `Dialogue`, `Marriages`, `Wishes` (her request) |
-| `maiden.work` | `Employment` (hiring, shift, bag), `WorkGoal` + one `WorkTask` per job (`FarmTask`, `WoodTask`, `MineTask`, `FishTask`) |
+| `maiden.social` | `Relationships` (affection per player, talking, gifts, proposals), `Bond`, `Dialogue` (reads the line files in `data/maidens/dialogue/`), `Marriages`, `Wishes` (her request) |
+| `maiden.work` | `Employment` (hiring, shift, bag, what she wears), `WorkGoal` + one `WorkTask` per job (`FarmTask`, `WoodTask`, `MineTask`, `FishTask` + its `Bobber`), `Delivery` + `DeliverGoal` (to the marked chest) |
 | `maiden.trade` | `MaidenTrading` (trades by profession, levels, prices) |
 | `maiden.home` | `Residence` (her village, claimed bed and workstation, profession), `Schedule` (her day) |
 | `maiden.ai` | `MaidenAi` (every goal, in priority order) and the goals themselves |
 | `village` | `Villages` (saved list of maiden villages, the per-village coin flip), `VillageRecord` (name, area, citizens, trades), `Blueprint` (how the village looked), `VillageConversion` (villager to maiden swap), `VillageSocial` (gossip, anger, citizenship, greetings), `VillageEvents` (block break/place, bell, the village tick), `Upkeep` + `Chore` (repairs, road clearing, building work), `Buildings` (vanilla buildings by style, sites, roads), `Housing` (houses for the bedless, newcomers), `VillageMenu` (the bell/`/village` chat menu) |
 | `network` | `MenuPayload` (server to client), `ActionPayload` (client to server), `Network` |
-| `client` | model, renderer, menu screen, client test |
+| `client` | model, armor model, renderers (maiden, bobber, marked chest), menu screen, client test |
 | `command` | `/maiden` test commands (operators), `/village` (everyone) |
 | `test` | the automatic game test |
 
@@ -51,18 +52,35 @@ not in code.
   disliked -5, diminishing through the day, `giftsPerDay` a day, the same item once a day. Trading: +1 per trade,
   `tradeHeartsPerDay` a day. Above 70 she sometimes hints at her proposal gift.
 - Proposal: her personality's gift at 100 affection. One spouse per player (`Marriages`, world-wide).
-- Hiring: `rentEmeralds` for a `shiftTicks` shift (husband: free, no end). Jobs: farm (around her house),
-  guard (follows and fights; weapon from her bag), woodcutter, miner (staircase then tunnel), fisher.
+- Hiring: `rentEmeralds` for a `shiftTicks` shift (husband: free, no end). She works around where she was
+  hired (24 blocks for farming, woodcutting and fishing). Jobs:
+  - farm: harvests ripe crops and replants; plants every bare farmland (seeds from her bag, else her own wheat seeds);
+  - guard: follows and fights; weapon from her bag;
+  - woodcutter: fells whole trees (every log, however tall, then the leaves), replants the same tree (a sapling from
+    her bag, else one of her own), then the next tree;
+  - miner: staircase down to about y 16, then a tunnel up to 64 long; a torch every 6 steps (from her bag, or 4 made
+    from a coal in her bag, or her own); digs out ore spotted within 4 blocks, whole veins; climbs back up her
+    staircase when her bag is full or the job ends;
+  - fisher: walks to the shore, casts (a bobber on a line, see `Bobber`), waits for a bite, reels in fishing loot.
   What she gathers goes in her bag (employer, last employer or husband can open it).
+- Marked chest (chest + gold ingot): when her bag fills, and when the job ends, she carries what she gathered to
+  the closest marked chest within 32 blocks of where she was hired, then goes back to work. She keeps her tools,
+  weapons, armor, torches, saplings, and a stack each of seeds and filler blocks. With no marked chest, a full bag
+  ends the job as before. A marked chest never joins into a double chest.
+- Armor: she wears the best helmet and chestplate in her bag (copies; the bag keeps the originals), and holds a
+  shield from it while she fights. The armor model follows her shape and uses the vanilla armor textures.
 - Trades: farmer trades (or her workstation's profession in a village), levels like a villager, daily restock.
   **Prices follow affection**: up to `maxAffectionDiscount` off at 100; husband pays `marriedPriceFactor`.
-- Model: vanilla humanoid animation with a smaller walk swing (legs 14°, arms 10°) and limited look-up (20°).
+- Model: vanilla humanoid animation with a smaller walk swing (legs 24°, arms 17°, 1.25x steps) and limited
+  look-up (20°). Movement speed 0.42. Her name shows only in her menu, never above her head.
+- Dialogue: 15 lines for each good reaction, 10 for each bad one, gift reactions and hints, per personality,
+  in `data/maidens/dialogue/<personality>.json` (plus `common.json`); `%s` is the player's name.
 
 ## AI priorities (`MaidenAi`)
 
 1. Trading, talking (her menu is open): stand and look at the player.
 2. Fleeing monsters (not when she's a fighter) / fighting (when she's a fighter).
-3. Following her employer (hired guard).
+3. Following her employer (hired guard); taking her bag to the marked chest.
 4. Hired work.
 5. Going back inside her area (home, work spot).
 6+. Doors, wandering (only when not hired), looking around.

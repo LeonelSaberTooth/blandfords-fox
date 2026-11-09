@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+- Walking: a bigger leg swing with slightly quicker steps, and she moves a bit slower, so her feet match the ground.
+- Fixed the flicker where her hips and legs overlap.
+- Names no longer float above maidens' heads (they're in the menu).
+- Armor: she wears the best helmet and chestplate in her bag, and a shield from it when she fights, shaped to her.
+- Five times as many reaction lines; they're now in data files (`data/maidens/dialogue`).
+- Marked chest (chest + gold ingot): maidens bring what they gathered to the closest one near where you hired
+  them, when their bag fills and when the job ends.
+- Farming plants bare farmland too. Woodcutting fells whole trees (tall ones too), clears the leaves, replants,
+  and moves on to the next tree. Mining lights the tunnel, digs out ore she spots, and climbs back out. Fishing
+  shows a bobber and line, and she no longer gets stuck on water she can't reach.
+- Jobs reach 24 blocks around where she was hired (farming used to be around her house).
+
 ## 0.3.0
 - Maiden villages: each village has a 50% chance (fixed by the world seed) that its villagers are maidens instead.
 - Village maidens claim beds and workstations like villagers; the workstation sets their profession and trades,

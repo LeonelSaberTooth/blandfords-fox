@@ -246,6 +246,11 @@ public final class Buildings {
 
     /** Fills the gaps under the bottom layer down to the ground, so nothing floats on a slope. */
     static Plan withFoundation(ServerLevel level, Plan p) {
+        return withFoundation(level, p, 8);
+    }
+
+    /** The same, filling down at most depth blocks. */
+    static Plan withFoundation(ServerLevel level, Plan p, int depth) {
         Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
         BoundingBox b = p.box();
         for (int x = b.minX(); x <= b.maxX(); x++)
@@ -253,7 +258,7 @@ public final class Buildings {
                 BlockState floor = p.blocks().get(new BlockPos(x, b.minY(), z));
                 if (floor == null) continue;
                 BlockState fill = floor.isCollisionShapeFullBlock(level, BlockPos.ZERO) && !floor.hasBlockEntity() ? floor : Blocks.COBBLESTONE.defaultBlockState();
-                for (int y = b.minY() - 1; y >= b.minY() - 8; y--) {
+                for (int y = b.minY() - 1; y >= b.minY() - depth; y--) {
                     BlockPos q = new BlockPos(x, y, z);
                     BlockState s = level.getBlockState(q);
                     if (!s.isAir() && !s.canBeReplaced() && s.getFluidState().isEmpty()) break;

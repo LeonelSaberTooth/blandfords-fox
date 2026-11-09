@@ -70,7 +70,7 @@ public final class Fortify {
 
     /** Adds the castle at a corner and turn, with a road from its gate. Returns false if it can't go there. */
     static boolean castleAt(ServerLevel level, VillageRecord v, BlockPos corner, Rotation rot, boolean instant) {
-        Buildings.Plan plan = Buildings.withFoundation(level, Castle.plan(corner, rot));
+        Buildings.Plan plan = Buildings.withFoundation(level, Castle.plan(corner, rot), 16);
         Buildings.Plan road = Buildings.road(level, v, plan);
         v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), Castle.NAME, instant);
         if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", instant);
@@ -118,7 +118,7 @@ public final class Fortify {
                     sum += h;
                     n++;
                 }
-            if (max - min > 6) return "The ground there is too steep.";
+            if (max - min > 10) return "The ground there is too steep.";
             base = (int) Math.round((double) sum / n);
         }
         castleAt(level, v, new BlockPos(corner.getX(), base, corner.getZ()), rot, false);

@@ -579,13 +579,15 @@ final class VillageCheck {
         log.accept("  planned in " + (System.nanoTime() - start) / 1_000_000 + " ms: castle " + (rep.castle() == null ? "NONE" : rep.castle().getCenter().toShortString())
                 + ", " + rep.houses() + " houses beside it; walls " + (rep.walls() == null ? "NONE" : rep.walls().columns() + " columns, " + rep.walls().blocks() + " blocks, "
                 + rep.walls().gates() + " gates, " + rep.walls().towers() + " towers, " + rep.walls().pieces() + " pieces"));
-        if (rep.castle() != null) {
-            BlockPos cc = rep.castle().getCenter();
-            try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("maidens.selftest"), "castle.txt"), cc.getX() + " " + rep.castle().minY() + " " + cc.getZ()
-                        + " " + c.getX() + " " + c.getY() + " " + c.getZ());
-            } catch (java.io.IOException ignored) {
-            }
+        log.accept("  castle site search: " + net.maidens.village.Castle.lastSearch);
+        // for the client test's pictures (the village centre if there's no castle)
+        BlockPos cc = rep.castle() != null ? rep.castle().getCenter() : c;
+        int cy = rep.castle() != null ? rep.castle().minY() : level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ());
+        int vy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ());
+        try {
+            java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("maidens.selftest"), "castle.txt"), cc.getX() + " " + cy + " " + cc.getZ()
+                    + " " + c.getX() + " " + vy + " " + c.getZ());
+        } catch (java.io.IOException ignored) {
         }
         fortifyStart = System.nanoTime();
     }

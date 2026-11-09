@@ -46,7 +46,10 @@ public final class Castle {
     public static final String NAME = "castle";
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, NAME);
     static final int SIZE = 25, HEIGHT = 18;
-    private static final int TRIES = 300, MAX_SLOPE = 6;
+    private static final int TRIES = 400, MAX_SLOPE = 10;
+
+    /** How the last site search went (for the self test). */
+    public static String lastSearch = "";
 
     private Castle() {}
 
@@ -290,6 +293,7 @@ public final class Castle {
         BlockPos best = null;
         Rotation bestRot = Rotation.NONE;
         double bestScore = Double.MAX_VALUE;
+        int unloaded = 0, overlap = 0, wetCount = 0, steep = 0, good = 0;
         for (int i = 0; i < TRIES; i++) {
             double angle = r.nextDouble() * Math.PI * 2;
             double dist = half * 0.6 + 14 + r.nextDouble() * (half * 0.5 + 24);
@@ -297,9 +301,9 @@ public final class Castle {
             Rotation rot = facing(c.getX() - x, c.getZ() - z);
             BlockPos corner0 = cornerFor(x, 0, z, rot);
             BoundingBox fp = footprint(corner0, rot);
-            if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) continue;
+            if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) { unloaded++; continue; }
             BoundingBox flat = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
-            if (v.blueprint.overlaps(flat.inflatedBy(4))) continue;
+            if (v.blueprint.overlaps(flat.inflatedBy(4))) { overlap++; continue; }
             int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
             long sum = 0;
             int n = 0;
@@ -316,7 +320,9 @@ public final class Castle {
                     sum += h;
                     n++;
                 }
-            if (wet || n == 0 || max - min > MAX_SLOPE) continue;
+            if (wet || n == 0) { wetCount++; continue; }
+            if (max - min > MAX_SLOPE) { steep++; continue; }
+            good++;
             int base = (int) Math.round((double) sum / n);
             // close to the village, on flat ground, and a little higher up is nicer
             double score = dist + (max - min) * 4 - Math.min(12, base - centreY) * 2.5;
@@ -326,6 +332,7 @@ public final class Castle {
                 bestRot = rot;
             }
         }
+        lastSearch = good + " good spots of " + TRIES + " (" + overlap + " on buildings, " + steep + " too steep, " + wetCount + " wet, " + unloaded + " not loaded)";
         if (best == null) return null;
         return new BlockPos[]{cornerFor(best.getX(), best.getY(), best.getZ(), bestRot), new BlockPos(bestRot.ordinal(), 0, 0)};
     }

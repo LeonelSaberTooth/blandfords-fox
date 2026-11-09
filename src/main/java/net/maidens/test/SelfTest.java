@@ -390,6 +390,7 @@ public final class SelfTest {
     public static void beforeStart(ServerAboutToStartEvent event) {
         if (OUT == null) return;
         MaidensConfig.MAIDEN_VILLAGE_CHANCE.set(1.0);
+        MaidensConfig.FORTIFIED_VILLAGE_CHANCE.set(0.0);       // the village check fortifies its village itself, at the end
         MaidensConfig.REPAIR_DELAY.set(100);
     }
 

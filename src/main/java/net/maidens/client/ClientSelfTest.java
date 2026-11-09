@@ -177,7 +177,37 @@ public final class ClientSelfTest {
         if (t == 1000) shot(mc, "world_map");
         if (t == 1002 && mc.screen instanceof net.maidens.client.village.WorldMapScreen w) w.selectForTest();
         if (t == 1010) shot(mc, "world_map_village");
-        if (t == 1020) mc.stop();
+        // the castle, and the walls from high above
+        if (t == 1012) {
+            mc.options.hideGui = true;
+            if (mc.screen != null) mc.setScreen(null);
+            Path f = mc.gameDirectory.toPath().resolve("castle.txt");
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                int cx = Integer.parseInt(p[0]), cy = Integer.parseInt(p[1]), cz = Integer.parseInt(p[2]);
+                server.execute(() -> player(server).teleportTo(server.overworld(), cx - 26.5, cy + 24, cz - 26.5, -45, 30));
+            } else LOG.info("[clienttest] no castle.txt");
+        }
+        if (t == 1160) shot(mc, "castle");
+        if (t == 1162) {
+            Path f = mc.gameDirectory.toPath().resolve("castle.txt");
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                int vx = Integer.parseInt(p[3]), vy = Integer.parseInt(p[4]), vz = Integer.parseInt(p[5]);
+                server.execute(() -> player(server).teleportTo(server.overworld(), vx - 110.5, vy + 100, vz - 110.5, -45, 38));
+            }
+        }
+        if (t == 1320) shot(mc, "walls_wide");
+        if (t == 1322) {
+            Path f = mc.gameDirectory.toPath().resolve("castle.txt");
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                int vx = Integer.parseInt(p[3]), vy = Integer.parseInt(p[4]), vz = Integer.parseInt(p[5]);
+                server.execute(() -> player(server).teleportTo(server.overworld(), vx + 0.5, vy + 140, vz + 0.5, 0, 90));
+            }
+        }
+        if (t == 1460) shot(mc, "walls_top");
+        if (t == 1470) mc.stop();
     }
 
     private static void bag(Maiden m, net.minecraft.world.item.Item... items) {

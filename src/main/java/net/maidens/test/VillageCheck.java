@@ -158,8 +158,12 @@ final class VillageCheck {
             case 6 -> {
                 if (warCheck(level, st)) next(t, () -> view(level));
             }
-            case 7 -> {
-                return true;
+            case 7 -> next(t, () -> fortify(level));
+            case 8 -> {
+                if (fortified(level, st)) {
+                    finder(level);
+                    return true;
+                }
             }
             default -> {
                 return true;
@@ -552,6 +556,72 @@ final class VillageCheck {
                 last = why;
             }
         if (!v.blueprint.isBuilding()) log.accept("  no spot found in " + tries + " tries, last: \"" + last + "\"");
+    }
+
+    // ------------------------------------------------------------------ castle and walls
+
+    private void fortify(ServerLevel level) {
+        VillageRecord v = record;
+        if (v == null) return;
+        // all the land around it, loaded and kept loaded (the walls stand well outside the houses)
+        int r = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 96;
+        BlockPos c = v.centre();
+        long start = System.nanoTime();
+        for (int cx = (c.getX() - r) >> 4; cx <= (c.getX() + r) >> 4; cx++)
+            for (int cz = (c.getZ() - r) >> 4; cz <= (c.getZ() + r) >> 4; cz++) {
+                level.setChunkForced(cx, cz, true);
+                level.getChunk(cx, cz);
+            }
+        log.accept("fortify: land loaded in " + (System.nanoTime() - start) / 1_000_000 + " ms");
+        MaidensConfig.FORTIFIED_VILLAGE_CHANCE.set(0.35);
+        start = System.nanoTime();
+        net.maidens.village.Fortify.Report rep = net.maidens.village.Fortify.fortify(level, v, true);
+        log.accept("  planned in " + (System.nanoTime() - start) / 1_000_000 + " ms: castle " + (rep.castle() == null ? "NONE" : rep.castle().getCenter().toShortString())
+                + ", " + rep.houses() + " houses beside it; walls " + (rep.walls() == null ? "NONE" : rep.walls().columns() + " columns, " + rep.walls().blocks() + " blocks, "
+                + rep.walls().gates() + " gates, " + rep.walls().towers() + " towers, " + rep.walls().pieces() + " pieces"));
+        if (rep.castle() != null) {
+            BlockPos cc = rep.castle().getCenter();
+            try {
+                java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("maidens.selftest"), "castle.txt"), cc.getX() + " " + rep.castle().minY() + " " + cc.getZ()
+                        + " " + c.getX() + " " + c.getY() + " " + c.getZ());
+            } catch (java.io.IOException ignored) {
+            }
+        }
+        fortifyStart = System.nanoTime();
+    }
+
+    private long fortifyStart;
+
+    private boolean fortified(ServerLevel level, int t) {
+        VillageRecord v = record;
+        int[] wrong = {0, 0};
+        v.blueprint.forEachBlock((p, s) -> {
+            if (!level.isLoaded(p)) return;
+            wrong[1]++;
+            if (Upkeep.missing(level.getBlockState(p), s)) wrong[0]++;
+        });
+        log.accept("  after " + t + " ticks: still to place all at once " + v.blueprint.hasInstant() + "; " + wrong[0] + " of " + wrong[1]
+                + " blueprint blocks missing; " + VillageSocial.residents(level, v).size() + " residents; " + goals(level));
+        if (v.castle != null) {
+            BlockPos throne = null;
+            for (BlockPos p : BlockPos.betweenClosed(v.castle.minX(), v.castle.minY(), v.castle.minZ(), v.castle.maxX(), v.castle.maxY(), v.castle.maxZ())) {
+                if (level.getBlockState(p).is(Blocks.RED_BED)) {
+                    throne = p.immutable();
+                    break;
+                }
+            }
+            log.accept("  castle bed found: " + (throne == null ? "no" : throne.toShortString()));
+        }
+        return !v.blueprint.hasInstant() || t >= 1200;
+    }
+
+    /** /village find walled, as the command does it. */
+    private void finder(ServerLevel level) {
+        long start = System.nanoTime();
+        KnownVillage k = Network.findNearest(level, village.getX(), village.getZ(), 6000,
+                id -> Villages.rollsMaidens(level, id) && net.maidens.village.Fortify.rolls(level, id));
+        log.accept("find walled: " + (k == null ? "none" : k.name + " at " + k.x + ", " + k.z + ", " + Math.round(Math.sqrt(Math.pow(k.x - village.getX(), 2) + Math.pow(k.z - village.getZ(), 2))) + " blocks")
+                + " in " + (System.nanoTime() - start) / 1_000_000 + " ms");
     }
 
     private void breakAs(ServerLevel level, BlockPos p) {

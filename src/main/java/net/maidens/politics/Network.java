@@ -89,6 +89,54 @@ public final class Network extends SavedData {
         }
     }
 
+    /**
+     * The nearest village (from the seed, visited or not) whose start chunk passes a test, within a radius: the
+     * candidates passing the test are checked nearest first, at most 64 of them. Null if none.
+     */
+    @Nullable
+    public static KnownVillage findNearest(ServerLevel level, int x, int z, int radius, java.util.function.LongPredicate test) {
+        long seed = level.getSeed();
+        List<Candidate> found = new ArrayList<>();
+        for (Holder.Reference<StructureSet> h : level.registryAccess().registryOrThrow(Registries.STRUCTURE_SET).holders().toList()) {
+            StructureSet set = h.value();
+            if (!(set.placement() instanceof RandomSpreadStructurePlacement spread)) continue;
+            if (set.structures().stream().noneMatch(e -> e.structure().is(StructureTags.VILLAGE))) continue;
+            int spacing = spread.spacing();
+            int minRx = Math.floorDiv((x - radius) >> 4, spacing), maxRx = Math.floorDiv((x + radius) >> 4, spacing);
+            int minRz = Math.floorDiv((z - radius) >> 4, spacing), maxRz = Math.floorDiv((z + radius) >> 4, spacing);
+            for (int rx = minRx; rx <= maxRx; rx++)
+                for (int rz = minRz; rz <= maxRz; rz++) {
+                    ChunkPos c = spread.getPotentialStructureChunk(seed, rx * spacing, rz * spacing);
+                    if (test.test(c.toLong())) found.add(new Candidate(c, set, spread));
+                }
+        }
+        found.sort(java.util.Comparator.comparingDouble(c -> sq(c.chunk().getMiddleBlockX() - x) + sq(c.chunk().getMiddleBlockZ() - z)));
+        Network network = get(level);
+        int checks = 0;
+        for (Candidate c : found) {
+            if (++checks > 64) break;
+            KnownVillage known = network.village(c.chunk().toLong());
+            if (known != null) return known;
+            if (!c.placement().isStructureChunk(level.getChunkSource().getGeneratorState(), c.chunk().x, c.chunk().z)) continue;
+            for (StructureSet.StructureSelectionEntry e : c.set().structures()) {
+                StructureCheckResult r = level.structureManager().checkStructurePresence(c.chunk(), e.structure().value(), c.placement(), false);
+                if (r == StructureCheckResult.START_PRESENT || r == StructureCheckResult.CHUNK_LOAD_NEEDED) {
+                    long key = c.chunk().toLong();
+                    String path = e.structure().unwrapKey().map(k -> k.location().getPath()).orElse("village_plains");
+                    KnownVillage k = new KnownVillage(key, path.startsWith("village_") ? path.substring(8) : "plains", Villages.rollsMaidens(level, key), temperament(level, key));
+                    network.villages.put(key, k);
+                    network.setDirty();
+                    return k;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static double sq(double d) {
+        return d * d;
+    }
+
     /** For the self-test: forget which spots were checked, so they're checked again (and timed). */
     public void forgetCheckedForTest() {
         checked.clear();

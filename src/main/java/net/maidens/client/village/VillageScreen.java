@@ -311,7 +311,8 @@ public class VillageScreen extends Screen {
             if (b != null) IsoRenderer.render(g, b, cx + 2, cardY + 2, size - 4, size - 4, hover || t == selected ? turn : 0);
             else g.drawCenteredString(font, "...", cx + size / 2, cardY + size / 2 - 4, 0xFFFFFFFF);
             Ui.small(g, font, capital(t.display()), cx + 2, cardY + size + 1, Ui.TEXT, false, 0.65F);
-            Ui.small(g, font, t.beds() == 1 ? "1 bed" : t.beds() + " beds", cx + 2, cardY + size + 7, Ui.TEXT_LIGHT, false, 0.6F);
+            String sub = t.name().equals("walls") ? "around the village" : t.name().equals("castle") ? "with houses beside it" : t.beds() == 1 ? "1 bed" : t.beds() + " beds";
+            Ui.small(g, font, sub, cx + 2, cardY + size + 7, Ui.TEXT_LIGHT, false, 0.6F);
         }
     }
 
@@ -406,6 +407,11 @@ public class VillageScreen extends Screen {
                 for (int i = 0; i < templates.size(); i++) {
                     int cx = x + (i % 2) * (size + 2), cardY = y + (i / 2) * (size + 16);
                     if (Ui.inside(mx, my, cx, cardY, size, size + 14)) {
+                        if (templates.get(i).name().equals("walls")) {
+                            // walls go around the whole village: no spot to pick
+                            PacketDistributor.sendToServer(new VillageActionPayload(VillageActionPayload.BUILD, id, "walls", 0, 0, 0, 0));
+                            return true;
+                        }
                         selected = templates.get(i) == selected ? null : templates.get(i);
                         rotation = 0;
                         return true;

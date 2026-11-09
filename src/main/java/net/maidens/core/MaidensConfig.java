@@ -22,6 +22,7 @@ public final class MaidensConfig {
     public static final ModConfigSpec.DoubleValue MAX_AFFECTION_DISCOUNT;
     // villages
     public static final ModConfigSpec.DoubleValue MAIDEN_VILLAGE_CHANCE;
+    public static final ModConfigSpec.DoubleValue FORTIFIED_VILLAGE_CHANCE;
     public static final ModConfigSpec.IntValue ANGER_PER_BLOCK;
     public static final ModConfigSpec.IntValue ANGER_PER_DAY;
     public static final ModConfigSpec.IntValue GOSSIP_SHARE_PERCENT;
@@ -46,6 +47,7 @@ public final class MaidensConfig {
         b.pop();
         b.push("villages");
         MAIDEN_VILLAGE_CHANCE = b.comment("Chance that a newly generated village is lived in by maidens instead of villagers.").defineInRange("maidenVillageChance", 0.5, 0.0, 1.0);
+        FORTIFIED_VILLAGE_CHANCE = b.comment("Chance that a maiden village has a castle and walls from the start (the others can build them).").defineInRange("fortifiedVillageChance", 0.35, 0.0, 1.0);
         ANGER_PER_BLOCK = b.comment("Affection every maiden of a village loses when a non-citizen breaks one of its blocks.").defineInRange("angerPerBlock", 2, 0, 100);
         ANGER_PER_DAY = b.comment("Most affection a player can lose per maiden per day from breaking village blocks.").defineInRange("angerPerDay", 20, 0, 100);
         GOSSIP_SHARE_PERCENT = b.comment("Percent chance that each other maiden of her village hears about an affection change a player caused.").defineInRange("gossipSharePercent", 25, 0, 100);

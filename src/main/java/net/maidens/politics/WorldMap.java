@@ -129,6 +129,8 @@ public final class WorldMap {
             vt.putBoolean("Visited", network.isVisited(v.id));
             vt.putString("Style", v.style);
             vt.putInt("Temper", v.temperament.ordinal());
+            VillageRecord rec = Villages.get(level).byId(v.id);
+            vt.putBoolean("Walled", v.maiden && (rec != null && rec.wallBox != null || net.maidens.village.Fortify.rolls(level, v.id)));
             if (self != null && v.maiden && v.id != self.id) {
                 vt.putInt("Ours", network.stance(self, v).ordinal());
                 vt.putInt("Theirs", network.stance(v, self).ordinal());

@@ -30,10 +30,12 @@ public final class VillageEvents {
         Network network = Network.get(level);
         // one possible village checked every 4 ticks (a real one means laying out the whole village, as /locate does)
         if (network.busy() && level.getGameTime() % 4 == 0) network.tick(level);
+        Fortify.placeTick(level, Villages.get(level));
         if (level.getGameTime() % 100 == 0) {
             Villages villages = Villages.get(level);
             villages.recordLoadedPieces(level);
             Upkeep.tick(level, villages);
+            Fortify.tick(level, villages);
             VillageConversion.sweep(level, villages);
             WarParties.tick(level, villages);
             network.slowTick(level);

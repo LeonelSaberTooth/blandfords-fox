@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+- Castles and walls: about a third of maiden villages have a stone castle (keep with a throne room and the
+  royal's bedroom, corner towers, gatehouse) and walls with towers and gates around the whole village.
+  Other villages can build them: Castle and Walls cards in the bell's Build tab.
+- `/village find walled` (or `maiden`) gives the nearest such village.
+- The world map marks walled villages.
+- Maidens lay a few blocks at a time on building sites, so buildings go up faster.
+
 ## 0.5.0
 - Royals: each maiden village has a crowned royal (not for hire) who leads it. Marry her, defend the village in a
   raid, or be a citizen for 14 days to speak for the village yourself.

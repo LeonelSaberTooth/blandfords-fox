@@ -41,6 +41,12 @@ public final class VillageRecord {
     private BlockPos bell;
     /** How many blueprint pieces were recorded when the bell was last looked for (-1: never). */
     private int bellLookedAt = -1;
+    /** Its castle, if it has one. */
+    @org.jetbrains.annotations.Nullable public BoundingBox castle;
+    /** The area its walls enclose (their bounding box), if it has walls. */
+    @org.jetbrains.annotations.Nullable public BoundingBox wallBox;
+    /** Whether a fortified-by-nature village has had its castle and walls planned (or tried to). */
+    public boolean fortified;
     /** When the last new maiden moved in (game time). */
     long lastArrival = Long.MIN_VALUE / 2;
     /** What needs fixing right now (not saved: found again by the scan after a restart). */
@@ -109,6 +115,15 @@ public final class VillageRecord {
         return trades.getOrDefault(player, 0);
     }
 
+    private static int[] boxArray(BoundingBox b) {
+        return new int[]{b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ()};
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private static BoundingBox boxOf(int[] a) {
+        return a.length == 6 ? new BoundingBox(a[0], a[1], a[2], a[3], a[4], a[5]) : null;
+    }
+
     CompoundTag save() {
         CompoundTag t = new CompoundTag();
         t.putLong("Id", id);
@@ -132,6 +147,9 @@ public final class VillageRecord {
         t.put("CitizenSince", since);
         t.putString("Project", project);
         t.putLong("LastArrival", lastArrival);
+        if (castle != null) t.putIntArray("Castle", boxArray(castle));
+        if (wallBox != null) t.putIntArray("WallBox", boxArray(wallBox));
+        t.putBoolean("Fortified", fortified);
         return t;
     }
 
@@ -153,6 +171,9 @@ public final class VillageRecord {
         }
         r.project = t.getString("Project");
         if (t.contains("LastArrival")) r.lastArrival = t.getLong("LastArrival");
+        r.castle = boxOf(t.getIntArray("Castle"));
+        r.wallBox = boxOf(t.getIntArray("WallBox"));
+        r.fortified = t.getBoolean("Fortified");
         CompoundTag tr = t.getCompound("Trades");
         for (String k : tr.getAllKeys()) {
             try {

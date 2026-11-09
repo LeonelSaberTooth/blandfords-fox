@@ -59,7 +59,7 @@ public final class VillageView {
         map(level, v, t);
         ListTag pieces = new ListTag();
         for (Blueprint.PieceInfo pi : v.blueprint.pieces()) {
-            if (pi.name().equals("road") || pi.name().equals(Buildings.NOT_A_BUILDING)) continue;
+            if (pi.name().equals("road") || pi.name().equals(Buildings.NOT_A_BUILDING) || pi.name().equals(Walls.NAME)) continue;
             CompoundTag pt = new CompoundTag();
             pt.putIntArray("Box", new int[]{pi.box().minX(), pi.box().minZ(), pi.box().maxX(), pi.box().maxZ()});
             pt.putString("Name", pi.name().isEmpty() ? "" : Buildings.displayName(ResourceLocation.withDefaultNamespace(pi.name()), v.style));
@@ -91,6 +91,9 @@ public final class VillageView {
             tt.putIntArray("Size", new int[]{size.getX(), size.getY(), size.getZ()});
             templates.add(tt);
         }
+        // the castle and walls, while the village doesn't have them
+        if (v.castle == null) templates.add(0, card(Castle.NAME, "castle", 2, new int[]{Castle.SIZE, Castle.HEIGHT, Castle.SIZE}));
+        if (v.wallBox == null) templates.add(v.castle == null ? 1 : 0, card(Walls.NAME, "walls", 0, new int[]{1, 1, 1}));
         t.put("Templates", templates);
         ListTag nb = new ListTag();
         for (KnownVillage o : network.neighbours(self)) {
@@ -108,8 +111,17 @@ public final class VillageView {
 
     /** A top-down picture of the village and its surroundings, in vanilla map colours (packed ids, 0 where not loaded). */
     private static void map(ServerLevel level, VillageRecord v, CompoundTag t) {
-        int x0 = v.box.minX() - MARGIN, z0 = v.box.minZ() - MARGIN;
-        int w = v.box.getXSpan() + 2 * MARGIN, h = v.box.getZSpan() + 2 * MARGIN;
+        // the village, its castle and its walls
+        int bx0 = v.box.minX(), bz0 = v.box.minZ(), bx1 = v.box.maxX(), bz1 = v.box.maxZ();
+        for (var b : new net.minecraft.world.level.levelgen.structure.BoundingBox[]{v.castle, v.wallBox}) {
+            if (b == null) continue;
+            bx0 = Math.min(bx0, b.minX());
+            bz0 = Math.min(bz0, b.minZ());
+            bx1 = Math.max(bx1, b.maxX());
+            bz1 = Math.max(bz1, b.maxZ());
+        }
+        int x0 = bx0 - MARGIN, z0 = bz0 - MARGIN;
+        int w = bx1 - bx0 + 1 + 2 * MARGIN, h = bz1 - bz0 + 1 + 2 * MARGIN;
         int step = Math.max(1, (Math.max(w, h) + MAX_MAP - 1) / MAX_MAP);
         int pw = w / step, ph = h / step;
         byte[] colours = new byte[pw * ph];
@@ -154,27 +166,47 @@ public final class VillageView {
         open(level, v, p);
     }
 
+    private static CompoundTag card(String name, String display, int beds, int[] size) {
+        CompoundTag tt = new CompoundTag();
+        tt.putString("Name", name);
+        tt.putString("Display", display);
+        tt.putInt("Beds", beds);
+        tt.putIntArray("Size", size);
+        return tt;
+    }
+
     /** A building's blocks (unrotated), for the picture on its card: block state ids and packed positions. */
     private static void sendTemplate(ServerLevel level, ServerPlayer p, long village, String name) {
         VillageRecord v = Villages.get(level).byId(village);
         if (v == null) return;
-        ResourceLocation tpl = VillageMenu.templateNamed(level, v, name);
-        if (tpl == null) return;
-        Buildings.Plan plan = Buildings.preview(level, tpl);
-        int n = plan.blocks().size(), i = 0;
+        Map<BlockPos, BlockState> blocks;
+        int[] size;
+        if (name.equals(Castle.NAME)) {
+            blocks = Castle.design();
+            size = new int[]{Castle.SIZE, Castle.HEIGHT, Castle.SIZE};
+        } else if (name.equals(Walls.NAME)) {
+            blocks = Walls.preview();
+            size = new int[]{15, 10, 8};
+        } else {
+            ResourceLocation tpl = VillageMenu.templateNamed(level, v, name);
+            if (tpl == null) return;
+            blocks = Buildings.preview(level, tpl).blocks();
+            var ts = level.getStructureManager().getOrCreate(tpl).getSize();
+            size = new int[]{ts.getX(), ts.getY(), ts.getZ()};
+        }
+        int n = blocks.size(), i = 0;
         int[] states = new int[n], positions = new int[n];
-        for (Map.Entry<BlockPos, BlockState> e : plan.blocks().entrySet()) {
+        for (Map.Entry<BlockPos, BlockState> e : blocks.entrySet()) {
             BlockPos q = e.getKey();
             states[i] = Block.getId(e.getValue());
             positions[i] = (q.getX() & 0x3FF) | (q.getY() & 0x3FF) << 10 | (q.getZ() & 0x3FF) << 20;
             i++;
         }
-        StructureTemplate t = level.getStructureManager().getOrCreate(tpl);
         CompoundTag tag = new CompoundTag();
         tag.putString("Name", name);
         tag.putIntArray("States", states);
         tag.putIntArray("Positions", positions);
-        tag.putIntArray("Size", new int[]{t.getSize().getX(), t.getSize().getY(), t.getSize().getZ()});
+        tag.putIntArray("Size", size);
         PacketDistributor.sendToPlayer(p, new VillageViewPayload(VillageViewPayload.TEMPLATE, tag));
     }
 }

@@ -97,6 +97,14 @@ public final class VillageMenu {
     public static String buildAt(ServerLevel level, VillageRecord v, ServerPlayer p, String shortName, BlockPos corner, net.minecraft.world.level.block.Rotation rot) {
         if (!v.isCitizen(p.getUUID())) return "Only citizens of " + v.name + " can choose what gets built.";
         if (v.blueprint.isBuilding()) return "The maidens are still busy with the last building.";
+        if (shortName.equals(Castle.NAME)) {
+            String why = Fortify.castleFromBell(level, v, corner, rot);
+            return why != null ? why : "The maidens will build a castle there, with houses beside it.";
+        }
+        if (shortName.equals(Walls.NAME)) {
+            String why = Fortify.wallsFromBell(level, v);
+            return why != null ? why : "The maidens will build walls around " + v.name + ".";
+        }
         ResourceLocation t = templateNamed(level, v, shortName);
         if (t == null) return "There's no building called " + shortName + " in " + v.name + ".";
         String why = Buildings.buildAt(level, v, t, corner, rot);

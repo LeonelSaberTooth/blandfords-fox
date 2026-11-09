@@ -28,6 +28,7 @@ import java.util.Iterator;
 public final class Upkeep {
     /** Blocks that make up roads; whatever stands on them that the blueprint doesn't expect is cleared away. */
     public static final TagKey<Block> ROAD = BlockTags.create(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "village_road"));
+    private static final int BUILD_EXTRA = 6;
     private static final int SCAN_PER_TICK = 8192, MAX_CHORES = 128, REACH = 128, CLAIM_TIMEOUT = 1200, RETRY_LATER = 1200;
 
     private Upkeep() {}
@@ -178,6 +179,20 @@ public final class Upkeep {
             if (e != null && e.is(c.block.getBlock()) && missing(level.getBlockState(n), e)) {
                 place(level, n, e);
                 v.chores.remove(n.asLong());
+            }
+        }
+        // on a building site she lays a few more blocks around her while she's there (big buildings go up in days, not weeks)
+        if (v.blueprint.isBuildingSite(c.pos)) {
+            int more = BUILD_EXTRA;
+            for (BlockPos n : BlockPos.withinManhattan(c.pos, 2, 1, 2)) {
+                if (more <= 0) break;
+                if (!v.blueprint.isBuildingSite(n)) continue;
+                BlockState e = v.blueprint.expected(n);
+                if (e == null || !missing(level.getBlockState(n), e)) continue;
+                if (!level.getEntitiesOfClass(LivingEntity.class, new AABB(n)).isEmpty()) continue;
+                level.setBlock(n, e, Block.UPDATE_CLIENTS);
+                v.chores.remove(n.asLong());
+                more--;
             }
         }
         return true;

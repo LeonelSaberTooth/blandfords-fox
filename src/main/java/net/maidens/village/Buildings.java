@@ -170,6 +170,12 @@ public final class Buildings {
      */
     @Nullable
     public static Plan build(ServerLevel level, VillageRecord v, ResourceLocation template, BlockPos near) {
+        return build(level, v, template, near, false);
+    }
+
+    /** The same; instant ones are put in place all at once (a fortified village's first houses) instead of built. */
+    @Nullable
+    public static Plan build(ServerLevel level, VillageRecord v, ResourceLocation template, BlockPos near, boolean instant) {
         // the nearest good spot whose door can be joined to the village's roads by a walkable path
         int tried = 0;
         for (Site site : findSites(level, v, template, near)) {
@@ -177,9 +183,9 @@ public final class Buildings {
             Plan plan = withFoundation(level, read(level, template, site.origin(), site.rot()));
             Plan road = plan.door() == null ? null : road(level, v, plan);
             if (road == null) continue;
-            v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template));
-            v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road");
-            v.project = shortName(template);
+            v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template), instant);
+            v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", instant);
+            if (!instant) v.project = shortName(template);
             Villages.get(level).setDirty();
             return plan;
         }
@@ -194,7 +200,8 @@ public final class Buildings {
         RandomSource r = RandomSource.create(level.getGameTime() ^ v.id);
         StructureTemplate t = level.getStructureManager().getOrCreate(template);
         List<Site> sites = new ArrayList<>();
-        BoundingBox allowed = v.box.inflatedBy(40);
+        // inside the walls, if it has any (the wall pieces themselves are kept clear of by the overlap check)
+        BoundingBox allowed = v.wallBox != null ? v.wallBox.inflatedBy(-8) : v.box.inflatedBy(40);
         int unloaded = 0, outside = 0, overlap = 0, ground = 0;
         for (int i = 0; i < TRIES; i++) {
             double angle = r.nextDouble() * Math.PI * 2;
@@ -220,7 +227,7 @@ public final class Buildings {
     }
 
     /** The height to build at (the top of the ground, averaged), or MIN_VALUE if it's too steep or wet here. */
-    private static int groundLevel(ServerLevel level, BoundingBox fp) {
+    static int groundLevel(ServerLevel level, BoundingBox fp) {
         int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
         long sum = 0;
         int n = 0;
@@ -238,7 +245,7 @@ public final class Buildings {
     }
 
     /** Fills the gaps under the bottom layer down to the ground, so nothing floats on a slope. */
-    private static Plan withFoundation(ServerLevel level, Plan p) {
+    static Plan withFoundation(ServerLevel level, Plan p) {
         Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
         BoundingBox b = p.box();
         for (int x = b.minX(); x <= b.maxX(); x++)
@@ -314,7 +321,7 @@ public final class Buildings {
 
     /** A path from the building's door to the nearest village road, over the ground, avoiding other buildings. */
     @Nullable
-    private static Plan road(ServerLevel level, VillageRecord v, Plan house) {
+    static Plan road(ServerLevel level, VillageRecord v, Plan house) {
         Map<Long, BlockState> roadAt = new HashMap<>();
         v.blueprint.forEachBlock((p, s) -> {
             if (s.is(Upkeep.ROAD)) roadAt.put(column(p.getX(), p.getZ()), s);

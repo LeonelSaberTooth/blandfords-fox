@@ -31,7 +31,7 @@ public class WorldMapScreen extends Screen {
     private static final ResourceLocation MAP = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "world_map");
 
     private record Village(long id, String name, int x, int z, boolean maiden, boolean visited, String style, Stance temper,
-                           @Nullable Stance ours, @Nullable Stance theirs, int distance, boolean neighbour, String news) {}
+                           @Nullable Stance ours, @Nullable Stance theirs, int distance, boolean neighbour, String news, boolean walled) {}
 
     private record RoadLine(int ax, int az, int bx, int bz, int fromA, int fromB, int length) {}
 
@@ -79,7 +79,7 @@ public class WorldMapScreen extends Screen {
             villages.add(new Village(v.getLong("Id"), v.getString("Name"), pos.length == 2 ? pos[0] : 0, pos.length == 2 ? pos[1] : 0,
                     v.getBoolean("Maiden"), v.getBoolean("Visited"), v.getString("Style"), Stance.byId(v.getInt("Temper")),
                     v.contains("Ours") ? Stance.byId(v.getInt("Ours")) : null, v.contains("Theirs") ? Stance.byId(v.getInt("Theirs")) : null,
-                    v.getInt("Distance"), v.getBoolean("Neighbour"), v.getString("News")));
+                    v.getInt("Distance"), v.getBoolean("Neighbour"), v.getString("News"), v.getBoolean("Walled")));
         }
         roads.clear();
         for (Tag e : t.getList("Roads", Tag.TAG_COMPOUND)) {
@@ -162,6 +162,11 @@ public class WorldMapScreen extends Screen {
             int sx = (int) toScreenX(v.x()), sz = (int) toScreenZ(v.z());
             int colour = v.id() == viewer ? 0xFFFFFFFF : !v.maiden() ? 0xFFA0A0A0 : v.theirs() != null ? 0xFF000000 | v.theirs().color : 0xFF707070;
             int r = v.maiden() ? 3 : 2;
+            if (v.walled()) {
+                // a walled village: a stone-grey ring around its marker
+                g.fill(sx - r - 3, sz - r - 3, sx + r + 4, sz + r + 4, 0xFF000000);
+                g.fill(sx - r - 2, sz - r - 2, sx + r + 3, sz + r + 3, 0xFF9A9A9A);
+            }
             g.fill(sx - r - 1, sz - r - 1, sx + r + 2, sz + r + 2, 0xFF000000);
             g.fill(sx - r, sz - r, sx + r + 1, sz + r + 1, colour);
             if (v.id() == viewer) g.fill(sx - 1, sz - 1, sx + 2, sz + 2, 0xFF30A030);
@@ -212,11 +217,14 @@ public class WorldMapScreen extends Screen {
             legend(g, x, y + 20, 0xFF000000 | Stance.AGGRESSIVE.color, "hostile");
             legend(g, x, y + 30, 0xFFA0A0A0, "villager village");
             legend(g, x, y + 40, 0xFFFFFFFF, "your village");
+            g.fill(x - 1, y + 50, x + 8, y + 59, 0xFF9A9A9A);
+            g.fill(x + 1, y + 52, x + 6, y + 57, 0xFF707070);
+            g.drawString(font, "walled, with a castle", x + 11, y + 50, Ui.TEXT, false);
         } else {
             g.drawString(font, v.name(), x, y, 0xFF202020, false);
             y += 11;
             List<String> lines = new ArrayList<>();
-            lines.add(capital(v.style()) + (v.maiden() ? " maiden village" : " villager village"));
+            lines.add(capital(v.style()) + (v.maiden() ? (v.walled() ? " walled maiden village" : " maiden village") : " villager village"));
             if (v.id() == viewer) lines.add("This is your village.");
             if (v.maiden() && v.id() != viewer) {
                 lines.add(v.distance() + " blocks away" + (v.neighbour() ? "" : " (too far to deal with)"));
@@ -308,7 +316,7 @@ public class WorldMapScreen extends Screen {
         Village v = selected;
         int y = py + 8 + 14 + 11;
         List<String> lines = new ArrayList<>();
-        lines.add(capital(v.style()) + " maiden village");
+        lines.add(capital(v.style()) + (v.walled() ? " walled maiden village" : " maiden village"));
         lines.add(v.distance() + " blocks away");
         lines.add("By nature: " + v.temper().label);
         if (v.theirs() != null) lines.add("Towards you: " + v.theirs().label);

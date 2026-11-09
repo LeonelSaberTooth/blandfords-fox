@@ -48,6 +48,8 @@ public final class Blueprint {
         String name = "";
         @Nullable int[] cells;
         boolean building;
+        /** Put in place all at once (as soon as its land is loaded) instead of block by block by the maidens. */
+        boolean instant;
         /** During a scan of a building: whether anything still needed doing. */
         boolean workLeft;
 
@@ -99,10 +101,16 @@ public final class Blueprint {
 
     /** A new building: blocks to place, and spots to keep clear (everything else in the box is left alone). */
     void addBuilding(BoundingBox box, Map<BlockPos, BlockState> blocks, Iterable<BlockPos> clear, String name) {
+        addBuilding(box, blocks, clear, name, false);
+    }
+
+    /** The same, optionally put in place all at once ({@link #placeInstant}) rather than built by the maidens. */
+    void addBuilding(BoundingBox box, Map<BlockPos, BlockState> blocks, Iterable<BlockPos> clear, String name, boolean instant) {
         Piece p = new Piece(box);
         p.name = name;
         p.cells = new int[p.size()];
         p.building = true;
+        p.instant = instant;
         for (BlockPos c : clear) if (box.isInside(c)) p.cells[p.index(c)] = KEEP_CLEAR;
         blocks.forEach((pos, s) -> {
             if (box.isInside(pos)) p.cells[p.index(pos)] = paletteId(s);
@@ -190,7 +198,7 @@ public final class Blueprint {
             if (scanPiece >= pieces.size()) scanPiece = 0;
             Piece piece = pieces.get(scanPiece);
             BoundingBox b = piece.box;
-            if (piece.cells == null || scanCell >= piece.cells.length || !level.hasChunksAt(b.minX(), b.minZ(), b.maxX(), b.maxZ())) {
+            if (piece.cells == null || piece.instant || scanCell >= piece.cells.length || !level.hasChunksAt(b.minX(), b.minZ(), b.maxX(), b.maxZ())) {
                 if (piece.building && piece.cells != null && scanCell >= piece.cells.length && !piece.workLeft) {
                     finish(piece);
                     finished = true;
@@ -215,7 +223,61 @@ public final class Blueprint {
 
     private static void finish(Piece piece) {
         piece.building = false;
+        piece.instant = false;
         for (int i = 0; i < piece.cells.length; i++) if (piece.cells[i] == KEEP_CLEAR) piece.cells[i] = NOTHING;
+    }
+
+    private int instantPiece, instantCell;
+
+    /** Whether some pieces are still waiting to be put in place all at once. */
+    public boolean hasInstant() {
+        for (Piece p : pieces) if (p.instant) return true;
+        return false;
+    }
+
+    /**
+     * Puts instant pieces in place, up to budget spots per call, in land that's loaded (the rest waits until it is).
+     * Blocks go in without sounds or drops; spots to keep clear are emptied. Returns how many blocks were set.
+     */
+    int placeInstant(ServerLevel level, int budget) {
+        int set = 0, skipped = 0;
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        while (budget > 0 && skipped <= pieces.size()) {
+            if (instantPiece >= pieces.size()) instantPiece = 0;
+            Piece piece = pieces.get(instantPiece);
+            BoundingBox b = piece.box;
+            if (!piece.instant || !level.hasChunksAt(b.minX(), b.minZ(), b.maxX(), b.maxZ())) {
+                instantPiece++;
+                instantCell = 0;
+                skipped++;
+                continue;
+            }
+            skipped = 0;
+            int xs = b.getXSpan(), zs = b.getZSpan();
+            for (; instantCell < piece.cells.length && budget > 0; instantCell++, budget--) {
+                int id = piece.cells[instantCell];
+                if (id == NOTHING) continue;
+                int i = instantCell;
+                p.set(b.minX() + i % xs, b.minY() + i / (xs * zs), b.minZ() + (i / xs) % zs);
+                BlockState now = level.getBlockState(p);
+                if (id > 0) {
+                    BlockState want = palette.get(id);
+                    if (now != want) {
+                        level.setBlock(p, want, Block.UPDATE_CLIENTS);
+                        set++;
+                    }
+                } else if (!now.isAir() && expected(p) == null) {
+                    level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    set++;
+                }
+            }
+            if (instantCell >= piece.cells.length) {
+                finish(piece);
+                instantPiece++;
+                instantCell = 0;
+            }
+        }
+        return set;
     }
 
     /** Every recorded block of the blueprint. */
@@ -237,6 +299,13 @@ public final class Blueprint {
     public List<PieceInfo> pieces() {
         List<PieceInfo> out = new ArrayList<>();
         for (Piece p : pieces) out.add(new PieceInfo(p.box, p.name, p.building));
+        return out;
+    }
+
+    /** Every piece's box (for planning walls around them all). */
+    public List<BoundingBox> boxes() {
+        List<BoundingBox> out = new ArrayList<>();
+        for (Piece p : pieces) out.add(p.box);
         return out;
     }
 
@@ -269,6 +338,7 @@ public final class Blueprint {
             pt.putIntArray("Box", new int[]{p.box.minX(), p.box.minY(), p.box.minZ(), p.box.maxX(), p.box.maxY(), p.box.maxZ()});
             if (p.cells != null) pt.putIntArray("Cells", p.cells);
             if (p.building) pt.putBoolean("Building", true);
+            if (p.instant) pt.putBoolean("Instant", true);
             if (!p.name.isEmpty()) pt.putString("Name", p.name);
             list.add(pt);
         }
@@ -297,6 +367,7 @@ public final class Blueprint {
                 if (cells.length == p.size()) p.cells = cells;
             }
             p.building = p.cells != null && pt.getBoolean("Building");
+            p.instant = p.building && pt.getBoolean("Instant");
             p.name = pt.getString("Name");
             bp.pieces.add(p);
             bp.index(p);

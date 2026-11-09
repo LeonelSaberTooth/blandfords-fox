@@ -225,6 +225,25 @@ Rules:
    off the main thread, cached), every village with its name and stance towards you, roads (built solid,
    planned faint). Drag to move, scroll to zoom; click a village for details and stance buttons.
 
+## Castles and walls (0.6.0)
+
+1. `fortifiedVillageChance` (35%) of maiden villages are fortified by nature, fixed by the seed
+   (`Fortify.rolls`). The first time the whole village and the land around it are loaded, a castle and walls
+   are planned and put in place at once (instant blueprint pieces, `Blueprint.placeInstant`, 8192 spots a tick).
+2. Any other village can order them at the bell: the Castle card (placed on the map like a building) and the
+   Walls card (click it: they go around the whole village). Maidens build them; on a building site each chore
+   lays up to 6 more blocks around it, so big buildings take days, not weeks.
+3. **Castle** (`Castle`, one stone design in code for every style until hand-built ones replace it): 25 x 25,
+   curtain wall with battlements, four corner towers with ladders and a wall walk, a gatehouse facing the
+   village, a keep with a throne room, the royal bedroom (2 beds) and a walkable roof. It goes on the best flat
+   spot (or a hill) just outside the village, with a road from its gate, and 2-3 of the village's houses beside it.
+4. **Walls** (`Walls`): 9 blocks out from every building and street, rounded (distance transform, grown, holes
+   filled, shrunk back), 2 thick, about 5 high over the ground with battlements, a tower about every 28 blocks,
+   7-wide gates north, south, east, west and towards each neighbour (where roads come in), joined to the streets.
+   Added in 8 x 8 segments. New houses of a walled village stay inside.
+5. `/village find walled` (and `/village find maiden`): the nearest one from the seed, visited or not.
+   The world map rings walled villages.
+
 ## Phases
 
 0. Reorganize into systems, design doc, config. (done in 0.2.0)
@@ -234,3 +253,4 @@ Rules:
 4. Housing: new houses, roads to them, the bell menu, new maidens arriving. (done in 0.3.0)
 5. Daily schedule, requests board, raid defence. (done in 0.3.0)
 6. Politics: royals, the village network, stances, raids, roads, bell screen, world map. (done in 0.5.0)
+7. Castles and walls. (0.6.0)

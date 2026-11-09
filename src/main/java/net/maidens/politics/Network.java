@@ -81,7 +81,7 @@ public final class Network extends SavedData {
             int minRz = Math.floorDiv((z - radius) >> 4, spacing), maxRz = Math.floorDiv((z + radius) >> 4, spacing);
             for (int rx = minRx; rx <= maxRx; rx++)
                 for (int rz = minRz; rz <= maxRz; rz++) {
-                    ChunkPos c = spread.getPotentialStructureChunk(seed, rx, rz);
+                    ChunkPos c = spread.getPotentialStructureChunk(seed, rx * spacing, rz * spacing);   // takes a chunk in the region, not the region
                     long key = c.toLong();
                     if (checked.contains(key) || !queued.add(key)) continue;
                     pending.add(new Candidate(c, set, spread));

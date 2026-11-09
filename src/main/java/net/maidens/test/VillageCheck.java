@@ -10,6 +10,11 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.raid.Raid;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.maidens.politics.Diplomacy;
+import net.maidens.politics.KnownVillage;
+import net.maidens.politics.Network;
+import net.maidens.politics.Stance;
+import net.maidens.village.Royals;
 import net.maidens.village.Buildings;
 import net.maidens.village.Housing;
 import net.maidens.village.Upkeep;
@@ -121,6 +126,7 @@ final class VillageCheck {
         }
         if (t == 620) {
             social(level);
+            politics(level);
             damage(level);
             stage = 1;
             stageStart = t;
@@ -377,6 +383,37 @@ final class VillageCheck {
             for (String s : (g.isEmpty() ? "idle" : g).split(" ")) n.merge(s, 1, Integer::sum);
         }
         return n.toString();
+    }
+
+    /** Royals, the network of villages from the seed, stances and the right to decide. */
+    private void politics(ServerLevel level) {
+        VillageRecord v = Villages.get(level).at(village);
+        if (v == null) for (VillageRecord r : Villages.get(level).all()) v = r;
+        if (v == null) return;
+        List<Maiden> rs = VillageSocial.residents(level, v);
+        Royals.tick(level, v, rs);
+        Maiden royal = null;
+        for (Maiden m : rs) if (m.isRoyal()) royal = m;
+        log.accept("politics: royal " + (royal == null ? "NONE" : royal.name() + " (" + royal.title() + ")") + ", royals on record " + v.royals.size());
+        if (royal != null) log.accept("  hiring the royal: \"" + royal.employment().hire(tester, net.maidens.maiden.work.Job.FARM) + "\"");
+        Network n = Network.get(level);
+        KnownVillage self = n.know(level, v);
+        long start = System.nanoTime();
+        n.lookAround(level, self.x, self.z, Network.NEIGHBOUR_RANGE);
+        int checks = 0;
+        while (n.busy() && checks < 2000) { n.tick(level); checks++; }
+        log.accept("  network: " + checks + " spots checked in " + (System.nanoTime() - start) / 1_000_000 + " ms; " + n.all().size() + " villages known, "
+                + n.all().stream().filter(k -> k.maiden).count() + " of them maiden villages; " + v.name + " is " + self.temperament.label + " by temperament");
+        List<KnownVillage> nb = n.neighbours(self);
+        for (KnownVillage o : nb) log.accept("    " + o.name + " (" + o.style + ") " + Math.round(self.distanceTo(o)) + " blocks: we're "
+                + n.stance(self, o).label + ", they're " + n.stance(o, self).label);
+        log.accept("  may the tester decide? " + Diplomacy.rightToDecide(level, v, tester) + " - " + Diplomacy.howToEarnIt(level, v, tester));
+        v.addDefender(tester.getUUID());
+        log.accept("  after defending it: " + Diplomacy.rightToDecide(level, v, tester));
+        if (!nb.isEmpty()) {
+            log.accept("  set stance: \"" + Diplomacy.setStance(level, v, tester, nb.get(0), Stance.AGGRESSIVE) + "\" -> now " + n.stance(self, nb.get(0)).label);
+            log.accept("  news: " + n.news(v.id));
+        }
     }
 
     private void breakAs(ServerLevel level, BlockPos p) {

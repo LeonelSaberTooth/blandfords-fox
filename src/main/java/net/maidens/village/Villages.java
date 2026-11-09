@@ -40,7 +40,12 @@ public final class Villages extends SavedData {
 
     /** The coin flip for a village, fixed by the world seed and where the village starts. */
     public static boolean rollsMaidens(ServerLevel level, StructureStart start) {
-        long seed = level.getSeed() ^ start.getChunkPos().toLong() * 0x9E3779B97F4A7C15L ^ SALT;
+        return rollsMaidens(level, start.getChunkPos().toLong());
+    }
+
+    /** The same coin flip from just the village's start chunk (known from the seed before the village exists). */
+    public static boolean rollsMaidens(ServerLevel level, long startChunk) {
+        long seed = level.getSeed() ^ startChunk * 0x9E3779B97F4A7C15L ^ SALT;
         return RandomSource.create(seed).nextDouble() < MaidensConfig.MAIDEN_VILLAGE_CHANCE.get();
     }
 

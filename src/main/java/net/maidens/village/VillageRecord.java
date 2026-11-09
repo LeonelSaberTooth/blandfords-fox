@@ -50,8 +50,38 @@ public final class VillageRecord {
         this.id = id;
         this.box = box;
         this.blueprint = blueprint;
+        this.name = nameFor(id);
+    }
+
+    /** A village's name, from its id alone (so villages not yet visited have their name too). */
+    public static String nameFor(long id) {
         RandomSource r = RandomSource.create(id);
-        this.name = FIRST[r.nextInt(FIRST.length)] + LAST[r.nextInt(LAST.length)];
+        return FIRST[r.nextInt(FIRST.length)] + LAST[r.nextInt(LAST.length)];
+    }
+
+    /** Its royals (one for now; kept as a set so a royal family can come later). */
+    public final Set<UUID> royals = new HashSet<>();
+    /** Players who helped beat back a raid here. */
+    final Set<UUID> defenders = new HashSet<>();
+    /** The day each citizen became one. */
+    final Map<UUID, Long> citizenSince = new HashMap<>();
+
+    public boolean isRoyal(UUID maiden) {
+        return royals.contains(maiden);
+    }
+
+    public void addDefender(UUID player) {
+        defenders.add(player);
+    }
+
+    public boolean isDefender(UUID player) {
+        return defenders.contains(player);
+    }
+
+    /** Days since this player became a citizen, or -1 if they aren't one. */
+    public long citizenDays(UUID player, long today) {
+        if (!citizens.contains(player)) return -1;
+        return today - citizenSince.getOrDefault(player, today);
     }
 
     public BlockPos centre() {
@@ -91,6 +121,15 @@ public final class VillageRecord {
         trades.forEach((u, n) -> tr.putInt(u.toString(), n));
         t.put("Trades", tr);
         t.putString("Style", style);
+        ListTag roy = new ListTag();
+        for (UUID u : royals) roy.add(NbtUtils.createUUID(u));
+        t.put("Royals", roy);
+        ListTag def = new ListTag();
+        for (UUID u : defenders) def.add(NbtUtils.createUUID(u));
+        t.put("Defenders", def);
+        CompoundTag since = new CompoundTag();
+        citizenSince.forEach((u, d) -> since.putLong(u.toString(), d));
+        t.put("CitizenSince", since);
         t.putString("Project", project);
         t.putLong("LastArrival", lastArrival);
         return t;
@@ -103,6 +142,15 @@ public final class VillageRecord {
         ListTag cit = t.getList("Citizens", Tag.TAG_INT_ARRAY);
         for (Tag u : cit) r.citizens.add(NbtUtils.loadUUID(u));
         if (t.contains("Style")) r.style = t.getString("Style");
+        for (Tag u : t.getList("Royals", Tag.TAG_INT_ARRAY)) r.royals.add(NbtUtils.loadUUID(u));
+        for (Tag u : t.getList("Defenders", Tag.TAG_INT_ARRAY)) r.defenders.add(NbtUtils.loadUUID(u));
+        CompoundTag since = t.getCompound("CitizenSince");
+        for (String k : since.getAllKeys()) {
+            try {
+                r.citizenSince.put(UUID.fromString(k), since.getLong(k));
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
         r.project = t.getString("Project");
         if (t.contains("LastArrival")) r.lastArrival = t.getLong("LastArrival");
         CompoundTag tr = t.getCompound("Trades");

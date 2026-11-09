@@ -1,6 +1,7 @@
 package net.maidens.village;
 
 import net.maidens.MaidensMod;
+import net.maidens.politics.Network;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,7 +23,10 @@ public final class VillageEvents {
 
     @SubscribeEvent
     public static void onLevelTick(LevelTickEvent.Post event) {
-        if (event.getLevel() instanceof ServerLevel level && level.getGameTime() % 100 == 0) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        Network network = Network.get(level);
+        if (network.busy()) network.tick(level);           // one possible village checked per tick
+        if (level.getGameTime() % 100 == 0) {
             Villages villages = Villages.get(level);
             villages.recordLoadedPieces(level);
             Upkeep.tick(level, villages);

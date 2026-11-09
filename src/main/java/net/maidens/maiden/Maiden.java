@@ -9,6 +9,7 @@ import net.maidens.maiden.social.Relationships;
 import net.maidens.maiden.trade.MaidenTrading;
 import net.maidens.maiden.work.Employment;
 import net.maidens.maiden.work.Job;
+import net.maidens.village.Royals;
 import net.maidens.village.VillageSocial;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -64,6 +65,8 @@ import java.util.UUID;
  */
 public class Maiden extends AbstractVillager {
     private static final EntityDataAccessor<Integer> SKIN = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.INT);
+    /** A village royal (wears a crown; see {@link net.maidens.village.Royals}). */
+    private static final EntityDataAccessor<Boolean> ROYAL = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.BOOLEAN);
     public static final int SKINS = 6;
 
     private final Relationships relationships = new Relationships(this);
@@ -125,6 +128,7 @@ public class Maiden extends AbstractVillager {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(SKIN, 0);
+        builder.define(ROYAL, false);
     }
 
     public int getSkin() {
@@ -133,6 +137,14 @@ public class Maiden extends AbstractVillager {
 
     public void setSkin(int skin) {
         entityData.set(SKIN, Math.floorMod(skin, SKINS));
+    }
+
+    public boolean isRoyal() {
+        return entityData.get(ROYAL);
+    }
+
+    public void setRoyal(boolean royal) {
+        entityData.set(ROYAL, royal);
     }
 
     public Personality getPersonality() {
@@ -162,9 +174,9 @@ public class Maiden extends AbstractVillager {
         return residence.profession();
     }
 
-    /** "Sweet" or "Sweet · Librarian", for her menu. */
+    /** "Sweet", "Sweet · Librarian" or "Sweet · Royal", for her menu. */
     public String title() {
-        String job = residence.professionName();
+        String job = isRoyal() ? "Royal" : residence.professionName();
         return job.isEmpty() ? personality.label : personality.label + " \u00b7 " + job;
     }
 
@@ -414,6 +426,7 @@ public class Maiden extends AbstractVillager {
             Containers.dropContents(level(), this, employment.bag());
             UUID spouse = relationships.spouse();
             relationships.onDeath();
+            Royals.onDeath(this);
             residence.release();
             if (spouse != null && level().getPlayerByUUID(spouse) instanceof ServerPlayer sp) {
                 sp.sendSystemMessage(Component.literal(name() + ", your wife, has died.").withStyle(ChatFormatting.RED));
@@ -454,6 +467,7 @@ public class Maiden extends AbstractVillager {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
+        tag.putBoolean("Royal", isRoyal());
         tag.putBoolean("MaidenReady", initialised);
         tag.putInt("Skin", getSkin());
         tag.putInt("Personality", personality.ordinal());
@@ -468,6 +482,7 @@ public class Maiden extends AbstractVillager {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        setRoyal(tag.getBoolean("Royal"));
         initialised = tag.getBoolean("MaidenReady");
         setSkin(tag.getInt("Skin"));
         personality = Personality.byId(tag.getInt("Personality"));

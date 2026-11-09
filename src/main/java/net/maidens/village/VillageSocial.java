@@ -125,6 +125,7 @@ public final class VillageSocial {
 
     public static void makeCitizen(ServerLevel level, VillageRecord v, Player p) {
         if (!v.citizens.add(p.getUUID())) return;
+        v.citizenSince.put(p.getUUID(), level.getDayTime() / 24000L);
         Villages.get(level).setDirty();
         if (!(p instanceof ServerPlayer sp)) return;
         sp.sendSystemMessage(Component.literal("You are now a citizen of " + v.name + "! You may build and change the village as you like.")

@@ -40,5 +40,6 @@ public final class ClientSetup {
         event.registerLayerDefinition(MaidenModel.LAYER, MaidenGeometry::create);
         event.registerLayerDefinition(MaidenArmorGeometry.INNER, MaidenArmorGeometry::inner);
         event.registerLayerDefinition(MaidenArmorGeometry.OUTER, MaidenArmorGeometry::outer);
+        event.registerLayerDefinition(CrownLayer.LAYER, CrownLayer::create);
     }
 }

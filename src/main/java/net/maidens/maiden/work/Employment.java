@@ -188,6 +188,7 @@ public final class Employment {
     public String hire(ServerPlayer p, Job newJob) {
         String n = p.getName().getString();
         if (newJob == Job.NONE) return stopBy(p);
+        if (m.isRoyal()) return "A royal doesn't take hired work, " + n + ". But you're always welcome to talk.";
         boolean mine = p.getUUID().equals(employer);
         boolean wife = m.relationships().isMarriedTo(p);
         int rent = MaidensConfig.RENT_EMERALDS.get();

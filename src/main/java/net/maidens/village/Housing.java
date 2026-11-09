@@ -3,6 +3,7 @@ package net.maidens.village;
 import net.maidens.core.MaidensConfig;
 import net.maidens.core.ModEntities;
 import net.maidens.maiden.Maiden;
+import net.maidens.politics.Network;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -35,6 +36,11 @@ public final class Housing {
             if (!level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r)) continue;
             List<Maiden> residents = VillageSocial.residents(level, v);
             if (residents.isEmpty()) continue;
+            Royals.tick(level, v, residents);
+            // its neighbours, looked up from the seed a few at a time
+            Network network = Network.get(level);
+            network.know(level, v);
+            network.lookAround(level, c.getX(), c.getZ(), Network.NEIGHBOUR_RANGE);
             int bedless = 0;
             for (Maiden m : residents) if (m.residence().bed() == null && m.tickCount > SETTLE_TICKS) bedless++;
             if (bedless > 0) {

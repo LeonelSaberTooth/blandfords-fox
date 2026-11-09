@@ -1,0 +1,219 @@
+package net.maidens.politics;
+
+import net.maidens.village.VillageRecord;
+import net.maidens.village.Villages;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.LongArrayTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.StructureTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructureCheckResult;
+import net.minecraft.world.level.levelgen.structure.StructureSet;
+import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
+import net.minecraft.world.level.saveddata.SavedData;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Every village in a dimension the mod knows of, found from the world seed (the way /locate finds them, without
+ * generating anything), and how the maiden villages among them stand towards each other. Villages are looked up
+ * a few at a time around maiden villages and wherever the world map is opened. Saved with the world.
+ */
+public final class Network extends SavedData {
+    private static final String NAME = "maidens_network";
+    /** Maiden villages this close know each other. */
+    public static final int NEIGHBOUR_RANGE = 1500;
+    private static final int NEWS_KEPT = 30;
+
+    private final Map<Long, KnownVillage> villages = new HashMap<>();
+    /** Chunks already checked for a village start. */
+    private final Set<Long> checked = new HashSet<>();
+    /** Stances set by decisions: village -> (other village -> stance). Without one, a village's temperament holds. */
+    private final Map<Long, Map<Long, Stance>> stances = new HashMap<>();
+    private final Map<Long, ArrayDeque<String>> news = new HashMap<>();
+    /** Chunks waiting to be checked (not saved: asked for again as needed). */
+    private final ArrayDeque<Candidate> pending = new ArrayDeque<>();
+    private final Set<Long> queued = new HashSet<>();
+
+    private record Candidate(ChunkPos chunk, StructureSet set, RandomSpreadStructurePlacement placement) {}
+
+    public static Network get(ServerLevel level) {
+        return level.getDataStorage().computeIfAbsent(new SavedData.Factory<>(Network::new, Network::load, null), NAME);
+    }
+
+    // ------------------------------------------------------------------ finding villages from the seed
+
+    /** Queues every possible village spot within a radius to be checked (a few each tick, see {@link #tick}). */
+    public void lookAround(ServerLevel level, int x, int z, int radius) {
+        long seed = level.getSeed();
+        for (Holder.Reference<StructureSet> h : level.registryAccess().registryOrThrow(Registries.STRUCTURE_SET).holders().toList()) {
+            StructureSet set = h.value();
+            if (!(set.placement() instanceof RandomSpreadStructurePlacement spread)) continue;
+            if (set.structures().stream().noneMatch(e -> e.structure().is(StructureTags.VILLAGE))) continue;
+            int spacing = spread.spacing();
+            int minRx = Math.floorDiv((x - radius) >> 4, spacing), maxRx = Math.floorDiv((x + radius) >> 4, spacing);
+            int minRz = Math.floorDiv((z - radius) >> 4, spacing), maxRz = Math.floorDiv((z + radius) >> 4, spacing);
+            for (int rx = minRx; rx <= maxRx; rx++)
+                for (int rz = minRz; rz <= maxRz; rz++) {
+                    ChunkPos c = spread.getPotentialStructureChunk(seed, rx, rz);
+                    long key = c.toLong();
+                    if (checked.contains(key) || !queued.add(key)) continue;
+                    pending.add(new Candidate(c, set, spread));
+                }
+        }
+    }
+
+    /** Whether spots are still waiting to be checked. */
+    public boolean busy() {
+        return !pending.isEmpty();
+    }
+
+    /** Checks one waiting spot (the same check /locate does: biomes and terrain, nothing generated). */
+    public void tick(ServerLevel level) {
+        Candidate c = pending.poll();
+        if (c == null) return;
+        long key = c.chunk().toLong();
+        queued.remove(key);
+        checked.add(key);
+        setDirty();
+        if (!c.placement().isStructureChunk(level.getChunkSource().getGeneratorState(), c.chunk().x, c.chunk().z)) return;
+        for (StructureSet.StructureSelectionEntry e : c.set().structures()) {
+            Holder<Structure> s = e.structure();
+            StructureCheckResult r = level.structureManager().checkStructurePresence(c.chunk(), s.value(), c.placement(), false);
+            if (r == StructureCheckResult.START_PRESENT) {
+                String path = s.unwrapKey().map(k -> k.location().getPath()).orElse("village_plains");
+                String style = path.startsWith("village_") ? path.substring(8) : "plains";
+                boolean maiden = Villages.rollsMaidens(level, key);
+                villages.put(key, new KnownVillage(key, style, maiden, temperament(level, key)));
+                return;
+            }
+            if (r == StructureCheckResult.CHUNK_LOAD_NEEDED) checked.remove(key);     // ask again another time
+        }
+    }
+
+    /** A village's default stance, fixed by the seed: 40% traders, 40% neutral, 20% aggressive. */
+    private static Stance temperament(ServerLevel level, long id) {
+        double r = RandomSource.create(level.getSeed() ^ id * 0x632BE59BD9B4E019L).nextDouble();
+        return r < 0.4 ? Stance.TRADE : r < 0.8 ? Stance.NEUTRAL : Stance.AGGRESSIVE;
+    }
+
+    /** Makes sure a visited village is known (in case it wasn't looked up yet). */
+    public KnownVillage know(ServerLevel level, VillageRecord v) {
+        return villages.computeIfAbsent(v.id, id -> {
+            setDirty();
+            checked.add(id);
+            return new KnownVillage(id, v.style, true, temperament(level, id));
+        });
+    }
+
+    // ------------------------------------------------------------------ villages and stances
+
+    @Nullable
+    public KnownVillage village(long id) {
+        return villages.get(id);
+    }
+
+    public Collection<KnownVillage> all() {
+        return villages.values();
+    }
+
+    /** The maiden villages within reach of this one, nearest first. */
+    public List<KnownVillage> neighbours(KnownVillage v) {
+        List<KnownVillage> out = new ArrayList<>();
+        for (KnownVillage o : villages.values()) {
+            if (o.id != v.id && o.maiden && v.distanceTo(o) <= NEIGHBOUR_RANGE) out.add(o);
+        }
+        out.sort((a, b) -> Double.compare(v.distanceTo(a), v.distanceTo(b)));
+        return out;
+    }
+
+    /** How a village treats another: what its rulers decided, or else its temperament. */
+    public Stance stance(KnownVillage from, KnownVillage to) {
+        Map<Long, Stance> m = stances.get(from.id);
+        Stance s = m == null ? null : m.get(to.id);
+        return s != null ? s : from.temperament;
+    }
+
+    void setStance(KnownVillage from, KnownVillage to, Stance s) {
+        stances.computeIfAbsent(from.id, k -> new HashMap<>()).put(to.id, s);
+        setDirty();
+    }
+
+    // ------------------------------------------------------------------ news
+
+    public void news(ServerLevel level, long village, String text) {
+        ArrayDeque<String> q = news.computeIfAbsent(village, k -> new ArrayDeque<>());
+        q.addFirst("Day " + (level.getDayTime() / 24000L + 1) + ": " + text);
+        while (q.size() > NEWS_KEPT) q.removeLast();
+        setDirty();
+    }
+
+    public List<String> news(long village) {
+        ArrayDeque<String> q = news.get(village);
+        return q == null ? List.of() : List.copyOf(q);
+    }
+
+    // ------------------------------------------------------------------ saving
+
+    private static Network load(CompoundTag tag, HolderLookup.Provider registries) {
+        Network n = new Network();
+        for (Tag t : tag.getList("Villages", Tag.TAG_COMPOUND)) {
+            KnownVillage v = KnownVillage.load((CompoundTag) t);
+            n.villages.put(v.id, v);
+        }
+        for (long c : tag.getLongArray("Checked")) n.checked.add(c);
+        CompoundTag st = tag.getCompound("Stances");
+        for (String from : st.getAllKeys()) {
+            CompoundTag row = st.getCompound(from);
+            Map<Long, Stance> m = new HashMap<>();
+            for (String to : row.getAllKeys()) m.put(Long.parseLong(to), Stance.byId(row.getInt(to)));
+            n.stances.put(Long.parseLong(from), m);
+        }
+        CompoundTag nw = tag.getCompound("News");
+        for (String k : nw.getAllKeys()) {
+            ArrayDeque<String> q = new ArrayDeque<>();
+            for (Tag line : nw.getList(k, Tag.TAG_STRING)) q.addLast(line.getAsString());
+            n.news.put(Long.parseLong(k), q);
+        }
+        return n;
+    }
+
+    @Override
+    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+        ListTag list = new ListTag();
+        for (KnownVillage v : villages.values()) list.add(v.save());
+        tag.put("Villages", list);
+        tag.put("Checked", new LongArrayTag(checked.stream().mapToLong(Long::longValue).toArray()));
+        CompoundTag st = new CompoundTag();
+        stances.forEach((from, m) -> {
+            CompoundTag row = new CompoundTag();
+            m.forEach((to, s) -> row.putInt(Long.toString(to), s.ordinal()));
+            st.put(Long.toString(from), row);
+        });
+        tag.put("Stances", st);
+        CompoundTag nw = new CompoundTag();
+        news.forEach((k, q) -> {
+            ListTag lines = new ListTag();
+            for (String line : q) lines.add(StringTag.valueOf(line));
+            nw.put(Long.toString(k), lines);
+        });
+        tag.put("News", nw);
+        return tag;
+    }
+}

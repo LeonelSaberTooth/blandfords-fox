@@ -25,6 +25,7 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
         super(context, new MaidenModel(context.bakeLayer(MaidenModel.LAYER)), 0.45F);
         addLayer(new HumanoidArmorLayer<>(this, new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.INNER)),
                 new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.OUTER)), context.getModelManager()));
+        addLayer(new CrownLayer(this, context.getModelSet()));
     }
 
     /** Her name only shows in her menu, never above her head. */

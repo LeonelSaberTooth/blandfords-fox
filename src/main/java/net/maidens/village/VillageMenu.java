@@ -1,6 +1,10 @@
 package net.maidens.village;
 
 import net.maidens.maiden.Maiden;
+import net.maidens.politics.Diplomacy;
+import net.maidens.politics.KnownVillage;
+import net.maidens.politics.Network;
+import net.maidens.politics.Stance;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -32,6 +36,7 @@ public final class VillageMenu {
         }
         p.sendSystemMessage(Component.literal(board.isEmpty() ? "Requests board: nobody needs anything right now." : "Requests board: " + board)
                 .withStyle(ChatFormatting.GREEN));
+        diplomacy(level, v, p);
         if (v.blueprint.isBuilding()) {
             String what = v.project.startsWith(v.style + "_") ? v.project.substring(v.style.length() + 1) : v.project;
             p.sendSystemMessage(Component.literal("The maidens are building: " + what.replace('_', ' ') + ". One building at a time.")
@@ -48,6 +53,32 @@ public final class VillageMenu {
                     .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("Build a " + name)))));
         }
         p.sendSystemMessage(line);
+    }
+
+    /** Its royal, its neighbours and how it stands with each, and (for those who may) buttons to change that. */
+    private static void diplomacy(ServerLevel level, VillageRecord v, ServerPlayer p) {
+        String royal = "nobody yet";
+        for (Maiden m : VillageSocial.residents(level, v)) if (v.isRoyal(m.getUUID())) royal = "Queen " + m.name();
+        Network n = Network.get(level);
+        KnownVillage self = n.know(level, v);
+        String right = Diplomacy.rightToDecide(level, v, p);
+        p.sendSystemMessage(Component.literal("Royal: " + royal + ". " + (right != null ? "You may speak for " + v.name + " (" + right + ")."
+                : Diplomacy.howToEarnIt(level, v, p))).withStyle(ChatFormatting.LIGHT_PURPLE));
+        for (KnownVillage o : n.neighbours(self)) {
+            Stance ours = n.stance(self, o), theirs = n.stance(o, self);
+            MutableComponent line = Component.literal("  " + o.name + " (" + Math.round(self.distanceTo(o)) + " blocks): we're " + ours.label
+                    + ", they're " + theirs.label + " ").withStyle(ChatFormatting.GRAY);
+            if (right != null) {
+                for (Stance s : Stance.values()) {
+                    if (s == ours) continue;
+                    line.append(Component.literal("[" + s.label + "] ").withStyle(Style.EMPTY.withColor(s.color)
+                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/village stance " + o.name + " " + s.name().toLowerCase()))));
+                }
+            }
+            p.sendSystemMessage(line);
+        }
+        List<String> news = n.news(v.id);
+        for (int i = 0; i < Math.min(3, news.size()); i++) p.sendSystemMessage(Component.literal("  " + news.get(i)).withStyle(ChatFormatting.DARK_AQUA));
     }
 
     /** Starts a building a citizen chose, near them. Returns what to tell them. */

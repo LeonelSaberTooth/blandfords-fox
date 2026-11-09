@@ -115,20 +115,14 @@ public final class VillageView {
         byte[] colours = new byte[pw * ph];
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int px = 0; px < pw; px++) {
-            int lastY = Integer.MIN_VALUE;
             for (int pz = 0; pz < ph; pz++) {
                 int x = x0 + px * step, z = z0 + pz * step;
-                if (!level.hasChunkAt(pos.set(x, 0, z))) { lastY = Integer.MIN_VALUE; continue; }
+                if (!level.hasChunkAt(pos.set(x, 0, z))) continue;
                 int y = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
                 BlockState s = level.getBlockState(pos.set(x, y, z));
                 MapColor c = s.getMapColor(level, pos);
                 if (c == MapColor.NONE) continue;
-                // shade by slope, as vanilla maps do (north lighter or darker than here)
-                MapColor.Brightness b = lastY == Integer.MIN_VALUE || y == lastY ? MapColor.Brightness.NORMAL
-                        : y > lastY ? MapColor.Brightness.HIGH : MapColor.Brightness.LOW;
-                if (!s.getFluidState().isEmpty()) b = MapColor.Brightness.NORMAL;
-                colours[pz * pw + px] = c.getPackedId(b);
-                lastY = y;
+                colours[pz * pw + px] = c.getPackedId(MapColor.Brightness.NORMAL);     // flat colours: a simple map
             }
         }
         t.putIntArray("Map", new int[]{x0, z0, pw, ph, step});

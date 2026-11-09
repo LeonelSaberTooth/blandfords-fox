@@ -119,11 +119,25 @@ public class VillageScreen extends Screen {
             for (int x = 0; x < mpw; x++) {
                 int i = z * mpw + x;
                 int packed = i < colours.length ? colours[i] & 0xFF : 0;
-                img.setPixelRGBA(x, z, packed == 0 ? 0xFF2A2A2A : MapColor.getColorFromPackedId(packed));
+                img.setPixelRGBA(x, z, packed == 0 ? 0xFFB8B0A0 : mute(MapColor.getColorFromPackedId(packed)));
             }
         if (texture != null) texture.close();
         texture = new DynamicTexture(img);
         Minecraft.getInstance().getTextureManager().register(MAP, texture);
+    }
+
+    /** A soft version of a map colour (ABGR): mostly grey, then mixed with parchment, so the buildings stand out. */
+    private static int mute(int abgr) {
+        int r = abgr & 0xFF, g = abgr >> 8 & 0xFF, b = abgr >> 16 & 0xFF;
+        int grey = (r * 3 + g * 6 + b) / 10;
+        r = grey + (r - grey) * 2 / 5;
+        g = grey + (g - grey) * 2 / 5;
+        b = grey + (b - grey) * 2 / 5;
+        // parchment E6DCC4
+        r = (r * 55 + 0xE6 * 45) / 100;
+        g = (g * 55 + 0xDC * 45) / 100;
+        b = (b * 55 + 0xC4 * 45) / 100;
+        return 0xFF000000 | b << 16 | g << 8 | r;
     }
 
     // ------------------------------------------------------------------ layout
@@ -183,7 +197,7 @@ public class VillageScreen extends Screen {
     }
 
     private List<Component> renderMap(GuiGraphics g, int mouseX, int mouseY) {
-        Ui.inset(g, mapX, mapY, mapW, mapH, 0xFF2A2A2A);
+        Ui.inset(g, mapX, mapY, mapW, mapH, 0xFFB8B0A0);
         if (texture != null) {
             g.blit(MAP, drawX, drawY, (int) (mpw * mapScale), (int) (mph * mapScale), 0, 0, mpw, mph, mpw, mph);
         }
@@ -194,8 +208,9 @@ public class VillageScreen extends Screen {
         for (Piece p : pieces) {
             int x0 = (int) sx(p.x0()), z0 = (int) sz(p.z0()), x1 = (int) sx(p.x1() + 1), z1 = (int) sz(p.z1() + 1);
             boolean over = overMap && selected == null && wx >= p.x0() && wx <= p.x1() && wz >= p.z0() && wz <= p.z1();
-            if (over) g.fill(x0, z0, x1, z1, 0x50FFFFFF);
-            g.renderOutline(x0, z0, Math.max(1, x1 - x0), Math.max(1, z1 - z0), p.isNew() ? 0xFFE8C040 : over ? 0xFFFFFFFF : 0x90FFF4D0);
+            // each building: a light fill with a dark outline (gold while it's being built, white under the mouse)
+            g.fill(x0, z0, x1, z1, over ? 0x90FFFFFF : 0x60FFF8E8);
+            g.renderOutline(x0, z0, Math.max(1, x1 - x0), Math.max(1, z1 - z0), p.isNew() ? 0xFFC89020 : over ? 0xFF000000 : 0xFF4A3A28);
             if (over) {
                 tip = new ArrayList<>();
                 tip.add(Component.literal(p.name().isEmpty() ? "Building" : capital(p.name())));
@@ -209,9 +224,8 @@ public class VillageScreen extends Screen {
         for (Person q : people) {
             if (!q.hasBed()) continue;
             float bx = sx(q.bedX()), bz = sz(q.bedZ());
-            g.fill((int) bx - 1, (int) bz - 1, (int) bx + 3, (int) bz + 2, 0xFFB02020);
-            g.fill((int) bx - 1, (int) bz - 1, (int) bx, (int) bz + 2, 0xFFEEEEEE);
-            Ui.small(g, font, q.name(), bx + 4, bz - 2, q.royal() ? 0xFFFFD040 : 0xFFFFFFFF, true, 0.6F);
+            g.fill((int) bx, (int) bz, (int) bx + 2, (int) bz + 2, q.royal() ? 0xFFC89020 : 0xFFA03030);
+            Ui.small(g, font, q.name(), bx + 3, bz - 0.5F, q.royal() ? 0xFF805000 : 0xFF302418, false, 0.45F);
         }
         // where a chosen building would go
         if (selected != null && overMap) {
@@ -224,7 +238,7 @@ public class VillageScreen extends Screen {
         int homeless = 0;
         for (Person q : people) if (!q.hasBed()) homeless++;
         String foot = people.size() + " maidens" + (homeless > 0 ? ", " + homeless + " without a bed" : "") + (building ? " - building: " + capital(project) : "");
-        Ui.small(g, font, foot, mapX + 3, mapY + mapH - 8, 0xFFFFFFFF, true, 0.75F);
+        Ui.small(g, font, foot, mapX + 3, mapY + mapH - 7, 0xFF302418, false, 0.6F);
         return tip;
     }
 

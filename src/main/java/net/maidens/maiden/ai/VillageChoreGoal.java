@@ -57,6 +57,7 @@ final class VillageChoreGoal extends Goal {
         noPath = 0;
         closest = Double.MAX_VALUE;
         lastCloser = 0;
+        if (chore.stubborn()) m.arriveNear(chore.pos);     // others couldn't get to it: she goes straight there
         ItemStack held = chore.kind == Chore.Kind.CLEAR ? new ItemStack(Items.IRON_SHOVEL) : new ItemStack(chore.block.getBlock().asItem());
         m.setItemSlot(EquipmentSlot.MAINHAND, held);
     }

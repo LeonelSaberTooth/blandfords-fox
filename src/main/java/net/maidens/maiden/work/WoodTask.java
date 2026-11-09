@@ -149,8 +149,11 @@ final class WoodTask extends WorkTask {
 
     private void replant(ServerLevel level, BlockPos at) {
         if (!level.getBlockState(at).canBeReplaced() || !level.getBlockState(at.below()).is(BlockTags.DIRT)) return;
-        ItemStack sapling = job().takeFromBag(st -> st.is(ItemTags.SAPLINGS));
-        if (sapling.isEmpty()) sapling = saplingFor(wood);
+        // the same kind of tree: its own sapling from her bag, else any sapling she has, else one of her own
+        ItemStack same = saplingFor(wood);
+        ItemStack sapling = same.isEmpty() ? ItemStack.EMPTY : job().takeFromBag(st -> st.is(same.getItem()));
+        if (sapling.isEmpty()) sapling = job().takeFromBag(st -> st.is(ItemTags.SAPLINGS));
+        if (sapling.isEmpty()) sapling = same;
         if (sapling.getItem() instanceof BlockItem bi) {
             level.setBlock(at, bi.getBlock().defaultBlockState(), Block.UPDATE_ALL);
             m.swing(InteractionHand.MAIN_HAND);

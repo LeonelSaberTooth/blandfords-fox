@@ -148,6 +148,10 @@ public final class ClientSelfTest {
         if (t == 770) mc.stop();
     }
 
+    private static void bag(Maiden m, net.minecraft.world.item.Item... items) {
+        for (var i : items) m.employment().bag().addItem(new ItemStack(i));
+    }
+
     private static ServerPlayer player(MinecraftServer server) {
         return server.getPlayerList().getPlayers().get(0);
     }
@@ -189,16 +193,13 @@ public final class ClientSelfTest {
                 m.setSkin(i);
                 line.add(m);
             }
-            line.get(5).setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
-            line.get(5).setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
-            line.get(5).setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
-            line.get(5).setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            // armor goes in their bags (they wear the best of it); the guard holds her shield
+            bag(line.get(5), Items.IRON_SWORD, Items.SHIELD, Items.IRON_HELMET, Items.IRON_CHESTPLATE);
+            line.get(5).employment().hireForTest(net.maidens.maiden.work.Job.GUARD, null);
             line.get(4).setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_HOE));
-            line.get(3).setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
-            line.get(3).setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE));
-            line.get(2).setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.GOLDEN_CHESTPLATE));
-            line.get(1).setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET));
-            line.get(1).setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.LEATHER_CHESTPLATE));
+            bag(line.get(3), Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE);
+            bag(line.get(2), Items.GOLDEN_CHESTPLATE);
+            bag(line.get(1), Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE);
             level.setBlock(spot.offset(-1, 0, 0), net.maidens.core.ModBlocks.MARKED_CHEST.get().defaultBlockState(), 3);
             level.setBlock(spot.offset(1, 0, 0), Blocks.CHEST.defaultBlockState(), 3);
             p.teleportTo(level, spot.getX() + 0.5, y + 1.4, spot.getZ() - 6.5, 0, 6);

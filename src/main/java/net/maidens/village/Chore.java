@@ -8,6 +8,10 @@ import java.util.UUID;
 
 /** One thing a village needs done: put a missing block back (REPAIR), or take an obstacle off a road (CLEAR). */
 public final class Chore {
+    public boolean stubborn() {
+        return failures >= 2;
+    }
+
     public enum Kind { REPAIR, CLEAR }
 
     public final Kind kind;
@@ -20,6 +24,8 @@ public final class Chore {
     /** When it was noticed; a maiden takes it on once it's been like this for a while. */
     long since;
     @Nullable UUID takenBy;
+    /** Times a maiden gave up on it; after two, the next one goes straight there and does it whatever's in the way. */
+    int failures;
     long takenAt;
 
     Chore(Kind kind, BlockPos pos, @Nullable BlockState block, boolean drop, long villageId, long since) {

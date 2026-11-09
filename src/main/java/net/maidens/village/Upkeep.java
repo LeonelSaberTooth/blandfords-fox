@@ -146,7 +146,10 @@ public final class Upkeep {
     /** She gave up on it (couldn't get there): someone tries again later. */
     public static void giveBack(Chore c, boolean failed, long now) {
         c.takenBy = null;
-        if (failed) c.since = now + RETRY_LATER;
+        if (failed) {
+            c.since = now + RETRY_LATER;
+            c.failures++;
+        }
     }
 
     /** Does the chore (she's next to it). Returns false if she has to wait (someone is standing in the way). */
@@ -163,7 +166,7 @@ public final class Upkeep {
         }
         // a maiden standing in the gap (often the builder herself) steps aside; anyone else is waited for
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c.pos))) {
-            if (!(e instanceof Maiden other) || !other.arriveNear(c.pos)) return false;
+            if ((!(e instanceof Maiden other) || !other.arriveNear(c.pos)) && !c.stubborn()) return false;
         }
         place(level, c.pos, c.block);
         v.chores.remove(c.pos.asLong());

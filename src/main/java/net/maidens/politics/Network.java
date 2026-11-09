@@ -89,6 +89,11 @@ public final class Network extends SavedData {
         }
     }
 
+    /** For the self-test: forget which spots were checked, so they're checked again (and timed). */
+    public void forgetCheckedForTest() {
+        checked.clear();
+    }
+
     /** Whether spots are still waiting to be checked. */
     public boolean busy() {
         return !pending.isEmpty();
@@ -106,14 +111,15 @@ public final class Network extends SavedData {
         for (StructureSet.StructureSelectionEntry e : c.set().structures()) {
             Holder<Structure> s = e.structure();
             StructureCheckResult r = level.structureManager().checkStructurePresence(c.chunk(), s.value(), c.placement(), false);
-            if (r == StructureCheckResult.START_PRESENT) {
+            // START_PRESENT: generated there already. CHUNK_LOAD_NEEDED: not generated yet, but the structure
+            // fits there (biomes and the whole layout checked, as /locate does), so a village will be there.
+            if (r == StructureCheckResult.START_PRESENT || r == StructureCheckResult.CHUNK_LOAD_NEEDED) {
                 String path = s.unwrapKey().map(k -> k.location().getPath()).orElse("village_plains");
                 String style = path.startsWith("village_") ? path.substring(8) : "plains";
                 boolean maiden = Villages.rollsMaidens(level, key);
                 villages.put(key, new KnownVillage(key, style, maiden, temperament(level, key)));
                 return;
             }
-            if (r == StructureCheckResult.CHUNK_LOAD_NEEDED) checked.remove(key);     // ask again another time
         }
     }
 
@@ -257,7 +263,8 @@ public final class Network extends SavedData {
             KnownVillage v = KnownVillage.load((CompoundTag) t);
             n.villages.put(v.id, v);
         }
-        for (long c : tag.getLongArray("Checked")) n.checked.add(c);
+        // spots checked before version 2 missed every village not generated yet: check those again
+        if (tag.getInt("Version") >= 2) for (long c : tag.getLongArray("Checked")) n.checked.add(c);
         CompoundTag st = tag.getCompound("Stances");
         for (String from : st.getAllKeys()) {
             CompoundTag row = st.getCompound(from);
@@ -288,6 +295,7 @@ public final class Network extends SavedData {
         ListTag list = new ListTag();
         for (KnownVillage v : villages.values()) list.add(v.save());
         tag.put("Villages", list);
+        tag.putInt("Version", 2);
         tag.put("Checked", new LongArrayTag(checked.stream().mapToLong(Long::longValue).toArray()));
         CompoundTag st = new CompoundTag();
         stances.forEach((from, m) -> {

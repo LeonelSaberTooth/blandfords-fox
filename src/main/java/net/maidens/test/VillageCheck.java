@@ -445,10 +445,18 @@ final class VillageCheck {
         if (royal != null) log.accept("  hiring the royal: \"" + royal.employment().hire(tester, net.maidens.maiden.work.Job.FARM) + "\"");
         Network n = Network.get(level);
         KnownVillage self = n.know(level, v);
+        n.forgetCheckedForTest();
         long start = System.nanoTime();
         n.lookAround(level, self.x, self.z, Network.NEIGHBOUR_RANGE);
         int checks = 0;
-        while (n.busy() && checks < 2000) { n.tick(level); checks++; }
+        long slowest = 0;
+        while (n.busy() && checks < 2000) {
+            long s0 = System.nanoTime();
+            n.tick(level);
+            slowest = Math.max(slowest, System.nanoTime() - s0);
+            checks++;
+        }
+        log.accept("  slowest single check: " + slowest / 1_000_000 + " ms");
         log.accept("  network: " + checks + " spots checked in " + (System.nanoTime() - start) / 1_000_000 + " ms; " + n.all().size() + " villages known, "
                 + n.all().stream().filter(k -> k.maiden).count() + " of them maiden villages; " + v.name + " is " + self.temperament.label + " by temperament");
         List<KnownVillage> nb = n.neighbours(self);

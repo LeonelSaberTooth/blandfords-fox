@@ -28,7 +28,8 @@ public final class VillageEvents {
     public static void onLevelTick(LevelTickEvent.Post event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         Network network = Network.get(level);
-        if (network.busy()) network.tick(level);           // one possible village checked per tick
+        // one possible village checked every 4 ticks (a real one means laying out the whole village, as /locate does)
+        if (network.busy() && level.getGameTime() % 4 == 0) network.tick(level);
         if (level.getGameTime() % 100 == 0) {
             Villages villages = Villages.get(level);
             villages.recordLoadedPieces(level);

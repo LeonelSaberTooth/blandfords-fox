@@ -301,6 +301,21 @@ final class VillageCheck {
             log.accept("war: no neighbour to raid us");
             return;
         }
+        // a chest of bread by the bell, for them to steal from
+        BlockPos bell = record.bell() != null ? record.bell() : record.centre();
+        BlockPos spot = null;
+        for (BlockPos p : BlockPos.betweenClosed(bell.offset(-4, -1, -4), bell.offset(4, 1, 4))) {
+            if (level.getBlockState(p).isAir() && level.getBlockState(p.below()).isFaceSturdy(level, p.below(), net.minecraft.core.Direction.UP)) {
+                spot = p.immutable();
+                break;
+            }
+        }
+        if (spot != null) {
+            level.setBlock(spot, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(spot) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity c)
+                for (int i = 0; i < 6; i++) c.setItem(i, new ItemStack(Items.BREAD, 16));
+            loot = spot;
+        }
         Integer count = net.maidens.politics.WarParties.start(level, nb.get(0), record);
         log.accept("war: " + nb.get(0).name + " raids " + record.name + ": " + (count == null ? "couldn't start (no loaded edge)" : count + " raiders"));
         raiders.clear();
@@ -310,6 +325,8 @@ final class VillageCheck {
             log.accept("  a raider: " + r.name() + " at " + r.blockPosition().toShortString() + ", holding " + r.getMainHandItem() + ", fighter " + r.isFighter());
         }
     }
+
+    private BlockPos loot;
 
     private boolean warCheck(ServerLevel level, int t) {
         int alive = 0, beaten = 0;
@@ -323,6 +340,11 @@ final class VillageCheck {
                     .append(r.raider().surrendered() ? " beaten" : "").append(", ");
         }
         log.accept("  raiders: " + states);
+        if (loot != null && level.getBlockEntity(loot) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity c) {
+            int left = 0;
+            for (int i = 0; i < c.getContainerSize(); i++) if (!c.getItem(i).isEmpty()) left++;
+            log.accept("  bread chest by the bell: " + left + " of 6 stacks left");
+        }
         float lowest = 100;
         int dead = 0;
         for (Maiden m : VillageSocial.residents(level, record)) lowest = Math.min(lowest, m.getHealth());

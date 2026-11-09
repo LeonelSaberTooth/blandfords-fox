@@ -29,7 +29,8 @@ public final class RaidGoals {
     /** A raider presses into the village (towards its centre), and helps herself to what's in its chests. */
     public static final class Advance extends Goal {
         private final Maiden m;
-        private int repath, lootCheck;
+        private int repath, lootCheck, chestSearch;
+        @org.jetbrains.annotations.Nullable private BlockPos chest;
 
         public Advance(Maiden m) {
             this.m = m;
@@ -48,13 +49,49 @@ public final class RaidGoals {
             if (v == null) return;
             if (--lootCheck <= 0) {
                 lootCheck = 40;
-                if (steal(level)) return;
+                if (steal(level)) {
+                    chest = null;
+                    return;
+                }
             }
             if (--repath > 0) return;
             repath = 40;
             Vec3 c = Vec3.atBottomCenterOf(v.bell() != null ? v.bell() : v.centre());
+            // in the village: off to the nearest chest with something in it
+            if (m.distanceToSqr(c) < 40 * 40) {
+                if (chest == null || --chestSearch <= 0) {
+                    chestSearch = 10;
+                    chest = nearestChest(level, v);
+                }
+                if (chest != null) {
+                    m.getNavigation().moveTo(chest.getX() + 0.5, chest.getY(), chest.getZ() + 0.5, 0.7);
+                    return;
+                }
+            }
             Vec3 step = m.distanceToSqr(c) > 30 * 30 ? LandRandomPos.getPosTowards(m, 20, 7, c) : LandRandomPos.getPosTowards(m, 8, 4, c);
             if (step != null) m.getNavigation().moveTo(step.x, step.y, step.z, 0.7);
+        }
+
+        /** The nearest chest in the village (loaded land only) that isn't empty. */
+        @org.jetbrains.annotations.Nullable
+        private BlockPos nearestChest(ServerLevel level, VillageRecord v) {
+            BlockPos best = null;
+            double bestD = Double.MAX_VALUE;
+            var box = v.box;
+            for (int cx = box.minX() >> 4; cx <= box.maxX() >> 4; cx++)
+                for (int cz = box.minZ() >> 4; cz <= box.maxZ() >> 4; cz++) {
+                    var chunk = level.getChunkSource().getChunkNow(cx, cz);
+                    if (chunk == null) continue;
+                    for (BlockEntity be : chunk.getBlockEntities().values()) {
+                        if (!(be instanceof ChestBlockEntity c) || c.isEmpty()) continue;
+                        double d = m.distanceToSqr(Vec3.atCenterOf(be.getBlockPos()));
+                        if (d < bestD) {
+                            bestD = d;
+                            best = be.getBlockPos();
+                        }
+                    }
+                }
+            return best;
         }
 
         /** Empties up to two stacks from a chest beside her into her bag; after four stacks she runs home with them. */
@@ -123,7 +160,12 @@ public final class RaidGoals {
     /** A raider goes for the raided village's maidens and its citizens. */
     public static final class Targets extends NearestAttackableTargetGoal<LivingEntity> {
         public Targets(Maiden m) {
-            super(m, LivingEntity.class, 10, true, false, e -> isEnemyOf(m, e));
+            super(m, LivingEntity.class, 10, false, false, e -> isEnemyOf(m, e));
+        }
+
+        @Override
+        protected double getFollowDistance() {
+            return 24;
         }
 
         @Override
@@ -147,6 +189,12 @@ public final class RaidGoals {
         public Defend(Maiden m) {
             super(m, Maiden.class, 10, true, false, e -> e instanceof Maiden r && r.raider().active() && !r.raider().surrendered()
                     && r.raider().target() == m.residence().village());
+        }
+
+        /** Raiders anywhere near are seen to (the whole village turns out). */
+        @Override
+        protected double getFollowDistance() {
+            return 48;
         }
 
         @Override

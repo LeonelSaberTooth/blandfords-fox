@@ -220,12 +220,13 @@ public class VillageScreen extends Screen {
                 if (!sleepers.isEmpty()) tip.add(Component.literal("Sleeps here: " + String.join(", ", sleepers)).withStyle(net.minecraft.ChatFormatting.GRAY));
             }
         }
-        // beds, with who sleeps there
+        // who sleeps where
         for (Person q : people) {
             if (!q.hasBed()) continue;
-            float bx = sx(q.bedX()), bz = sz(q.bedZ());
-            g.fill((int) bx, (int) bz, (int) bx + 2, (int) bz + 2, q.royal() ? 0xFFC89020 : 0xFFA03030);
-            Ui.small(g, font, q.name(), bx + 3, bz - 0.5F, q.royal() ? 0xFF805000 : 0xFF302418, false, 0.45F);
+            // just her name, centred where her bed is (no bed icon)
+            float scale = 0.45F, w = font.width(q.name()) * scale;
+            float bx = sx(q.bedX()) + mapScale / 2 - w / 2, bz = sz(q.bedZ()) + mapScale / 2 - 2;
+            Ui.small(g, font, q.name(), bx, bz, q.royal() ? 0xFF805000 : 0xFF302418, false, scale);
         }
         // where a chosen building would go
         if (selected != null && overMap) {

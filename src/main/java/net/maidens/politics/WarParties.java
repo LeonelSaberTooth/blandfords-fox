@@ -38,6 +38,7 @@ import java.util.UUID;
 public final class WarParties {
     private static final int PLAYER_RANGE = 128, RAID_TICKS = 3600;
     private static final Map<Long, Raid> ACTIVE = new HashMap<>();
+    private static final org.slf4j.Logger LOG = com.mojang.logging.LogUtils.getLogger();
 
     private static final class Raid {
         final KnownVillage from, to;
@@ -146,6 +147,7 @@ public final class WarParties {
         }
         boolean over = fighting == 0 || level.getGameTime() - r.started > RAID_TICKS;
         if (!over) return;
+        LOG.info("Raid on {} by {} over after {} ticks ({} still fighting)", r.to.name, r.from.name, level.getGameTime() - r.started, fighting);
         ACTIVE.remove(r.to.id);
         Network network = Network.get(level);
         VillageRecord target = Villages.get(level).byId(r.to.id);

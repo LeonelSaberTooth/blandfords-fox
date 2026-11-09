@@ -312,10 +312,14 @@ final class VillageCheck {
 
     private boolean warCheck(ServerLevel level, int t) {
         int alive = 0, beaten = 0;
+        StringBuilder states = new StringBuilder();
         for (Maiden r : raiders) {
             if (!r.isRemoved() && r.isAlive()) alive++;
             if (r.raider().surrendered()) beaten++;
+            states.append(r.name()).append(' ').append(r.isRemoved() ? String.valueOf(r.getRemovalReason()) : (int) r.getHealth() + "hp")
+                    .append(r.raider().surrendered() ? " beaten" : "").append(", ");
         }
+        log.accept("  raiders: " + states);
         float lowest = 100;
         int dead = 0;
         for (Maiden m : VillageSocial.residents(level, record)) lowest = Math.min(lowest, m.getHealth());

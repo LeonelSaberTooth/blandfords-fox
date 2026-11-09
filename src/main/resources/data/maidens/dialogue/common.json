@@ -1,0 +1,43 @@
+{
+ "tired": [
+  "I think that's enough of that for today, %s.",
+  "We've done that a lot today. Tomorrow?",
+  "Let's save some for tomorrow, %s.",
+  "I'm all talked out on that, I think.",
+  "Again? Let's give it a rest until tomorrow.",
+  "Ask me again tomorrow, %s.",
+  "My head's spinning. Maybe tomorrow?",
+  "I think we've worn that one out today.",
+  "Hehe, enough for one day!",
+  "Tomorrow, %s. I promise."
+ ],
+ "married_elsewhere": [
+  "I'm a married woman, %s!",
+  "My heart belongs to someone else.",
+  "I'm spoken for, %s.",
+  "My spouse wouldn't like that.",
+  "I've already found my one, sorry.",
+  "I'm married, remember?",
+  "There's a ring on this hand, %s.",
+  "I made a promise to someone. I keep my promises.",
+  "Flattering, but I'm taken.",
+  "That's sweet, but I'm happily married."
+ ],
+ "spouse": [
+  "You're so silly, my love.",
+  "Come here, you.",
+  "I'm so glad I married you, %s.",
+  "Welcome back, dear. I missed you.",
+  "Every day with you is a good day.",
+  "You still make my heart skip, %s.",
+  "I made your favourite for dinner.",
+  "Don't stay out too late, my love.",
+  "I told everyone in the village about you again.",
+  "Hold me for a moment?",
+  "You're my favourite person in the whole world.",
+  "I love you, %s. Just wanted to say it.",
+  "Let's grow old together, okay?",
+  "There you are. Home feels like home again.",
+  "I'm the luckiest maiden alive, %s."
+ ]
+}

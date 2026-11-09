@@ -36,7 +36,7 @@ public final class MaidenGeometry {
                 // waist
                 .texOffs(0, 24).addBox(-3F, 5F, -1.5F, 6F, 5F, 3F, new CubeDeformation(0F))
                 // hips
-                .texOffs(0, 32).addBox(-4F, 10F, -2F, 8F, 3F, 4F, new CubeDeformation(0F)),
+                .texOffs(0, 32).addBox(-4F, 10F, -2F, 8F, 3F, 4F, new CubeDeformation(0.05F)),
                 PartPose.offset(0F, -2.5F, 0F));
         p_body.addOrReplaceChild("breast_cube", CubeListBuilder.create()
                 .texOffs(36, 45).addBox(-3.5F, -5F, -1F, 7F, 5F, 1F, new CubeDeformation(-0.00001F)),

@@ -1,7 +1,9 @@
 package net.maidens.test;
 
 import net.maidens.core.MaidensConfig;
+import net.maidens.core.ModBlocks;
 import net.maidens.core.ModEntities;
+import net.maidens.maiden.work.Bobber;
 import net.maidens.maiden.MaidenMenu;
 import com.mojang.authlib.GameProfile;
 import com.mojang.datafixers.util.Pair;
@@ -195,43 +197,66 @@ public final class SelfTest {
         if (t > 0 && t % 200 == 0 && phase < 5) log("    t=" + t + " " + maiden.employment().status());
         boolean quit = maiden.employment().job() == Job.NONE && t > 20;   // she gave up by herself
         switch (phase) {
-            case 1 -> {   // farming: the wheat plot by her house
+            case 1 -> {   // farming: the wheat plot by her house, then her harvest into a marked chest
                 if (t < 1200 && !quit) return;
-                report("farm");
-                // a small clearing beside her, at her own height, with a tree in it
+                if (chest == null) {
+                    report("farm");
+                    log("farm: " + plots(level, maiden.employment().workPos()));
+                    chest = maiden.employment().workPos().east(2);
+                    for (int i = 0; i < 6 && !level.getBlockState(chest).isAir(); i++) chest = chest.north();
+                    level.setBlock(chest, ModBlocks.MARKED_CHEST.get().defaultBlockState(), 3);
+                    String reply = maiden.employment().stopBy(tester);
+                    log("marked chest at " + chest.toShortString() + "; told her to stop: \"" + reply + "\" delivering " + maiden.employment().isDelivering());
+                    return;
+                }
+                if (maiden.employment().isDelivering() && t < 2400) return;
+                log("  marked chest after " + t + " ticks: " + contents(level, chest) + "; her bag: " + bagSummary());
+                // a clearing beside her, at her own height, with two trees in it (a short oak and a tall birch)
                 BlockPos base = maiden.blockPosition().offset(5, 0, 0);
-                for (int dx = -3; dx <= 3; dx++)
+                for (int dx = -3; dx <= 10; dx++)
                     for (int dz = -3; dz <= 3; dz++) {
                         level.setBlock(base.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-                        for (int dy = 0; dy < 9; dy++) level.setBlock(base.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
+                        for (int dy = 0; dy < 14; dy++) level.setBlock(base.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
                     }
                 for (int dx = -5; dx <= 0; dx++) level.setBlock(base.offset(dx, -1, 0), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-                for (int dy = 0; dy < 6; dy++) level.setBlock(base.above(dy), Blocks.OAK_LOG.defaultBlockState(), 3);
-                for (int dx = -2; dx <= 2; dx++)
-                    for (int dz = -2; dz <= 2; dz++)
-                        for (int dy = 3; dy <= 6; dy++) {
-                            if (dy == 6 && (Math.abs(dx) == 2 || Math.abs(dz) == 2)) continue;
-                            BlockPos q = base.offset(dx, dy, dz);
-                            if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState()
-                                    .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, false), 3);
-                        }
-                log("woodcutting: a 6-log oak built at " + base.toShortString());
-                maiden.employment().bag().addItem(new ItemStack(Items.OAK_SAPLING, 2));
+                tree(level, base, Blocks.OAK_LOG, Blocks.OAK_LEAVES, 6);
+                tree2 = base.offset(7, 0, 0);
+                tree(level, tree2, Blocks.BIRCH_LOG, Blocks.BIRCH_LEAVES, 11);
+                tree1 = base;
+                log("woodcutting: a 6-log oak at " + base.toShortString() + " and an 11-log birch at " + tree2.toShortString() + ", no saplings in her bag");
+                maiden.employment().bag().clearContent();
                 maiden.employment().hireForTest(Job.WOOD, tester);
                 next();
             }
             case 2 -> {   // woodcutting
-                if (t < 1200 && !quit) return;
+                boolean bothDown = !level.getBlockState(tree1).is(net.minecraft.tags.BlockTags.LOGS) && !level.getBlockState(tree2).is(net.minecraft.tags.BlockTags.LOGS)
+                        && !level.getBlockState(tree2.above(10)).is(net.minecraft.tags.BlockTags.LOGS);
+                if (t < 2400 && !quit && !(bothDown && t > 400 && t % 100 == 0 && saplings(level) == 2)) return;
                 report("woodcutting");
-                maiden.employment().bag().addItem(new ItemStack(Items.TORCH, 8));
+                log("woodcutting: oak " + (level.getBlockState(tree1).is(net.minecraft.tags.BlockTags.LOGS) ? "standing" : "felled") + ", birch "
+                        + (level.getBlockState(tree2.above(10)).is(net.minecraft.tags.BlockTags.LOGS) ? "top still standing" : level.getBlockState(tree2).is(net.minecraft.tags.BlockTags.LOGS) ? "standing" : "felled")
+                        + "; replanted: " + level.getBlockState(tree1).getBlock() + ", " + level.getBlockState(tree2).getBlock() + " after " + t + " ticks");
+                maiden.employment().stop();
+                maiden.employment().bag().clearContent();
+                maiden.employment().bag().addItem(new ItemStack(Items.TORCH, 2));
+                maiden.employment().bag().addItem(new ItemStack(Items.COAL, 1));
                 mineStart = maiden.blockPosition();
                 maiden.employment().hireForTest(Job.MINE, tester);
-                log("mining: from " + maiden.blockPosition().toShortString() + ", heading " + Direction.NORTH);
+                log("mining: from " + maiden.blockPosition().toShortString() + ", heading " + Direction.NORTH + ", 2 torches and 1 coal in her bag");
                 next();
             }
-            case 3 -> {   // mining
-                if (t < 2000 && !quit) return;
-                log("mining: reached step " + maiden.employment().mineStep() + (quit ? " (she stopped by herself)" : ""));
+            case 3 -> {   // mining, then climbing back out when told to stop
+                if (!climbing) {
+                    if (t < 2400 && !quit) return;
+                    log("mining: reached step " + maiden.employment().mineStep() + (quit ? " (she stopped by herself)" : "") + ", at y " + maiden.getBlockY()
+                            + "; torches on the walls " + torches(level) + "; ores in her bag " + ores());
+                    climbing = true;
+                    climbFrom = t;
+                    log("  told to stop: \"" + maiden.employment().stopBy(tester) + "\"");
+                    return;
+                }
+                if (maiden.employment().job() != Job.NONE && t - climbFrom < 2400) return;
+                log("  climbed out after " + (t - climbFrom) + " ticks: at y " + maiden.getBlockY() + " (started at " + mineStart.getY() + "), job " + maiden.employment().job());
                 report("mining");
                 // a pond beside where she started digging (on open ground, outside the house)
                 maiden.moveTo(mineStart.getX() + 0.5, mineStart.getY(), mineStart.getZ() + 0.5, 0, 0);
@@ -248,6 +273,8 @@ public final class SelfTest {
                 next();
             }
             case 4 -> {   // fishing
+                if (t > 0 && t % 300 == 0 && t <= 1500) log("  fishing t=" + t + ": " + level.getEntitiesOfClass(Bobber.class, maiden.getBoundingBox().inflate(16)).size()
+                        + " bobber(s) out, " + maiden.employment().status());
                 if (t < 2400 && !quit) return;
                 report("fishing");
                 level.setDayTime(18000);
@@ -256,15 +283,21 @@ public final class SelfTest {
                 zombie.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET));
                 zombie.setPersistenceRequired();
                 level.addFreshEntity(zombie);
+                maiden.employment().stop();
                 maiden.employment().bag().addItem(new ItemStack(Items.IRON_SWORD));
+                maiden.employment().bag().addItem(new ItemStack(Items.IRON_HELMET));
+                maiden.employment().bag().addItem(new ItemStack(Items.CHAINMAIL_CHESTPLATE));
+                maiden.employment().bag().addItem(new ItemStack(Items.DIAMOND_CHESTPLATE));
+                maiden.employment().bag().addItem(new ItemStack(Items.SHIELD));
                 maiden.employment().hireForTest(Job.GUARD, tester);
-                log("guard: a zombie 5 blocks away, an iron sword in her bag");
+                log("guard: a zombie 5 blocks away; an iron sword, iron helmet, chainmail and diamond chestplates and a shield in her bag");
                 next();
             }
             case 5 -> {   // guarding
                 if (t == 0 || t % 100 != 0) return;
                 log("  after " + t + " ticks: zombie " + (zombie.isAlive() ? "alive, " + zombie.getHealth() + " hp" : "dead")
-                        + ", maiden " + maiden.getHealth() + " hp, holding " + maiden.getMainHandItem());
+                        + ", maiden " + maiden.getHealth() + " hp, holding " + maiden.getMainHandItem() + " and " + maiden.getOffhandItem()
+                        + ", wearing " + maiden.getItemBySlot(EquipmentSlot.HEAD) + " and " + maiden.getItemBySlot(EquipmentSlot.CHEST));
                 if (!zombie.isAlive() || t >= 600) {
                     log("villages (every village set to maidens for the test):");
                     next();
@@ -282,7 +315,72 @@ public final class SelfTest {
     }
 
     private static int phase;
-    private static BlockPos mineStart;
+    private static BlockPos mineStart, chest, tree1, tree2;
+    private static boolean climbing;
+    private static int climbFrom;
+
+    /** A straight trunk with a ball of (natural) leaves around its top. */
+    private static void tree(ServerLevel level, BlockPos base, net.minecraft.world.level.block.Block log, net.minecraft.world.level.block.Block leaves, int height) {
+        for (int dy = 0; dy < height; dy++) level.setBlock(base.above(dy), log.defaultBlockState(), 3);
+        for (int dx = -2; dx <= 2; dx++)
+            for (int dz = -2; dz <= 2; dz++)
+                for (int dy = height - 3; dy <= height; dy++) {
+                    if (dy == height && (Math.abs(dx) == 2 || Math.abs(dz) == 2)) continue;
+                    BlockPos q = base.offset(dx, dy, dz);
+                    if (level.getBlockState(q).isAir()) level.setBlock(q, leaves.defaultBlockState()
+                            .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, false), 3);
+                }
+    }
+
+    private static int saplings(ServerLevel level) {
+        int n = 0;
+        for (BlockPos p : new BlockPos[]{tree1, tree2}) if (level.getBlockState(p).is(net.minecraft.tags.BlockTags.SAPLINGS)) n++;
+        return n;
+    }
+
+    /** Farmland around a spot: how much has a crop on it. */
+    private static String plots(ServerLevel level, BlockPos c) {
+        int planted = 0, bare = 0;
+        for (BlockPos p : BlockPos.betweenClosed(c.offset(-24, -4, -24), c.offset(24, 4, 24))) {
+            if (!(level.getBlockState(p).getBlock() instanceof net.minecraft.world.level.block.FarmBlock)) continue;
+            if (level.getBlockState(p.above()).getBlock() instanceof net.minecraft.world.level.block.CropBlock) planted++;
+            else bare++;
+        }
+        return planted + " farmland planted, " + bare + " bare";
+    }
+
+    private static String contents(ServerLevel level, BlockPos p) {
+        if (!(level.getBlockEntity(p) instanceof net.minecraft.world.Container c)) return "no chest!";
+        StringBuilder s = new StringBuilder();
+        for (int i = 0; i < c.getContainerSize(); i++) if (!c.getItem(i).isEmpty()) s.append(c.getItem(i).getCount()).append(' ').append(c.getItem(i).getItem()).append(", ");
+        return s.isEmpty() ? "empty" : s.toString();
+    }
+
+    private static String bagSummary() {
+        StringBuilder s = new StringBuilder();
+        var bag = maiden.employment().bag();
+        for (int i = 0; i < bag.getContainerSize(); i++) if (!bag.getItem(i).isEmpty()) s.append(bag.getItem(i).getCount()).append(' ').append(bag.getItem(i).getItem()).append(", ");
+        return s.isEmpty() ? "empty" : s.toString();
+    }
+
+    private static int torches(ServerLevel level) {
+        int n = 0;
+        for (BlockPos p : BlockPos.betweenClosed(mineStart.offset(-3, -80, -100), mineStart.offset(3, 2, 3))) {
+            if (level.getBlockState(p).is(Blocks.WALL_TORCH) || level.getBlockState(p).is(Blocks.TORCH)) n++;
+        }
+        return n;
+    }
+
+    private static int ores() {
+        int n = 0;
+        var bag = maiden.employment().bag();
+        for (int i = 0; i < bag.getContainerSize(); i++) {
+            ItemStack s = bag.getItem(i);
+            if (s.is(Items.COAL) || s.is(Items.RAW_IRON) || s.is(Items.RAW_COPPER) || s.is(Items.RAW_GOLD) || s.is(Items.REDSTONE)
+                    || s.is(Items.LAPIS_LAZULI) || s.is(Items.DIAMOND) || s.is(Items.EMERALD)) n += s.getCount();
+        }
+        return n;
+    }
     private static final VillageCheck villages = new VillageCheck(SelfTest::log);
 
     /** Every village becomes a maiden village in the test world, so the village check has one to look at. */

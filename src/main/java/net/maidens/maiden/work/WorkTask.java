@@ -39,6 +39,10 @@ public abstract class WorkTask {
         busy = scan = repath = stuck = 0;
     }
 
+    /** She stopped this work for now (talking, a new job...): tidy up anything left in the world. */
+    public void stop() {
+    }
+
     /** A short description of what she's doing, for the self test. */
     public String debug() {
         return "stuck " + stuck + " busy " + busy;
@@ -63,6 +67,8 @@ public abstract class WorkTask {
                 return true;
             }
             if (!moving || m.getNavigation().isStuck()) stuck += 20;
+            // stuck for 10 s a way off (a cliff, a river...): she finds her own way there
+            if (stuck >= 200 && m.distanceToSqr(c) > 6 * 6 && m.arriveNear(p)) stuck = 0;
         }
         return false;
     }
@@ -83,6 +89,13 @@ public abstract class WorkTask {
             }
         }
         for (ItemStack d : drops) job().store(d);
+    }
+
+    /** Her bag is full: off to the marked chest (or she has to stop). True if so. */
+    protected boolean checkBag() {
+        if (!job().bagFull()) return false;
+        job().bagFullDuringWork();
+        return true;
     }
 
     /** Wanders back towards a spot when there's nothing to do. */

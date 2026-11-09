@@ -25,7 +25,7 @@ public final class WorkGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        return m.employment().job().atWorkSpot() && m.isFree();
+        return m.employment().job().atWorkSpot() && !m.employment().isDelivering() && m.isFree();
     }
 
     @Override
@@ -41,6 +41,8 @@ public final class WorkGoal extends Goal {
     @Override
     public void stop() {
         m.getNavigation().stop();
+        WorkTask task = tasks.get(running);
+        if (task != null) task.stop();
     }
 
     @Override
@@ -50,6 +52,8 @@ public final class WorkGoal extends Goal {
         WorkTask task = tasks.get(j);
         if (task == null) return;
         if (j != running) {
+            WorkTask old = tasks.get(running);
+            if (old != null) old.stop();
             running = j;
             task.reset();
         }

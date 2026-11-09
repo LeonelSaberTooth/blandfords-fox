@@ -84,13 +84,16 @@ public class Maiden extends AbstractVillager {
         super(type, level);
         if (getNavigation() instanceof GroundPathNavigation nav) nav.setCanOpenDoors(true);
         setCanPickUpLoot(true);
-        setDropChance(EquipmentSlot.MAINHAND, 0.0F);
+        // what she holds and wears are copies of things in her bag (which drops in full when she dies)
+        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND, EquipmentSlot.HEAD, EquipmentSlot.CHEST}) {
+            setDropChance(slot, 0.0F);
+        }
     }
 
     public static AttributeSupplier.Builder createAttributes() {
         return Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0)
-                .add(Attributes.MOVEMENT_SPEED, 0.5)
+                .add(Attributes.MOVEMENT_SPEED, 0.42)
                 .add(Attributes.FOLLOW_RANGE, 48.0)
                 .add(Attributes.ATTACK_DAMAGE, 2.0);
     }

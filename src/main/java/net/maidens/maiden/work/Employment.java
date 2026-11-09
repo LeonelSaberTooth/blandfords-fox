@@ -14,7 +14,9 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.ShieldItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SwordItem;
@@ -26,7 +28,9 @@ import java.util.function.Predicate;
 /**
  * Who hired a maiden, for what job, for how long, where she works, and her bag (what she gathers).
  * Hiring costs emeralds for one shift; her husband hires her for free with no time limit.
- * The work itself is done by {@link WorkGoal}.
+ * The work itself is done by {@link WorkGoal}. When her bag fills up, and when the job ends, she takes what she
+ * gathered to the closest marked chest within 32 blocks of where she was hired ({@link Delivery}), if there is one.
+ * She wears the best helmet and chestplate in her bag, and holds a shield from it when she fights.
  */
 public final class Employment {
     private final Maiden m;
@@ -43,6 +47,13 @@ public final class Employment {
     /** What her work is doing and why she last gave up, for the self test. */
     String note = "";
     private String lastGiveUp = "";
+    /** A marked chest she's on her way to; whether she goes back to work afterwards. */
+    @Nullable BlockPos deliverTo;
+    boolean resumeAfterDelivery;
+    @Nullable BlockPos lastChest;
+    /** The job is ending (shift over, or she had to give up): a miner first climbs back out. */
+    boolean wrappingUp;
+    String wrapUpMessage = "";
 
     public Employment(Maiden m) {
         this.m = m;
@@ -50,6 +61,10 @@ public final class Employment {
 
     public Job job() {
         return job;
+    }
+
+    Maiden maiden() {
+        return m;
     }
 
     public boolean isGuarding() {
@@ -102,12 +117,70 @@ public final class Employment {
     // ------------------------------------------------------------------ every tick (server)
 
     public void tick() {
-        if (job != Job.NONE && shiftLeft > 0 && --shiftLeft == 0) {
-            Player p = employerPlayer();
-            if (p instanceof ServerPlayer sp) m.say(sp, "My shift's over! Come by my house to collect what I gathered.");
-            stop();
+        if (job != Job.NONE && shiftLeft > 0 && --shiftLeft == 0) finish("My shift's over!");
+        if (m.tickCount % 20 == 0) {
+            if (job == Job.GUARD && m.getTarget() == null) equip(Job.GUARD);
+            dress();
         }
-        if (m.tickCount % 20 == 0 && job == Job.GUARD && m.getTarget() == null) equip(Job.GUARD);
+    }
+
+    /** The job is ending: a miner climbs out first; then she takes her bag to the marked chest, or tells you to collect. */
+    void finish(String why) {
+        if (job == Job.MINE && m.blockPosition().getY() < (workPos == null ? 0 : workPos.getY()) - 2) {
+            wrappingUp = true;
+            wrapUpMessage = why;
+            return;
+        }
+        wrappingUp = false;
+        boolean delivering = hasDeliverables() && Delivery.start(this, false);
+        if (employerPlayer() instanceof ServerPlayer sp) {
+            m.say(sp, why + (delivering ? " I'll put what I gathered in the marked chest." : hasDeliverables() ? " Come by and collect what I gathered from my bag." : ""));
+        }
+        stop();
+    }
+
+    public boolean isDelivering() {
+        return deliverTo != null;
+    }
+
+    /** Her bag is full mid-job: off to the marked chest and back, or (with no chest) she has to stop. */
+    void bagFullDuringWork() {
+        if (Delivery.start(this, true)) return;
+        giveUp("My bag's full! Put a marked chest near where you hired me, or come and empty my bag.");
+    }
+
+    // ------------------------------------------------------------------ what she wears
+
+    /** Wears the best helmet and chestplate in her bag; holds a shield from it while she fights. */
+    private void dress() {
+        wear(EquipmentSlot.HEAD, bestArmor(ArmorItem.Type.HELMET));
+        wear(EquipmentSlot.CHEST, bestArmor(ArmorItem.Type.CHESTPLATE));
+        wear(EquipmentSlot.OFFHAND, m.isFighter() ? firstInBag(s -> s.getItem() instanceof ShieldItem) : ItemStack.EMPTY);
+    }
+
+    private void wear(EquipmentSlot slot, ItemStack fromBag) {
+        ItemStack now = m.getItemBySlot(slot);
+        if (fromBag.isEmpty() ? !now.isEmpty() : !ItemStack.isSameItem(now, fromBag)) m.setItemSlot(slot, fromBag.copyWithCount(1));
+    }
+
+    private ItemStack bestArmor(ArmorItem.Type type) {
+        ItemStack best = ItemStack.EMPTY;
+        float bestScore = -1;
+        for (int i = 0; i < bag.getContainerSize(); i++) {
+            ItemStack s = bag.getItem(i);
+            if (!(s.getItem() instanceof ArmorItem a) || a.getType() != type) continue;
+            float score = a.getDefense() * 10 + a.getToughness();
+            if (score > bestScore) {
+                bestScore = score;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    private ItemStack firstInBag(Predicate<ItemStack> test) {
+        for (int i = 0; i < bag.getContainerSize(); i++) if (test.test(bag.getItem(i))) return bag.getItem(i);
+        return ItemStack.EMPTY;
     }
 
     // ------------------------------------------------------------------ the menu's Work page
@@ -141,8 +214,10 @@ public final class Employment {
     public String stopBy(ServerPlayer p) {
         if (job == Job.NONE) return "I'm not working right now.";
         if (!p.getUUID().equals(employer) && !m.relationships().isMarriedTo(p)) return "You're not the one who hired me.";
-        stop();
-        return "Alright, I'll stop. Come see my bag for what I gathered.";
+        Job was = job;
+        boolean underground = was == Job.MINE && m.blockPosition().getY() < (workPos == null ? 0 : workPos.getY()) - 2;
+        finish("Alright, I'll stop.");
+        return underground ? "Alright, I'll stop. Let me climb back out first." : "Alright, I'll stop.";
     }
 
     /** Opens her bag for the player, or returns why not. */
@@ -162,11 +237,12 @@ public final class Employment {
 
     void start(Job newJob, Direction facing) {
         job = newJob;
-        BlockPos home = m.getHome();
-        workPos = newJob == Job.FARM && home != null ? home : m.blockPosition();
+        workPos = m.blockPosition();      // she works around where you hired her
         workDir = facing.getAxis().isHorizontal() ? facing : Direction.NORTH;
         mineStep = 0;
         lastGiveUp = "";
+        deliverTo = null;
+        wrappingUp = false;
         m.setTarget(null);
         m.getNavigation().stop();
         equip(newJob);
@@ -184,8 +260,7 @@ public final class Employment {
     /** Her work has to give up (lava ahead, a full bag...): tells her employer why. */
     void giveUp(String why) {
         lastGiveUp = why;
-        if (employerPlayer() instanceof ServerPlayer sp) m.say(sp, why);
-        stop();
+        finish(why);
     }
 
     /** For the self test: puts her to work without the menu or payment. */
@@ -254,6 +329,12 @@ public final class Employment {
         return true;
     }
 
+    /** Anything in her bag that goes to the chest (see {@link Delivery#keeps}). */
+    boolean hasDeliverables() {
+        for (int i = 0; i < bag.getContainerSize(); i++) if (!bag.getItem(i).isEmpty() && !Delivery.keeps(bag.getItem(i))) return true;
+        return false;
+    }
+
     // ------------------------------------------------------------------ saving
 
     public void save(CompoundTag tag) {
@@ -266,6 +347,10 @@ public final class Employment {
         tag.putInt("WorkDir", workDir.get2DDataValue());
         tag.putInt("MineStep", mineStep);
         tag.put("Bag", bag.createTag(m.registryAccess()));
+        if (deliverTo != null) tag.putLong("DeliverTo", deliverTo.asLong());
+        tag.putBoolean("Resume", resumeAfterDelivery);
+        tag.putBoolean("WrappingUp", wrappingUp);
+        tag.putString("WrapUpMessage", wrapUpMessage);
     }
 
     public void load(CompoundTag tag) {
@@ -278,5 +363,9 @@ public final class Employment {
         workDir = Direction.from2DDataValue(tag.getInt("WorkDir"));
         mineStep = tag.getInt("MineStep");
         bag.fromTag(tag.getList("Bag", Tag.TAG_COMPOUND), m.registryAccess());
+        deliverTo = tag.contains("DeliverTo") ? BlockPos.of(tag.getLong("DeliverTo")) : null;
+        resumeAfterDelivery = tag.getBoolean("Resume");
+        wrappingUp = tag.getBoolean("WrappingUp");
+        wrapUpMessage = tag.getString("WrapUpMessage");
     }
 }

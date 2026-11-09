@@ -1,5 +1,8 @@
 package net.maidens.client;
 
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.maidens.MaidensMod;
 import net.maidens.maiden.Maiden;
@@ -20,6 +23,14 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
     public MaidenRenderer(EntityRendererProvider.Context context) {
         super(context, new MaidenModel(context.bakeLayer(MaidenModel.LAYER)), 0.45F);
+        addLayer(new HumanoidArmorLayer<>(this, new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.INNER)),
+                new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.OUTER)), context.getModelManager()));
+    }
+
+    /** Her name only shows in her menu, never above her head. */
+    @Override
+    protected boolean shouldShowName(Maiden maiden) {
+        return false;
     }
 
     @Override

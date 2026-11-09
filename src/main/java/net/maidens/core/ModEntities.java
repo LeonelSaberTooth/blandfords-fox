@@ -1,5 +1,7 @@
 package net.maidens.core;
 
+import net.maidens.maiden.work.Bobber;
+
 import net.maidens.MaidensMod;
 import net.maidens.maiden.Maiden;
 import net.minecraft.core.registries.Registries;
@@ -22,6 +24,16 @@ public final class ModEntities {
                     .eyeHeight(1.7F)
                     .clientTrackingRange(10)
                     .build(MaidensMod.MOD_ID + ":maiden"));
+
+    /** Her fishing bobber: only for show (where her line is), never saved. */
+    public static final DeferredHolder<EntityType<?>, EntityType<Bobber>> BOBBER = ENTITIES.register("bobber",
+            () -> EntityType.Builder.<Bobber>of(Bobber::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .noSave()
+                    .noSummon()
+                    .clientTrackingRange(4)
+                    .updateInterval(1)
+                    .build(MaidensMod.MOD_ID + ":bobber"));
 
     public static void register(IEventBus modBus) {
         ENTITIES.register(modBus);

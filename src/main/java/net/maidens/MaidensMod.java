@@ -3,6 +3,7 @@ package net.maidens;
 import net.maidens.command.MaidenCommand;
 import net.maidens.command.VillageCommand;
 import net.maidens.core.MaidensConfig;
+import net.maidens.core.ModBlocks;
 import net.maidens.core.ModEntities;
 import net.maidens.core.ModItems;
 import net.neoforged.bus.api.IEventBus;
@@ -23,6 +24,7 @@ public final class MaidensMod {
         container.registerConfig(ModConfig.Type.COMMON, MaidensConfig.SPEC);
         ModEntities.register(modBus);
         ModItems.register(modBus);
+        ModBlocks.register(modBus);
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent e) -> {
             MaidenCommand.register(e.getDispatcher());
             VillageCommand.register(e.getDispatcher());

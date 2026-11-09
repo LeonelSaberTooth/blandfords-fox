@@ -71,8 +71,9 @@ final class VillageCheck {
             }
             village = found.getFirst();
             log.accept("village: " + found.getSecond().unwrapKey().map(k -> k.location().getPath()).orElse("?") + " at " + village.toShortString());
-            for (int cx = (village.getX() >> 4) - 5; cx <= (village.getX() >> 4) + 5; cx++)
-                for (int cz = (village.getZ() >> 4) - 5; cz <= (village.getZ() >> 4) + 5; cz++) {
+            // a wide area, so maidens keep ticking wherever they go (new houses can be built well outside)
+            for (int cx = (village.getX() >> 4) - 8; cx <= (village.getX() >> 4) + 8; cx++)
+                for (int cz = (village.getZ() >> 4) - 8; cz <= (village.getZ() >> 4) + 8; cz++) {
                     level.setChunkForced(cx, cz, true);
                     level.getChunk(cx, cz);
                 }

@@ -68,7 +68,7 @@ public abstract class WorkTask {
             }
             if (!moving || m.getNavigation().isStuck()) stuck += 20;
             // stuck for 10 s a way off (a cliff, a river...): she finds her own way there
-            if (stuck >= 200 && m.distanceToSqr(c) > 6 * 6 && m.arriveNear(p)) stuck = 0;
+            if (stuck >= 200 && m.distanceToSqr(c) > (reach + 1) * (reach + 1) && m.arriveNear(p)) stuck = 0;
         }
         return false;
     }

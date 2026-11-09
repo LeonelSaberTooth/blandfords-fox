@@ -205,6 +205,8 @@ public final class SelfTest {
                     chest = maiden.employment().workPos().east(2);
                     for (int i = 0; i < 6 && !level.getBlockState(chest).isAir(); i++) chest = chest.north();
                     level.setBlock(chest, ModBlocks.MARKED_CHEST.get().defaultBlockState(), 3);
+                    maiden.employment().store(new ItemStack(Items.WHEAT, 20));
+                    maiden.employment().store(new ItemStack(Items.WHEAT_SEEDS, 80));
                     String reply = maiden.employment().stopBy(tester);
                     log("marked chest at " + chest.toShortString() + "; told her to stop: \"" + reply + "\" delivering " + maiden.employment().isDelivering());
                     return;

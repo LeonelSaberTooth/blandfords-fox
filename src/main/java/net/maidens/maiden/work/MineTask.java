@@ -117,13 +117,18 @@ final class MineTask extends WorkTask {
     /** Climbs back up her staircase, a stretch at a time; at the top, the job ends or her bag goes to the chest. */
     private void climbOut(Employment e) {
         int here = nearestStep();
-        if (here == 0 && m.distanceToSqr(Vec3.atBottomCenterOf(e.workPos)) <= 2.5 * 2.5) {
+        if (m.distanceToSqr(Vec3.atBottomCenterOf(e.workPos)) <= 2.5 * 2.5) {      // out at the top
             m.getNavigation().stop();
             if (e.wrappingUp) e.finish(e.wrapUpMessage);
             else e.bagFullDuringWork();
             return;
         }
-        reach(feet(Math.max(0, here - WAYPOINT)), 1.5);
+        if (reach(feet(Math.max(0, here - WAYPOINT)), 1.5) && here <= 1) arriveNear(e);
+    }
+
+    /** At the top of the stairs but the pathfinder won't take the last step: she steps up. */
+    private void arriveNear(Employment e) {
+        m.arriveNear(e.workPos);
     }
 
     /** Where she stands on step i of the mine (0 is where she was hired). */

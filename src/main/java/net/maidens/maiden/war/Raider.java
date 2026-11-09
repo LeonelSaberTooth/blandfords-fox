@@ -59,6 +59,8 @@ public final class Raider {
         if (surrendered) return;
         surrendered = true;
         m.setTarget(null);
+        // the village's maidens let her go
+        for (Maiden o : m.level().getEntitiesOfClass(Maiden.class, m.getBoundingBox().inflate(24), o -> o.getTarget() == m)) o.setTarget(null);
         m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.EMPTY);
         var bag = m.employment().bag();
         for (int i = 0; i < bag.getContainerSize(); i++) {

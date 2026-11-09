@@ -422,7 +422,12 @@ public class Maiden extends AbstractVillager {
         if (source.getEntity() instanceof Player p && employment.isGuarding() && employment.employerFor(p) == 1) return false;
         if (!level().isClientSide && raider.active()) {
             if (source.getEntity() instanceof Player p) WarParties.onRaiderHurt(this, p);
-            // a beaten raider gives up instead of dying (finishing her off is the player's choice)
+            // a raider who has given up isn't fought any more by maidens (finishing her off is the player's choice)
+            if (raider.surrendered() && source.getEntity() instanceof Maiden other) {
+                if (other.getTarget() == this) other.setTarget(null);
+                return false;
+            }
+            // a beaten raider gives up instead of dying
             float floor = getMaxHealth() * 0.3F;
             if (!raider.surrendered() && getHealth() - amount < floor) {
                 boolean hurt = super.hurt(source, Math.max(0.0F, getHealth() - floor));

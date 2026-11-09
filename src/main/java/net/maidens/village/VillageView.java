@@ -59,10 +59,10 @@ public final class VillageView {
         map(level, v, t);
         ListTag pieces = new ListTag();
         for (Blueprint.PieceInfo pi : v.blueprint.pieces()) {
-            if (pi.name().equals("road")) continue;
+            if (pi.name().equals("road") || pi.name().equals(Buildings.NOT_A_BUILDING)) continue;
             CompoundTag pt = new CompoundTag();
             pt.putIntArray("Box", new int[]{pi.box().minX(), pi.box().minZ(), pi.box().maxX(), pi.box().maxZ()});
-            pt.putString("Name", Buildings.displayName(ResourceLocation.withDefaultNamespace(pi.name().isEmpty() ? "x" : pi.name()), v.style));
+            pt.putString("Name", pi.name().isEmpty() ? "" : Buildings.displayName(ResourceLocation.withDefaultNamespace(pi.name()), v.style));
             pt.putBoolean("New", pi.building());
             pieces.add(pt);
         }

@@ -98,7 +98,18 @@ public final class Buildings {
         if (!(piece instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece pe)) return "";
         ResourceLocation t = templateOf(pe.getElement());
         if (t == null) return "";
-        return t.getPath().contains("/streets/") ? "road" : shortName(t);
+        String path = t.getPath();
+        if (path.contains("/streets/")) return "road";
+        // houses, workplaces and the centre are buildings; lamps, end pieces, animals and villagers are not
+        return path.contains("/houses/") || path.contains("/town_centers/") ? shortName(t) : NOT_A_BUILDING;
+    }
+
+    /** The name of recorded pieces that aren't buildings (decorations, entities): left off the village map. */
+    public static final String NOT_A_BUILDING = "-";
+
+    /** "a small house 1", "an animal pen 1". */
+    public static String withArticle(String name) {
+        return (name.isEmpty() || "aeiou".indexOf(Character.toLowerCase(name.charAt(0))) < 0 ? "a " : "an ") + name;
     }
 
     /** "plains_small_house_1" for minecraft:village/plains/houses/plains_small_house_1. */

@@ -193,8 +193,10 @@ public class VillageScreen extends Screen {
         // buildings
         for (Piece p : pieces) {
             int x0 = (int) sx(p.x0()), z0 = (int) sz(p.z0()), x1 = (int) sx(p.x1() + 1), z1 = (int) sz(p.z1() + 1);
-            g.renderOutline(x0, z0, Math.max(1, x1 - x0), Math.max(1, z1 - z0), p.isNew() ? 0xFFE8C040 : 0xC0301C0C);
-            if (overMap && selected == null && wx >= p.x0() && wx <= p.x1() && wz >= p.z0() && wz <= p.z1()) {
+            boolean over = overMap && selected == null && wx >= p.x0() && wx <= p.x1() && wz >= p.z0() && wz <= p.z1();
+            if (over) g.fill(x0, z0, x1, z1, 0x50FFFFFF);
+            g.renderOutline(x0, z0, Math.max(1, x1 - x0), Math.max(1, z1 - z0), p.isNew() ? 0xFFE8C040 : over ? 0xFFFFFFFF : 0x90FFF4D0);
+            if (over) {
                 tip = new ArrayList<>();
                 tip.add(Component.literal(p.name().isEmpty() ? "Building" : capital(p.name())));
                 if (p.isNew()) tip.add(Component.literal("Being built").withStyle(net.minecraft.ChatFormatting.YELLOW));

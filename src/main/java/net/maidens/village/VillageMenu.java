@@ -90,7 +90,7 @@ public final class VillageMenu {
         if (t == null) return "There's no building called " + shortName + " in " + v.name + ".";
         Buildings.Plan plan = Buildings.build(level, v, t, p.blockPosition());
         if (plan == null) return "There's no flat, free spot for that near here. Try somewhere else.";
-        return "The maidens will build a " + Buildings.displayName(t, v.style) + " at " + plan.box().getCenter().toShortString() + ".";
+        return "The maidens will build " + Buildings.withArticle(Buildings.displayName(t, v.style)) + " at " + plan.box().getCenter().toShortString() + ".";
     }
 
     /** A citizen placed a building on the village screen. Returns what to tell them. */
@@ -100,7 +100,7 @@ public final class VillageMenu {
         ResourceLocation t = templateNamed(level, v, shortName);
         if (t == null) return "There's no building called " + shortName + " in " + v.name + ".";
         String why = Buildings.buildAt(level, v, t, corner, rot);
-        return why != null ? why : "The maidens will build a " + Buildings.displayName(t, v.style) + " there.";
+        return why != null ? why : "The maidens will build " + Buildings.withArticle(Buildings.displayName(t, v.style)) + " there.";
     }
 
     static ResourceLocation templateNamed(ServerLevel level, VillageRecord v, String shortName) {

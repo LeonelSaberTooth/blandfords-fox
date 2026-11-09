@@ -113,6 +113,7 @@ public final class WarParties {
             m.ensureInitialised();
             m.setPersistenceRequired();     // not despawned mid-raid (she's removed when the raid is over)
             m.raider().start(target.id, attacker.id, at);
+            m.clearRestriction();
             // their village's colours, and swords
             ItemStack tunic = new ItemStack(Items.LEATHER_CHESTPLATE);
             tunic.set(DataComponents.DYED_COLOR, new DyedItemColor(colour, false));

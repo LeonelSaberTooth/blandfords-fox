@@ -332,7 +332,7 @@ public class Maiden extends AbstractVillager {
     /** Where she's allowed to wander: around her work spot when working, nowhere in particular when guarding, else home. */
     private void updateRestriction() {
         Job job = employment.job();
-        if (job == Job.GUARD) clearRestriction();
+        if (job == Job.GUARD || raider.active()) clearRestriction();      // guards follow, raiders go where the raid is
         else if (hasVillageDuties() && VillageSocial.villageOf(this) instanceof net.maidens.village.VillageRecord v)
             restrictTo(v.centre(), Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 24);
         else if (job.atWorkSpot() && employment.workPos() != null) restrictTo(employment.workPos(), job == Job.MINE ? 96 : 24);

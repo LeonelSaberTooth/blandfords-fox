@@ -39,6 +39,7 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -316,7 +317,9 @@ final class VillageCheck {
         for (Maiden r : raiders) {
             if (!r.isRemoved() && r.isAlive()) alive++;
             if (r.raider().surrendered()) beaten++;
-            states.append(r.name()).append(' ').append(r.isRemoved() ? String.valueOf(r.getRemovalReason()) : (int) r.getHealth() + "hp")
+            states.append(r.name()).append(' ').append(r.isRemoved() ? String.valueOf(r.getRemovalReason())
+                            : (int) r.getHealth() + "hp " + (int) Math.sqrt(r.distanceToSqr(Vec3.atCenterOf(record.bell() != null ? record.bell() : record.centre()))) + " from the bell"
+                            + (r.getTarget() != null ? " fighting " + r.getTarget().getName().getString() : "") + " " + r.runningGoals())
                     .append(r.raider().surrendered() ? " beaten" : "").append(", ");
         }
         log.accept("  raiders: " + states);

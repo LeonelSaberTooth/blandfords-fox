@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.4.1
+- The marked chest looks exactly like a vanilla chest (block and item), with a gold lock.
+- Fix: a crash right after a maiden finished unloading at a marked chest.
 - Armor uses the vanilla armor sizes, placed to fit her.
 - Performance: no more reading unloaded land from disk (bed and workstation searches, job scans, newcomers);
   job scans wait longer when there's nothing to do; fleeing checks twice a second instead of every other tick;

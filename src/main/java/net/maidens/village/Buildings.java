@@ -106,9 +106,11 @@ public final class Buildings {
         return n.replace('_', ' ');
     }
 
-    /** How many beds a building has (to house maidens). */
+    private static final Map<ResourceLocation, Integer> BEDS = new HashMap<>();
+
+    /** How many beds a building has (to house maidens). Worked out once per building. */
     public static int beds(ServerLevel level, ResourceLocation template) {
-        return read(level, template, BlockPos.ZERO, Rotation.NONE).beds();
+        return BEDS.computeIfAbsent(template, t -> read(level, t, BlockPos.ZERO, Rotation.NONE).beds());
     }
 
     // ------------------------------------------------------------------ planning

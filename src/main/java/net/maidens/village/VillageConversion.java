@@ -4,6 +4,9 @@ import net.maidens.MaidensMod;
 import net.maidens.core.ModEntities;
 import net.maidens.maiden.Maiden;
 import net.minecraft.nbt.CompoundTag;
+import net.neoforged.fml.util.ObfuscationReflectionHelper;
+
+import java.lang.reflect.Field;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
@@ -59,8 +62,26 @@ public final class VillageConversion {
         level.addFreshEntity(m);
     }
 
+    /** Vanilla's "pick a profession on the first tick" flag, read directly (much cheaper than saving the villager). */
+    private static final Field ASSIGN_PROFESSION = findFlag();
+
+    private static Field findFlag() {
+        try {
+            return ObfuscationReflectionHelper.findField(Villager.class, "assignProfessionWhenSpawned");
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     /** A villager the village structure placed, which has never ticked yet. */
     private static boolean fromVillageStructure(Villager v) {
+        if (ASSIGN_PROFESSION != null) {
+            try {
+                return ASSIGN_PROFESSION.getBoolean(v);
+            } catch (IllegalAccessException ignored) {
+                // fall back to reading it from the villager's save data
+            }
+        }
         CompoundTag tag = new CompoundTag();
         v.addAdditionalSaveData(tag);
         return tag.getBoolean("AssignProfessionWhenSpawned");

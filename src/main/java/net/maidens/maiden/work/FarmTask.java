@@ -41,7 +41,7 @@ final class FarmTask extends WorkTask {
             if (--scan > 0) return;
             scan = 40;
             target = find(level);
-            if (target == null) { idleNear(job().workPos); return; }
+            if (target == null) { scan = IDLE_SCAN; idleNear(job().workPos); return; }
         }
         BlockState s = level.getBlockState(target);
         boolean ripe = s.getBlock() instanceof CropBlock c && c.isMaxAge(s);
@@ -68,6 +68,7 @@ final class FarmTask extends WorkTask {
 
     private BlockPos find(ServerLevel level) {
         BlockPos c = centre();
+        if (!loaded(level, c, RANGE)) return null;
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
         for (BlockPos p : BlockPos.betweenClosed(c.offset(-RANGE, -4, -RANGE), c.offset(RANGE, 4, RANGE))) {

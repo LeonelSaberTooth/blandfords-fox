@@ -35,7 +35,7 @@ public final class Residence {
     @Nullable private BlockPos bed;
     @Nullable private BlockPos jobSite;
     @Nullable private VillagerProfession profession;
-    private long nextJobSearch;
+    private long nextJobSearch, nextBedSearch;
 
     public Residence(Maiden m) {
         this.m = m;
@@ -72,19 +72,21 @@ public final class Residence {
     public void tick() {
         if (!inVillage() || m.tickCount % 100 != 37 || !(m.level() instanceof ServerLevel level)) return;
         PoiManager poi = level.getPoiManager();
-        // her bed
-        if (bed != null && !poi.exists(bed, h -> h.is(PoiTypes.HOME))) bed = null;
-        if (bed == null) {
-            bed = take(poi, h -> h.is(PoiTypes.HOME));
+        long now = level.getGameTime();
+        // her bed (only checked while its chunk is loaded: looking at unloaded ones reads them from disk)
+        if (bed != null && level.isLoaded(bed) && !poi.exists(bed, h -> h.is(PoiTypes.HOME))) bed = null;
+        if (bed == null && now >= nextBedSearch) {
+            bed = take(level, poi, h -> h.is(PoiTypes.HOME));
             if (bed != null) m.setHome(bed);
+            else nextBedSearch = now + 600;                // no free bed: look again in 30 s
         }
         // her workstation
-        if (jobSite != null && !poi.exists(jobSite, h -> profession != null && profession.heldJobSite().test(h))) jobSite = null;
-        if (jobSite == null && level.getGameTime() >= nextJobSearch) {
-            nextJobSearch = level.getGameTime() + 600;     // no free workstation: look again in 30 s
+        if (jobSite != null && level.isLoaded(jobSite) && !poi.exists(jobSite, h -> profession != null && profession.heldJobSite().test(h))) jobSite = null;
+        if (jobSite == null && now >= nextJobSearch) {
+            nextJobSearch = now + 1200;                    // no free workstation: look again in a minute
             boolean locked = profession != null && m.trading().xp() > 0;
             Predicate<Holder<PoiType>> wanted = locked ? profession.acquirableJobSite() : VillagerProfession.ALL_ACQUIRABLE_JOBS;
-            jobSite = take(poi, wanted);
+            jobSite = take(level, poi, wanted);
             if (jobSite != null && !locked) setProfession(professionAt(poi, jobSite));
             else if (jobSite == null && !locked && profession != null) setProfession(null);
         }
@@ -96,16 +98,24 @@ public final class Residence {
         m.trading().resetForNewProfession();
     }
 
-    /** Claims the nearest free one in her village (anywhere in it, including buildings added at its edge). */
+    /**
+     * Claims the nearest free one: anywhere in her village (including buildings added at its edge) when all of it
+     * is loaded, else within 48 blocks of her. Never searches unloaded land (that would read it from disk).
+     */
     @Nullable
-    private BlockPos take(PoiManager poi, Predicate<Holder<PoiType>> type) {
+    private BlockPos take(ServerLevel level, PoiManager poi, Predicate<Holder<PoiType>> type) {
         BlockPos from = m.blockPosition();
         int radius = SEARCH;
-        VillageRecord v = Villages.get((ServerLevel) m.level()).byId(village);
+        VillageRecord v = Villages.get(level).byId(village);
         if (v != null) {
-            from = v.centre();
-            radius = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 48;
+            int r = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 48;
+            BlockPos c = v.centre();
+            if (level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r)) {
+                from = c;
+                radius = r;
+            }
         }
+        if (radius == SEARCH && !level.hasChunksAt(from.getX() - SEARCH, from.getZ() - SEARCH, from.getX() + SEARCH, from.getZ() + SEARCH)) return null;
         Optional<BlockPos> found = poi.take(type, (h, pos) -> true, from, radius);
         return found.orElse(null);
     }

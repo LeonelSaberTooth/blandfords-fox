@@ -39,7 +39,8 @@ public final class VillageRecord {
     public String project = "";
     /** The village bell, where maidens gather in the evening (found in the blueprint; not saved). */
     private BlockPos bell;
-    private boolean bellLooked;
+    /** How many blueprint pieces were recorded when the bell was last looked for (-1: never). */
+    private int bellLookedAt = -1;
     /** When the last new maiden moved in (game time). */
     long lastArrival = Long.MIN_VALUE / 2;
     /** What needs fixing right now (not saved: found again by the scan after a restart). */
@@ -58,8 +59,9 @@ public final class VillageRecord {
     }
 
     public BlockPos bell() {
-        if (!bellLooked || bell == null && blueprint.recordedPieces() < blueprint.pieceCount()) {
-            bellLooked = blueprint.recordedPieces() == blueprint.pieceCount();
+        int recorded = blueprint.recordedPieces();
+        if (bell == null && recorded != bellLookedAt) {      // look again only when more of the village was recorded
+            bellLookedAt = recorded;
             BlockPos[] found = {null};
             blueprint.forEachBlock((p, s) -> {
                 if (found[0] == null && s.is(net.minecraft.world.level.block.Blocks.BELL)) found[0] = p;

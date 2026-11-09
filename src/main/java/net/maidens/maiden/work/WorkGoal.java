@@ -1,5 +1,7 @@
 package net.maidens.maiden.work;
 
+import net.maidens.core.SelfTestFlag;
+
 import net.maidens.maiden.Maiden;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -57,7 +59,7 @@ public final class WorkGoal extends Goal {
             running = j;
             task.reset();
         }
-        if (m.tickCount % 20 == 0) {
+        if (SelfTestFlag.ON && m.tickCount % 20 == 0) {
             m.employment().note = j + " at " + m.blockPosition().toShortString() + " " + task.debug()
                     + " nav " + (m.getNavigation().isDone() ? "idle" : "moving");
         }

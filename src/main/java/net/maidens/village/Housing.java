@@ -29,7 +29,10 @@ public final class Housing {
 
     static void tick(ServerLevel level, Villages villages) {
         for (VillageRecord v : villages.all()) {
-            if (!level.isLoaded(v.centre())) continue;
+            // only while the whole village is loaded (otherwise beds and residents out of reach look missing)
+            BlockPos c = v.centre();
+            int r = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 48;
+            if (!level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r)) continue;
             List<Maiden> residents = VillageSocial.residents(level, v);
             if (residents.isEmpty()) continue;
             int bedless = 0;
@@ -72,6 +75,8 @@ public final class Housing {
     public static Maiden arrive(ServerLevel level, VillageRecord v) {
         PoiManager poi = level.getPoiManager();
         int radius = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 48;
+        BlockPos c = v.centre();
+        if (!level.hasChunksAt(c.getX() - radius, c.getZ() - radius, c.getX() + radius, c.getZ() + radius)) return null;
         Optional<BlockPos> bed = poi.findClosest(h -> h.is(PoiTypes.HOME), v.centre(), radius, PoiManager.Occupancy.HAS_SPACE);
         if (bed.isEmpty()) return null;
         BlockPos spot = roadNear(v, bed.get());

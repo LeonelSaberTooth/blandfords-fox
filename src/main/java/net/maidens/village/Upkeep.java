@@ -37,6 +37,7 @@ public final class Upkeep {
         if (!MaidensConfig.REPAIRS.get()) return;
         long now = level.getGameTime();
         for (VillageRecord v : villages.all()) {
+            if (v.chores.isEmpty() && !level.isLoaded(v.centre())) continue;     // nobody's there
             for (Iterator<Chore> it = v.chores.values().iterator(); it.hasNext(); ) {
                 Chore c = it.next();
                 if (level.isLoaded(c.pos) && !stillNeeded(level, v, c)) it.remove();

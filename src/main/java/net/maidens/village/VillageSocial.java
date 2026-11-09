@@ -40,7 +40,7 @@ public final class VillageSocial {
 
     /** The village's maidens that are loaded right now. */
     public static List<Maiden> residents(ServerLevel level, VillageRecord v) {
-        return level.getEntitiesOfClass(Maiden.class, AABB.of(v.box).inflate(48), m -> m.residence().village() == v.id && m.isAlive());
+        return level.getEntitiesOfClass(Maiden.class, AABB.of(v.box).inflate(16), m -> m.residence().village() == v.id && m.isAlive());
     }
 
     // ------------------------------------------------------------------ from the maiden

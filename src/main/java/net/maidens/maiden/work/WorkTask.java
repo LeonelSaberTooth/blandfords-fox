@@ -19,6 +19,9 @@ import java.util.List;
  * A subclass keeps its own progress and resets it in {@link #reset}.
  */
 public abstract class WorkTask {
+    /** How long to wait before looking around again when there was nothing to do (a scan reads thousands of blocks). */
+    protected static final int IDLE_SCAN = 100;
+
     protected final Maiden m;
     protected int busy, scan, repath, stuck;
 
@@ -89,6 +92,11 @@ public abstract class WorkTask {
             }
         }
         for (ItemStack d : drops) job().store(d);
+    }
+
+    /** Whether everything within r blocks of c is loaded: scanning unloaded land would load it from disk. */
+    protected static boolean loaded(ServerLevel level, BlockPos c, int r) {
+        return level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r);
     }
 
     /** Her bag is full: off to the marked chest (or she has to stop). True if so. */

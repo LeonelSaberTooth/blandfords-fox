@@ -67,7 +67,7 @@ final class FishTask extends WorkTask {
             scan = 40;
             water = findWater(level);
             shore = water == null ? null : shoreFor(level, water);
-            if (water == null || shore == null) { water = null; idleNear(job().workPos); return; }
+            if (water == null || shore == null) { water = null; scan = IDLE_SCAN; idleNear(job().workPos); return; }
             stuck = 0;
         }
         if (stuck > 400) { unreachable.add(water); water = null; return; }
@@ -103,7 +103,7 @@ final class FishTask extends WorkTask {
             }
             case WAIT -> {
                 if (bobber == null || bobber.isRemoved()) { phase = Phase.PAUSE; timer = 20; return; }
-                bobber.moveTo(float_.x, float_.y + Math.sin(m.tickCount * 0.15) * 0.04, float_.z);
+                if (timer % 5 == 0) bobber.moveTo(float_.x, float_.y + Math.sin(timer * 0.15) * 0.04, float_.z);
                 if (m.getRandom().nextInt(50) == 0) level.sendParticles(ParticleTypes.FISHING, float_.x, float_.y + 0.05, float_.z, 2, 0.15, 0.0, 0.15, 0.0);
                 if (--timer <= 0) {
                     phase = Phase.BITE;
@@ -141,6 +141,7 @@ final class FishTask extends WorkTask {
 
     private BlockPos findWater(ServerLevel level) {
         BlockPos c = centre();
+        if (!loaded(level, c, RANGE)) return null;
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
         for (BlockPos p : BlockPos.betweenClosed(c.offset(-RANGE, -6, -RANGE), c.offset(RANGE, 4, RANGE))) {

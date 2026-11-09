@@ -50,7 +50,7 @@ public final class Schedule {
         };
     }
 
-    /** Lies down in her bed at night when she's next to it, and gets up when it's time (or someone needs her). */
+    /** Twice a second: lies down in her bed at night when she's next to it, gets up when it's time (or someone needs her). */
     public static void tick(Maiden m) {
         boolean night = m.hasVillageDuties() && m.isFree() && m.getTarget() == null && now(m) == Activity.SLEEP;
         BlockPos bed = m.residence().bed();
@@ -58,7 +58,7 @@ public final class Schedule {
             if (!night) m.stopSleeping();
             return;
         }
-        if (!night || bed == null || m.tickCount % 10 != 0 || m.distanceToSqr(bed.getX() + 0.5, bed.getY() + 0.5, bed.getZ() + 0.5) > 2.5 * 2.5) return;
+        if (!night || bed == null || m.distanceToSqr(bed.getX() + 0.5, bed.getY() + 0.5, bed.getZ() + 0.5) > 2.5 * 2.5) return;
         goToBed(m);
     }
 

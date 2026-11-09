@@ -283,7 +283,8 @@ public final class Employment {
             case GUARD -> bestWeapon();
             case NONE -> ItemStack.EMPTY;
         };
-        if (!ItemStack.isSameItemSameComponents(tool, m.getMainHandItem())) m.setItemSlot(EquipmentSlot.MAINHAND, tool);
+        // the same item (worn or not) stays in her hand: swapping it would resend her equipment every second
+        if (!ItemStack.isSameItem(tool, m.getMainHandItem())) m.setItemSlot(EquipmentSlot.MAINHAND, tool);
     }
 
     /** A copy of the best weapon in her bag (a sword before an axe), or bare hands. */

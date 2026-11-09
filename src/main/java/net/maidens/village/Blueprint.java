@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -72,9 +73,25 @@ public final class Blueprint {
     private final List<BlockState> palette = new ArrayList<>(List.of(Blocks.AIR.defaultBlockState()));
     private final Map<BlockState, Integer> paletteIndex = new HashMap<>();
     private int scanPiece, scanCell;
+    /** Which pieces touch each chunk column, so a lookup only checks the few pieces there, not all of them. */
+    private final Map<Long, List<Piece>> byChunk = new HashMap<>();
+
+    private void index(Piece p) {
+        BoundingBox b = p.box;
+        for (int cx = b.minX() >> 4; cx <= b.maxX() >> 4; cx++)
+            for (int cz = b.minZ() >> 4; cz <= b.maxZ() >> 4; cz++)
+                byChunk.computeIfAbsent(ChunkPos.asLong(cx, cz), k -> new ArrayList<>()).add(p);
+    }
+
+    private List<Piece> piecesAt(BlockPos p) {
+        List<Piece> list = byChunk.get(ChunkPos.asLong(p.getX() >> 4, p.getZ() >> 4));
+        return list == null ? List.of() : list;
+    }
 
     void addPiece(BoundingBox box) {
-        pieces.add(new Piece(box));
+        Piece p = new Piece(box);
+        pieces.add(p);
+        index(p);
     }
 
     /** A new building: blocks to place, and spots to keep clear (everything else in the box is left alone). */
@@ -87,6 +104,7 @@ public final class Blueprint {
             if (box.isInside(pos)) p.cells[p.index(pos)] = paletteId(s);
         });
         pieces.add(p);
+        index(p);
     }
 
     public static boolean counts(BlockState s) {
@@ -121,7 +139,7 @@ public final class Blueprint {
     /** The block the village expects here, or null if this spot isn't part of the blueprint (or only kept clear). */
     @Nullable
     public BlockState expected(BlockPos p) {
-        for (Piece piece : pieces) {
+        for (Piece piece : piecesAt(p)) {
             if (piece.cells == null || !piece.box.isInside(p)) continue;
             int id = piece.cells[piece.index(p)];
             if (id > 0) return palette.get(id);
@@ -131,7 +149,7 @@ public final class Blueprint {
 
     /** Inside a building under construction: whether this spot must be cleared (something else stands there). */
     public boolean isBuildingSite(BlockPos p) {
-        for (Piece piece : pieces) {
+        for (Piece piece : piecesAt(p)) {
             if (piece.building && piece.box.isInside(p) && piece.cells[piece.index(p)] != NOTHING) return true;
         }
         return false;
@@ -150,7 +168,7 @@ public final class Blueprint {
     /** A citizen changed this spot: the village now expects the new block (or nothing). */
     void set(BlockPos p, BlockState s) {
         int id = counts(s) ? paletteId(s) : NOTHING;
-        for (Piece piece : pieces) {
+        for (Piece piece : piecesAt(p)) {
             if (piece.cells != null && piece.box.isInside(p)) piece.cells[piece.index(p)] = id;
         }
     }
@@ -266,6 +284,7 @@ public final class Blueprint {
             }
             p.building = p.cells != null && pt.getBoolean("Building");
             bp.pieces.add(p);
+            bp.index(p);
         }
         return bp;
     }

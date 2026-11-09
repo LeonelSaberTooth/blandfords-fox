@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+- Armor uses the vanilla armor sizes, placed to fit her.
+- Performance: no more reading unloaded land from disk (bed and workstation searches, job scans, newcomers);
+  job scans wait longer when there's nothing to do; fleeing checks twice a second instead of every other tick;
+  maidens only look for items to pick up while working; faster blueprint lookups (per chunk); building bed counts
+  and the village bell are cached; guards no longer resend their weapon every second; cheaper villager conversion
+  check; test-only bookkeeping skipped in normal play.
+
 ## 0.4.0
 - Walking: a bigger leg swing with slightly quicker steps, and she moves a bit slower, so her feet match the ground.
 - Fixed the flicker where her hips and legs overlap.

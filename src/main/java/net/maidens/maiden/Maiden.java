@@ -83,7 +83,6 @@ public class Maiden extends AbstractVillager {
     public Maiden(EntityType<? extends AbstractVillager> type, Level level) {
         super(type, level);
         if (getNavigation() instanceof GroundPathNavigation nav) nav.setCanOpenDoors(true);
-        setCanPickUpLoot(true);
         // what she holds and wears are copies of things in her bag (which drops in full when she dies)
         for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND, EquipmentSlot.HEAD, EquipmentSlot.CHEST}) {
             setDropChance(slot, 0.0F);
@@ -303,7 +302,7 @@ public class Maiden extends AbstractVillager {
         trading.tick();
         residence.tick();
         wishes.tick();
-        Schedule.tick(this);
+        if (tickCount % 10 == 3) Schedule.tick(this);
         if (tickCount % 40 == 0) updateDefending();
         if (tickCount % 20 == 0) updateRestriction();
         if (tickCount % 100 == 0 && getHealth() < getMaxHealth() && getTarget() == null) heal(1.0F);
@@ -370,6 +369,12 @@ public class Maiden extends AbstractVillager {
     @Override
     protected SoundEvent getTradeUpdatedSound(boolean yes) {
         return yes ? SoundEvents.EXPERIENCE_ORB_PICKUP : SoundEvents.CHICKEN_EGG;
+    }
+
+    /** Only at work does she pick things up (vanilla otherwise looks for items around her every tick). */
+    @Override
+    public boolean canPickUpLoot() {
+        return employment != null && employment.job().atWorkSpot();
     }
 
     @Override

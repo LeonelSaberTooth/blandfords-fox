@@ -13,8 +13,13 @@ final class FleeMonstersGoal extends AvoidEntityGoal<Monster> {
         this.m = m;
     }
 
+    private int cooldown;
+
+    /** Looks for monsters twice a second, not every other tick (the search is a scan of the entities around her). */
     @Override
     public boolean canUse() {
-        return !m.isFighter() && super.canUse();
+        if (--cooldown > 0 || m.isFighter()) return false;
+        cooldown = 5;
+        return super.canUse();
     }
 }

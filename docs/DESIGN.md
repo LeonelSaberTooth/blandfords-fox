@@ -11,6 +11,18 @@ not in code.
 - Mob goals are created in the `Mob` constructor, before the maiden's own fields exist: goals must look her
   parts up when they run (`m.employment()`), never keep them from their constructor.
 
+## Performance rules
+
+- Never look at unloaded land: block scans, POI searches and bed/workstation checks first make sure the chunks
+  are loaded (`level.hasChunksAt`), since touching unloaded land loads it (and its POI data) from disk.
+- Anything that scans (work targets, chests, monsters to flee, chores) runs on a timer, not every tick, and waits
+  longer when the last scan found nothing (`WorkTask.IDLE_SCAN`).
+- Lookups go through indexes: the blueprint keeps its pieces per chunk column; building bed counts and the village
+  bell are worked out once.
+- Maidens only pick up items while working (vanilla looks for items every tick for mobs that can).
+- Equipment is only re-set when the item changes (a re-set is sent to every nearby player).
+- Test-only bookkeeping is skipped unless the self test runs (`SelfTestFlag`).
+
 ## Principles
 
 - **One system per package, one entry point per system.** A system talks to others through small, named methods,
@@ -68,7 +80,7 @@ not in code.
   weapons, armor, torches, saplings, and a stack each of seeds and filler blocks. With no marked chest, a full bag
   ends the job as before. A marked chest never joins into a double chest.
 - Armor: she wears the best helmet and chestplate in her bag (copies; the bag keeps the originals), and holds a
-  shield from it while she fights. The armor model follows her shape and uses the vanilla armor textures.
+  shield from it while she fights. The armor pieces are vanilla's (same sizes and textures), placed over her parts.
 - Trades: farmer trades (or her workstation's profession in a village), levels like a villager, daily restock.
   **Prices follow affection**: up to `maxAffectionDiscount` off at 100; husband pays `marriedPriceFactor`.
 - Model: vanilla humanoid animation with a smaller walk swing (legs 24°, arms 17°, 1.25x steps) and limited

@@ -152,7 +152,10 @@ final class VillageCheck {
                 next(t, () -> raid(level));
             }
             case 5 -> {
-                if (raidCheck(level, st)) return true;
+                if (raidCheck(level, st)) next(t, () -> warRaid(level));
+            }
+            case 6 -> {
+                if (warCheck(level, st)) return true;
             }
             default -> {
                 return true;
@@ -279,6 +282,47 @@ final class VillageCheck {
         log.accept("  after " + t + " ticks: " + fighters + " of " + rs.size() + " residents fighting (" + armed + " armed), "
                 + (raid == null ? "no raid" : "raid " + (raid.isActive() ? "active" : "over") + ", wave " + raid.getGroupsSpawned() + ", " + raiders + " raiders alive"));
         return t >= 1200;
+    }
+
+    // ------------------------------------------------------------------ a raid from an aggressive neighbour
+
+    private final java.util.List<Maiden> raiders = new java.util.ArrayList<>();
+
+    private void warRaid(ServerLevel level) {
+        level.setDayTime(1000);
+        Network n = Network.get(level);
+        KnownVillage self = n.know(level, record);
+        java.util.List<KnownVillage> nb = n.neighbours(self);
+        if (nb.isEmpty()) {
+            log.accept("war: no neighbour to raid us");
+            return;
+        }
+        Integer count = net.maidens.politics.WarParties.start(level, nb.get(0), record);
+        log.accept("war: " + nb.get(0).name + " raids " + record.name + ": " + (count == null ? "couldn't start (no loaded edge)" : count + " raiders"));
+        raiders.clear();
+        raiders.addAll(level.getEntitiesOfClass(Maiden.class, AABB.of(record.box).inflate(64), m -> m.raider().active()));
+        if (!raiders.isEmpty()) {
+            Maiden r = raiders.get(0);
+            log.accept("  a raider: " + r.name() + " at " + r.blockPosition().toShortString() + ", holding " + r.getMainHandItem() + ", fighter " + r.isFighter());
+        }
+    }
+
+    private boolean warCheck(ServerLevel level, int t) {
+        int alive = 0, beaten = 0;
+        for (Maiden r : raiders) {
+            if (!r.isRemoved() && r.isAlive()) alive++;
+            if (r.raider().surrendered()) beaten++;
+        }
+        float lowest = 100;
+        int dead = 0;
+        for (Maiden m : VillageSocial.residents(level, record)) lowest = Math.min(lowest, m.getHealth());
+        log.accept("  after " + t + " ticks: " + alive + " raiders still here, " + beaten + " beaten; raid on " + net.maidens.politics.WarParties.raidOn(record.id)
+                + "; weakest resident " + lowest + " hp");
+        if (!net.maidens.politics.WarParties.raidOn(record.id) || t >= 2400) {
+            log.accept("  news: " + Network.get(level).news(record.id).subList(0, Math.min(4, Network.get(level).news(record.id).size())));
+            return true;
+        }
+        return false;
     }
 
     private void arrived(ServerLevel level) {

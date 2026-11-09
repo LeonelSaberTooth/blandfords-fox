@@ -9,6 +9,8 @@ import net.maidens.maiden.social.Relationships;
 import net.maidens.maiden.trade.MaidenTrading;
 import net.maidens.maiden.work.Employment;
 import net.maidens.maiden.work.Job;
+import net.maidens.maiden.war.Raider;
+import net.maidens.politics.WarParties;
 import net.maidens.village.Royals;
 import net.maidens.village.VillageSocial;
 import net.minecraft.ChatFormatting;
@@ -74,6 +76,7 @@ public class Maiden extends AbstractVillager {
     private final MaidenTrading trading = new MaidenTrading(this);
     private final Residence residence = new Residence(this);
     private final Wishes wishes = new Wishes(this);
+    private final Raider raider = new Raider(this);
     /** Fighting for her village in a raid (checked every 2 s). */
     private boolean defending;
 
@@ -120,6 +123,11 @@ public class Maiden extends AbstractVillager {
 
     public Wishes wishes() {
         return wishes;
+    }
+
+    /** Set when she was sent to raid another village. */
+    public Raider raider() {
+        return raider;
     }
 
     // ------------------------------------------------------------------ who she is
@@ -206,13 +214,13 @@ public class Maiden extends AbstractVillager {
 
     /** Fights monsters: a hired guard, or a village maiden defending her village in a raid. */
     public boolean isFighter() {
-        return employment.isGuarding() || defending;
+        return employment.isGuarding() || defending || raider.active() && !raider.surrendered();
     }
 
     /** A raid on her village: free village maidens (and guards) take up a sword; when it's over, they put it away. */
     private void updateDefending() {
         boolean raid = residence.inVillage() && (hasVillageDuties() || employment.isGuarding()) && level() instanceof ServerLevel sl
-                && sl.getRaidAt(blockPosition()) != null && sl.getRaidAt(blockPosition()).isActive();
+                && (WarParties.raidOn(residence.village()) || sl.getRaidAt(blockPosition()) != null && sl.getRaidAt(blockPosition()).isActive());
         if (raid == defending) return;
         defending = raid;
         if (employment.isWorking()) return;
@@ -316,6 +324,7 @@ public class Maiden extends AbstractVillager {
         wishes.tick();
         if (tickCount % 10 == 3) Schedule.tick(this);
         if (tickCount % 40 == 0) updateDefending();
+        if (raider.active() && tickCount % 100 == 0 && WarParties.stale(this)) discard();   // her raid ended while she was away
         if (tickCount % 20 == 0) updateRestriction();
         if (tickCount % 100 == 0 && getHealth() < getMaxHealth() && getTarget() == null) heal(1.0F);
     }
@@ -339,7 +348,7 @@ public class Maiden extends AbstractVillager {
         if (held.is(Items.NAME_TAG) || held.getItem() instanceof SpawnEggItem || !isAlive() || isTrading()) {
             return super.mobInteract(player, hand);
         }
-        if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+        if (hand != InteractionHand.MAIN_HAND || raider.active()) return InteractionResult.PASS;
         if (isSleeping()) stopSleeping();
         if (player instanceof ServerPlayer sp) MaidenMenu.open(this, sp);
         return InteractionResult.sidedSuccess(level().isClientSide);
@@ -411,6 +420,21 @@ public class Maiden extends AbstractVillager {
     public boolean hurt(DamageSource source, float amount) {
         // whoever hired her as a guard can't hurt her by accident
         if (source.getEntity() instanceof Player p && employment.isGuarding() && employment.employerFor(p) == 1) return false;
+        if (!level().isClientSide && raider.active()) {
+            if (source.getEntity() instanceof Player p) WarParties.onRaiderHurt(this, p);
+            // a beaten raider gives up instead of dying (finishing her off is the player's choice)
+            float floor = getMaxHealth() * 0.3F;
+            if (!raider.surrendered() && getHealth() - amount < floor) {
+                boolean hurt = super.hurt(source, Math.max(0.0F, getHealth() - floor));
+                raider.surrender();
+                return hurt;
+            }
+        }
+        // raiders knock a village's maidens down, they don't kill them
+        if (!raider.active() && source.getEntity() instanceof Maiden r && r.raider().active() && getHealth() - amount < 2.0F) {
+            amount = Math.max(0.0F, getHealth() - 2.0F);
+            setTarget(null);
+        }
         return super.hurt(source, amount);
     }
 
@@ -468,6 +492,7 @@ public class Maiden extends AbstractVillager {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("Royal", isRoyal());
+        raider.save(tag);
         tag.putBoolean("MaidenReady", initialised);
         tag.putInt("Skin", getSkin());
         tag.putInt("Personality", personality.ordinal());
@@ -483,6 +508,7 @@ public class Maiden extends AbstractVillager {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         setRoyal(tag.getBoolean("Royal"));
+        raider.load(tag);
         initialised = tag.getBoolean("MaidenReady");
         setSkin(tag.getInt("Skin"));
         personality = Personality.byId(tag.getInt("Personality"));

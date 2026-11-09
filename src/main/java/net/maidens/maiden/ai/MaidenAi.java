@@ -1,6 +1,7 @@
 package net.maidens.maiden.ai;
 
 import net.maidens.maiden.Maiden;
+import net.maidens.maiden.war.RaidGoals;
 import net.maidens.maiden.work.DeliverGoal;
 import net.maidens.maiden.work.WorkGoal;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -26,11 +27,13 @@ public final class MaidenAi {
         goals.addGoal(1, new TradeWithPlayerGoal(m));
         goals.addGoal(1, new LookAtTradingPlayerGoal(m));
         goals.addGoal(1, new TalkGoal(m));
+        goals.addGoal(1, new RaidGoals.Flee(m));            // a beaten raider running home
         goals.addGoal(2, new FleeMonstersGoal(m));
         goals.addGoal(2, new GuardAttackGoal(m));
         goals.addGoal(3, new FollowEmployerGoal(m));
         goals.addGoal(3, new DeliverGoal(m));               // taking her bag to a marked chest
         goals.addGoal(4, new WorkGoal(m));
+        goals.addGoal(4, new RaidGoals.Advance(m));         // a raider pushing into the village
         goals.addGoal(4, new VillageChoreGoal(m));          // only when not hired or married
         goals.addGoal(5, new ScheduleGoal(m));              // a free village maiden's day
         goals.addGoal(5, new MoveTowardsRestrictionGoal(m, 0.6));
@@ -40,6 +43,8 @@ public final class MaidenAi {
         goals.addGoal(9, new RandomLookAroundGoal(m));
         targets.addGoal(1, new RetaliateGoal(m));
         targets.addGoal(2, new DefendEmployerGoal(m));
+        targets.addGoal(2, new RaidGoals.Targets(m));        // a raider's enemies
+        targets.addGoal(3, new RaidGoals.Defend(m));         // raiders, for her village's fighters
         targets.addGoal(3, new HuntMonstersGoal(m));
     }
 }

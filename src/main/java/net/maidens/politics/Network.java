@@ -47,6 +47,10 @@ public final class Network extends SavedData {
     /** Stances set by decisions: village -> (other village -> stance). Without one, a village's temperament holds. */
     private final Map<Long, Map<Long, Stance>> stances = new HashMap<>();
     private final Map<Long, ArrayDeque<String>> news = new HashMap<>();
+    /** Stances a player chose (the village's royal won't overrule them): "from:to". */
+    private final Set<String> decided = new HashSet<>();
+    /** The day an aggressive village may next raid another: "from:to" -> day. */
+    private final Map<String, Long> nextRaid = new HashMap<>();
     /** Chunks waiting to be checked (not saved: asked for again as needed). */
     private final ArrayDeque<Candidate> pending = new ArrayDeque<>();
     private final Set<Long> queued = new HashSet<>();
@@ -150,8 +154,35 @@ public final class Network extends SavedData {
         return s != null ? s : from.temperament;
     }
 
+    /** A player's decision: it stands until a player changes it. */
     void setStance(KnownVillage from, KnownVillage to, Stance s) {
         stances.computeIfAbsent(from.id, k -> new HashMap<>()).put(to.id, s);
+        decided.add(pair(from, to));
+        setDirty();
+    }
+
+    /** A royal's own decision: only where no player has decided. Returns whether it changed anything. */
+    public boolean setStanceByRoyal(KnownVillage from, KnownVillage to, Stance s) {
+        if (decided.contains(pair(from, to)) || stance(from, to) == s) return false;
+        stances.computeIfAbsent(from.id, k -> new HashMap<>()).put(to.id, s);
+        setDirty();
+        return true;
+    }
+
+    private static String pair(KnownVillage from, KnownVillage to) {
+        return from.id + ":" + to.id;
+    }
+
+    /** The day an aggressive village may next raid another (a few days after first meeting, or after its last raid). */
+    public long nextRaidDay(KnownVillage from, KnownVillage to, long today, net.minecraft.util.RandomSource r) {
+        return nextRaid.computeIfAbsent(pair(from, to), k -> {
+            setDirty();
+            return today + 1 + r.nextInt(3);
+        });
+    }
+
+    public void raided(KnownVillage from, KnownVillage to, long today, net.minecraft.util.RandomSource r) {
+        nextRaid.put(pair(from, to), today + 3 + r.nextInt(3));
         setDirty();
     }
 
@@ -185,6 +216,9 @@ public final class Network extends SavedData {
             for (String to : row.getAllKeys()) m.put(Long.parseLong(to), Stance.byId(row.getInt(to)));
             n.stances.put(Long.parseLong(from), m);
         }
+        for (Tag d : tag.getList("Decided", Tag.TAG_STRING)) n.decided.add(d.getAsString());
+        CompoundTag nr = tag.getCompound("NextRaid");
+        for (String k : nr.getAllKeys()) n.nextRaid.put(k, nr.getLong(k));
         CompoundTag nw = tag.getCompound("News");
         for (String k : nw.getAllKeys()) {
             ArrayDeque<String> q = new ArrayDeque<>();
@@ -207,6 +241,12 @@ public final class Network extends SavedData {
             st.put(Long.toString(from), row);
         });
         tag.put("Stances", st);
+        ListTag dec = new ListTag();
+        for (String d : decided) dec.add(StringTag.valueOf(d));
+        tag.put("Decided", dec);
+        CompoundTag nr = new CompoundTag();
+        nextRaid.forEach(nr::putLong);
+        tag.put("NextRaid", nr);
         CompoundTag nw = new CompoundTag();
         news.forEach((k, q) -> {
             ListTag lines = new ListTag();

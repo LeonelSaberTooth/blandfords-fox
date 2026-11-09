@@ -2,6 +2,9 @@ package net.maidens.village;
 
 import net.maidens.MaidensMod;
 import net.maidens.politics.Network;
+import net.maidens.politics.WarParties;
+import net.minecraft.world.effect.MobEffects;
+import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,6 +34,7 @@ public final class VillageEvents {
             villages.recordLoadedPieces(level);
             Upkeep.tick(level, villages);
             VillageConversion.sweep(level, villages);
+            WarParties.tick(level, villages);
             if (level.getGameTime() % 1200 == 0) Housing.tick(level, villages);
         }
     }
@@ -49,6 +53,18 @@ public final class VillageEvents {
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND || !level.getBlockState(event.getPos()).is(Blocks.BELL)) return;
         VillageRecord v = Villages.get(level).at(event.getPos());
         if (v != null) VillageMenu.show(level, v, p);
+    }
+
+    /** Beating a vanilla raid on a maiden village also earns the right to speak for it. */
+    @SubscribeEvent
+    public static void onHero(MobEffectEvent.Added event) {
+        if (!(event.getEntity() instanceof ServerPlayer p) || !event.getEffectInstance().is(MobEffects.HERO_OF_THE_VILLAGE)) return;
+        VillageRecord v = Villages.get(p.serverLevel()).at(p.blockPosition());
+        if (v == null || v.isDefender(p.getUUID())) return;
+        v.addDefender(p.getUUID());
+        Villages.get(p.serverLevel()).setDirty();
+        p.sendSystemMessage(net.minecraft.network.chat.Component.literal("You saved " + v.name + " from the raid! You may now speak for it in its dealings with other villages.")
+                .withStyle(net.minecraft.ChatFormatting.GOLD));
     }
 
     @SubscribeEvent

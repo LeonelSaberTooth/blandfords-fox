@@ -14,6 +14,9 @@
   Free beds bring new maidens (one a day). Citizens pick buildings from the bell (or `/village`).
 - Free village maidens keep a daily routine (work, evening at the bell, sleep in bed), post requests for items
   (paid in emeralds), and take up swords when their village is raided.
+- A maiden stuck far from a chore or her bed finds her own way there; new houses go where the residents live,
+  and only where a road can reach them.
+- Fix: half the maidens never started village chores or their routine.
 - Fix: a crash when a hired maiden started working (her work tasks were made before her job existed).
 
 ## 0.2.0

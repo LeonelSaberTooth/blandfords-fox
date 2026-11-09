@@ -4,6 +4,13 @@ The single source of truth for what the mod does and why. Every feature has its 
 every decision made along the way is recorded here. Numbers live in the config file (`config/maidens-common.toml`),
 not in code.
 
+## Notes for whoever works on this
+
+- Goals are only checked every other tick, offset per entity, so never gate a goal's `canUse` on
+  `tickCount % n` (half the mobs would never pass); use a countdown in the goal instead.
+- Mob goals are created in the `Mob` constructor, before the maiden's own fields exist: goals must look her
+  parts up when they run (`m.employment()`), never keep them from their constructor.
+
 ## Principles
 
 - **One system per package, one entry point per system.** A system talks to others through small, named methods,
@@ -100,6 +107,10 @@ Phase 3 (`Upkeep`, `Chore`, `VillageChoreGoal`):
 - A free village maiden (not hired, not married, not asleep) takes the lowest, then nearest, chore within
   80 blocks, carries the block (or a shovel) there and does it. The two halves of a door or bed go back together.
   Repairs cost nothing; cleared road obstacles drop as items. Chores aren't saved (the scan finds them again).
+- Reaching: within 3.5 blocks she works normally; if she can't get closer for 3 s but is within 8, she reaches
+  over; if she's stuck further away for 10 s (cliffs, rivers, paths too long to plan) she's put on a free spot
+  next to it. A maiden standing in the gap steps aside. Unreachable chores are retried after a minute.
+- Where a road's "keep clear" overlaps a block another piece wants, the block wins.
 
 Phase 4 (`Buildings`, `Housing`, `VillageMenu`, `/village`):
 - A village's buildings are read from its vanilla "houses" pool (`village/<style>/houses`), so they're exactly

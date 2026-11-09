@@ -93,6 +93,14 @@ public final class Buildings {
         return m.find() ? ResourceLocation.tryParse(m.group(1)) : null;
     }
 
+    /** The template a village piece was made from ("plains_small_house_1"), "road" for streets, or "". */
+    static String pieceName(net.minecraft.world.level.levelgen.structure.StructurePiece piece) {
+        if (!(piece instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece pe)) return "";
+        ResourceLocation t = templateOf(pe.getElement());
+        if (t == null) return "";
+        return t.getPath().contains("/streets/") ? "road" : shortName(t);
+    }
+
     /** "plains_small_house_1" for minecraft:village/plains/houses/plains_small_house_1. */
     public static String shortName(ResourceLocation template) {
         String p = template.getPath();
@@ -107,6 +115,36 @@ public final class Buildings {
     }
 
     private static final Map<ResourceLocation, Integer> BEDS = new HashMap<>();
+
+    /** A building's blocks at the origin, unrotated (for its picture). */
+    public static Plan preview(ServerLevel level, ResourceLocation template) {
+        return read(level, template, BlockPos.ZERO, Rotation.NONE);
+    }
+
+    /**
+     * Plans a building a citizen placed by hand: its corner at x, z (on the ground there), turned by rot, with a road
+     * to the village's roads. Returns why not, or null if it's going up.
+     */
+    @Nullable
+    public static String buildAt(ServerLevel level, VillageRecord v, ResourceLocation template, BlockPos corner, Rotation rot) {
+        if (!level.hasChunkAt(corner)) return "That land isn't loaded.";
+        StructureTemplate t = level.getStructureManager().getOrCreate(template);
+        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, corner.getX(), corner.getZ()) - 1;
+        BoundingBox fp = t.getBoundingBox(new StructurePlaceSettings().setRotation(rot), new BlockPos(corner.getX(), y, corner.getZ()));
+        if (!v.box.inflatedBy(40).intersects(fp)) return "That's too far from " + v.name + ".";
+        if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) return "That land isn't loaded.";
+        if (v.blueprint.overlaps(fp.inflatedBy(2))) return "Something's already there.";
+        int base = groundLevel(level, fp);
+        if (base == Integer.MIN_VALUE) return "The ground there is too steep or wet.";
+        Plan plan = withFoundation(level, read(level, template, new BlockPos(corner.getX(), base, corner.getZ()), rot));
+        Plan road = plan.door() == null ? null : road(level, v, plan);
+        if (road == null) return "There's no way to join a road to its door from there.";
+        v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template));
+        v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road");
+        v.project = shortName(template);
+        Villages.get(level).setDirty();
+        return null;
+    }
 
     /** How many beds a building has (to house maidens). Worked out once per building. */
     public static int beds(ServerLevel level, ResourceLocation template) {
@@ -128,8 +166,8 @@ public final class Buildings {
             Plan plan = withFoundation(level, read(level, template, site.origin(), site.rot()));
             Plan road = plan.door() == null ? null : road(level, v, plan);
             if (road == null) continue;
-            v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear());
-            v.blueprint.addBuilding(road.box(), road.blocks(), road.clear());
+            v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template));
+            v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road");
             v.project = shortName(template);
             Villages.get(level).setDirty();
             return plan;

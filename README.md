@@ -22,6 +22,10 @@ Download the `.jar` from the **Releases** section (the "latest" release) and put
   depending on her personality; she drops hints once she's fond of you). Married, she works for free for as long as you like
   and trades at half price. One spouse per player.
 
+- **Maiden villages**: some villages are maiden villages, with a crowned royal. They repair themselves, grow,
+  and get along (or not) with their neighbours: trade, neutrality, or war parties. Click the bell for the village
+  screen (map, building, diplomacy, news) and the world map.
+
 Testing commands (operators): `/maiden info` and `/maiden affection <0-100>` on the nearest maiden.
 
 ## Editing the model

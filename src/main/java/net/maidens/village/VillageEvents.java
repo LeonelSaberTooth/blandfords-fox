@@ -35,6 +35,7 @@ public final class VillageEvents {
             Upkeep.tick(level, villages);
             VillageConversion.sweep(level, villages);
             WarParties.tick(level, villages);
+            network.slowTick(level);
             if (level.getGameTime() % 1200 == 0) Housing.tick(level, villages);
         }
     }
@@ -52,7 +53,7 @@ public final class VillageEvents {
         if (!(event.getLevel() instanceof ServerLevel level) || !(event.getEntity() instanceof ServerPlayer p)) return;
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND || !level.getBlockState(event.getPos()).is(Blocks.BELL)) return;
         VillageRecord v = Villages.get(level).at(event.getPos());
-        if (v != null) VillageMenu.show(level, v, p);
+        if (v != null) VillageView.open(level, v, p);
     }
 
     /** Beating a vanilla raid on a maiden village also earns the right to speak for it. */

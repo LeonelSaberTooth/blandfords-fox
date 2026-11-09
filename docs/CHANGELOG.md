@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+- Royals: each maiden village has a crowned royal (not for hire) who leads it. Marry her, defend the village in a
+  raid, or be a citizen for 14 days to speak for the village yourself.
+- Villages know each other (all of them, from the seed) and treat each neighbour as a trading partner, neutral
+  or hostile; each starts out differently.
+- Hostile villages send war parties every few days while you're near: armed maidens in their village's colour
+  who break doors and steal from chests. Beaten ones surrender and run home.
+- Maidens build roads (with bridges and lantern posts) to friendly neighbours, a little each day.
+- The bell opens a village screen: a map of the village with who sleeps where, a Build tab with turning
+  pictures of each building (click the map to choose the spot), Diplomacy and News.
+- World map: a seed map of biomes with every village, its name and how it treats you, and the roads.
+
 ## 0.4.1
 - The marked chest looks exactly like a vanilla chest (block and item), with a gold lock.
 - Fix: a crash right after a maiden finished unloading at a marked chest.

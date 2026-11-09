@@ -51,6 +51,12 @@ public final class Network extends SavedData {
     private final Set<String> decided = new HashSet<>();
     /** The day an aggressive village may next raid another: "from:to" -> day. */
     private final Map<String, Long> nextRaid = new HashMap<>();
+    /** Roads between villages: "a:b" with a < b. */
+    private final Map<String, Road> roads = new HashMap<>();
+    /** Villages a player has been to (they have a record). */
+    private final Set<Long> visited = new HashSet<>();
+    private long lastDay = -1;
+
     /** Chunks waiting to be checked (not saved: asked for again as needed). */
     private final ArrayDeque<Candidate> pending = new ArrayDeque<>();
     private final Set<Long> queued = new HashSet<>();
@@ -119,6 +125,7 @@ public final class Network extends SavedData {
 
     /** Makes sure a visited village is known (in case it wasn't looked up yet). */
     public KnownVillage know(ServerLevel level, VillageRecord v) {
+        if (visited.add(v.id)) setDirty();
         return villages.computeIfAbsent(v.id, id -> {
             setDirty();
             checked.add(id);
@@ -186,6 +193,48 @@ public final class Network extends SavedData {
         setDirty();
     }
 
+    public boolean isVisited(long id) {
+        return visited.contains(id);
+    }
+
+    // ------------------------------------------------------------------ roads and the daily round
+
+    @Nullable
+    public Road road(KnownVillage x, KnownVillage y) {
+        return roads.get(roadKey(x.id, y.id));
+    }
+
+    Road addRoad(KnownVillage x, KnownVillage y) {
+        Road r = x.id < y.id ? new Road(x, y) : new Road(y, x);
+        roads.put(roadKey(x.id, y.id), r);
+        setDirty();
+        return r;
+    }
+
+    public Collection<Road> roads() {
+        return roads.values();
+    }
+
+    private static String roadKey(long x, long y) {
+        return Math.min(x, y) + ":" + Math.max(x, y);
+    }
+
+    /** Every 5 s (from the village events): roads get laid; once a day, the network's daily round. */
+    public void slowTick(ServerLevel level) {
+        long day = level.getDayTime() / 24000L;
+        if (day != lastDay) {
+            boolean first = lastDay < 0;
+            lastDay = day;
+            if (!first) Roads.daily(level, this);
+        }
+        Roads.tick(level, this);
+    }
+
+    /** For the self test: a day of road building now. */
+    public void buildRoadsForTest(ServerLevel level) {
+        Roads.daily(level, this);
+    }
+
     // ------------------------------------------------------------------ news
 
     public void news(ServerLevel level, long village, String text) {
@@ -217,6 +266,12 @@ public final class Network extends SavedData {
             n.stances.put(Long.parseLong(from), m);
         }
         for (Tag d : tag.getList("Decided", Tag.TAG_STRING)) n.decided.add(d.getAsString());
+        for (Tag rt : tag.getList("Roads", Tag.TAG_COMPOUND)) {
+            Road r = Road.load((CompoundTag) rt);
+            n.roads.put(roadKey(r.a, r.b), r);
+        }
+        for (long v : tag.getLongArray("Visited")) n.visited.add(v);
+        n.lastDay = tag.contains("LastDay") ? tag.getLong("LastDay") : -1;
         CompoundTag nr = tag.getCompound("NextRaid");
         for (String k : nr.getAllKeys()) n.nextRaid.put(k, nr.getLong(k));
         CompoundTag nw = tag.getCompound("News");
@@ -241,6 +296,11 @@ public final class Network extends SavedData {
             st.put(Long.toString(from), row);
         });
         tag.put("Stances", st);
+        ListTag rl = new ListTag();
+        for (Road r : roads.values()) rl.add(r.save());
+        tag.put("Roads", rl);
+        tag.put("Visited", new LongArrayTag(visited.stream().mapToLong(Long::longValue).toArray()));
+        tag.putLong("LastDay", lastDay);
         ListTag dec = new ListTag();
         for (String d : decided) dec.add(StringTag.valueOf(d));
         tag.put("Decided", dec);

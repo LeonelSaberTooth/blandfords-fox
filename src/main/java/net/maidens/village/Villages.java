@@ -55,7 +55,7 @@ public final class Villages extends SavedData {
         VillageRecord r = records.get(id);
         if (r == null) {
             Blueprint bp = new Blueprint();
-            for (StructurePiece piece : start.getPieces()) bp.addPiece(piece.getBoundingBox());
+            for (StructurePiece piece : start.getPieces()) bp.addPiece(piece.getBoundingBox(), Buildings.pieceName(piece));
             r = new VillageRecord(id, start.getBoundingBox(), bp);
             r.style = styleOf(level, start);
             records.put(id, r);

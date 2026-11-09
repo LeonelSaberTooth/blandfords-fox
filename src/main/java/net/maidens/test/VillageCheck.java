@@ -155,7 +155,10 @@ final class VillageCheck {
                 if (raidCheck(level, st)) next(t, () -> warRaid(level));
             }
             case 6 -> {
-                if (warCheck(level, st)) return true;
+                if (warCheck(level, st)) next(t, () -> view(level));
+            }
+            case 7 -> {
+                return true;
             }
             default -> {
                 return true;
@@ -458,6 +461,60 @@ final class VillageCheck {
             log.accept("  set stance: \"" + Diplomacy.setStance(level, v, tester, nb.get(0), Stance.AGGRESSIVE) + "\" -> now " + n.stance(self, nb.get(0)).label);
             log.accept("  news: " + n.news(v.id));
         }
+        // roads: three days of building
+        for (int d = 0; d < 3; d++) n.buildRoadsForTest(level);
+        for (int i = 0; i < 40; i++) n.slowTick(level);
+        for (net.maidens.politics.Road r : n.roads()) {
+            KnownVillage a = n.village(r.a), b = n.village(r.b);
+            log.accept("  road " + (a == null ? "?" : a.name) + " - " + (b == null ? "?" : b.name) + ": " + r.length() + " blocks, "
+                    + Math.round(r.progress() * 100) + "% built, " + r.laidCount() + " steps laid in loaded land");
+        }
+    }
+
+    /** The bell screen's data, the world map's picture, and building where a citizen clicks on the map. */
+    private void view(ServerLevel level) {
+        VillageRecord v = Villages.get(level).at(village);
+        if (v == null) for (VillageRecord r : Villages.get(level).all()) v = r;
+        if (v == null) return;
+        long start = System.nanoTime();
+        net.minecraft.nbt.CompoundTag t = net.maidens.village.VillageView.build(level, v, tester);
+        long ms = (System.nanoTime() - start) / 1_000_000;
+        int beds = 0;
+        for (net.minecraft.nbt.Tag e : t.getList("Residents", 10)) if (((net.minecraft.nbt.CompoundTag) e).contains("Bed")) beds++;
+        java.util.Set<String> named = new java.util.TreeSet<>();
+        for (net.minecraft.nbt.Tag e : t.getList("Pieces", 10)) named.add(((net.minecraft.nbt.CompoundTag) e).getString("Name"));
+        log.accept("view: built in " + ms + " ms, " + t.toString().length() / 1024 + " KB; map " + java.util.Arrays.toString(t.getIntArray("Map"))
+                + "; " + t.getList("Pieces", 10).size() + " pieces " + named + "; " + t.getList("Residents", 10).size() + " residents, " + beds
+                + " with a bed; " + t.getList("Templates", 10).size() + " buildings to choose from; " + t.getList("Neighbours", 10).size()
+                + " neighbours; royal \"" + t.getString("Royal") + "\", citizen " + t.getBoolean("Citizen") + ", right \"" + t.getString("Right") + "\"");
+        start = System.nanoTime();
+        byte[] pic = net.maidens.politics.WorldMap.pictureForTest(level, v.centre().getX(), v.centre().getZ());
+        java.util.Set<Byte> colours = new java.util.HashSet<>();
+        for (byte b : pic) colours.add(b);
+        log.accept("  world map picture: " + (System.nanoTime() - start) / 1_000_000 + " ms, " + colours.size() + " biome colours");
+        // building where clicked: on the bell (refused), then around the village until a spot is taken
+        String first = t.getList("Templates", 10).isEmpty() ? "?" : t.getList("Templates", 10).getCompound(0).getString("Name");
+        log.accept("  build " + first + " on the bell: \"" + net.maidens.village.VillageMenu.buildAt(level, v, tester, first, v.centre(), net.minecraft.world.level.block.Rotation.NONE) + "\"");
+        if (v.blueprint.isBuilding()) {
+            log.accept("  (still building " + v.project + ", can't try a free spot)");
+            return;
+        }
+        int tries = 0;
+        String last = "";
+        outer:
+        for (int r = 14; r <= 44; r += 6)
+            for (int a = 0; a < 8; a++) {
+                double ang = a * Math.PI / 4;
+                BlockPos c = v.centre().offset((int) (Math.cos(ang) * (v.box.getXSpan() / 2.0 + r)), 0, (int) (Math.sin(ang) * (v.box.getZSpan() / 2.0 + r)));
+                tries++;
+                String why = net.maidens.village.VillageMenu.buildAt(level, v, tester, first, c, net.minecraft.world.level.block.Rotation.values()[a % 4]);
+                if (why.startsWith("The maidens will build")) {
+                    log.accept("  clicked spot " + c.toShortString() + " after " + tries + " tries: \"" + why + "\", project " + v.project + ", building " + v.blueprint.isBuilding());
+                    break outer;
+                }
+                last = why;
+            }
+        if (!v.blueprint.isBuilding()) log.accept("  no spot found in " + tries + " tries, last: \"" + last + "\"");
     }
 
     private void breakAs(ServerLevel level, BlockPos p) {

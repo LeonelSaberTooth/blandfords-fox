@@ -20,6 +20,12 @@ public final class Network {
             // only touches client classes on the client
             if (FMLEnvironment.dist.isClient()) net.maidens.client.ClientAccess.openMenu(menu);
         }));
+        registrar.playToClient(VillageViewPayload.TYPE, VillageViewPayload.STREAM_CODEC, (view, ctx) -> ctx.enqueueWork(() -> {
+            if (FMLEnvironment.dist.isClient()) net.maidens.client.ClientAccess.villageView(view);
+        }));
+        registrar.playToServer(VillageActionPayload.TYPE, VillageActionPayload.STREAM_CODEC, (action, ctx) -> ctx.enqueueWork(() -> {
+            if (ctx.player() instanceof ServerPlayer player) net.maidens.village.VillageView.handle(player, action);
+        }));
         registrar.playToServer(ActionPayload.TYPE, ActionPayload.STREAM_CODEC, (action, ctx) -> ctx.enqueueWork(() -> {
             if (ctx.player() instanceof ServerPlayer player
                     && player.level().getEntity(action.entityId()) instanceof Maiden maiden) {

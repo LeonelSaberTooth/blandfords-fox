@@ -145,7 +145,39 @@ public final class ClientSelfTest {
             pl.teleportTo(server.overworld(), pl.getX() - 20, pl.getY() + 20, pl.getZ() - 20, -45, 35);
         });
         if (t == 760) shot(mc, "village_wide");
-        if (t == 770) mc.stop();
+        // the bell screen of that village (as a citizen who defended it), then the world map
+        if (t == 762) {
+            mc.options.hideGui = false;
+            Path f = mc.gameDirectory.toPath().resolve("village.txt");
+            BlockPos near = null;
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                near = new BlockPos(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2]));
+            }
+            BlockPos at = near;
+            server.execute(() -> {
+                ServerLevel level = server.overworld();
+                net.maidens.village.Villages all = net.maidens.village.Villages.get(level);
+                net.maidens.village.VillageRecord v = at == null ? null : all.at(at);
+                if (v == null) for (net.maidens.village.VillageRecord r : all.all()) if (v == null) v = r;
+                if (v == null) {
+                    LOG.info("[clienttest] no village for the village screen");
+                    return;
+                }
+                ServerPlayer pl = player(server);
+                net.maidens.village.VillageSocial.makeCitizen(level, v, pl);
+                v.addDefender(pl.getUUID());
+                net.maidens.village.VillageView.open(level, v, pl);
+            });
+        }
+        if (t == 840) shot(mc, "village_screen");
+        if (t == 842 && mc.screen instanceof net.maidens.client.village.VillageScreen s) s.showTab(1);
+        if (t == 850) shot(mc, "village_diplomacy");
+        if (t == 852 && mc.screen instanceof net.maidens.client.village.VillageScreen s) s.openWorldMap();
+        if (t == 1000) shot(mc, "world_map");
+        if (t == 1002 && mc.screen instanceof net.maidens.client.village.WorldMapScreen w) w.selectForTest();
+        if (t == 1010) shot(mc, "world_map_village");
+        if (t == 1020) mc.stop();
     }
 
     private static void bag(Maiden m, net.minecraft.world.item.Item... items) {

@@ -8,6 +8,7 @@ import net.maidens.politics.Network;
 import net.maidens.politics.Stance;
 import net.maidens.village.Buildings;
 import net.maidens.village.VillageMenu;
+import net.maidens.village.VillageView;
 import net.maidens.village.VillageRecord;
 import net.maidens.village.Villages;
 import net.minecraft.commands.CommandSourceStack;
@@ -30,9 +31,16 @@ public final class VillageCommand {
                     ServerPlayer p = c.getSource().getPlayerOrException();
                     VillageRecord v = Villages.get(p.serverLevel()).at(p.blockPosition());
                     if (v == null) return none(c.getSource());
-                    VillageMenu.show(p.serverLevel(), v, p);
+                    VillageView.open(p.serverLevel(), v, p);
                     return 1;
                 })
+                .then(Commands.literal("chat").executes(c -> {
+                    ServerPlayer p = c.getSource().getPlayerOrException();
+                    VillageRecord v = Villages.get(p.serverLevel()).at(p.blockPosition());
+                    if (v == null) return none(c.getSource());
+                    VillageMenu.show(p.serverLevel(), v, p);
+                    return 1;
+                }))
                 .then(Commands.literal("stance").then(Commands.argument("village", StringArgumentType.word())
                         .then(Commands.argument("stance", StringArgumentType.word())
                                 .suggests((c, b) -> SharedSuggestionProvider.suggest(new String[]{"trade", "neutral", "aggressive"}, b))

@@ -49,8 +49,12 @@ not in code.
 | `maiden.home` | `Residence` (her village, claimed bed and workstation, profession), `Schedule` (her day) |
 | `maiden.ai` | `MaidenAi` (every goal, in priority order) and the goals themselves |
 | `village` | `Villages` (saved list of maiden villages, the per-village coin flip), `VillageRecord` (name, area, citizens, trades), `Blueprint` (how the village looked), `VillageConversion` (villager to maiden swap), `VillageSocial` (gossip, anger, citizenship, greetings), `VillageEvents` (block break/place, bell, the village tick), `Upkeep` + `Chore` (repairs, road clearing, building work), `Buildings` (vanilla buildings by style, sites, roads), `Housing` (houses for the bedless, newcomers), `VillageMenu` (the bell/`/village` chat menu) |
-| `network` | `MenuPayload` (server to client), `ActionPayload` (client to server), `Network` |
-| `client` | model, armor model, renderers (maiden, bobber, marked chest), menu screen, client test |
+| `village` (also) | `Royals` (who leads each village), `VillageView` (the bell screen's data and what's done on it) |
+| `politics` | `Network` (saved: every village found from the seed, stances, news, raid timers, roads), `KnownVillage`, `Stance`, `Diplomacy` (who may decide, changing a stance), `WarParties` (raids by hostile villages), `Road` + `Roads` (roads maidens lay between villages), `WorldMap` + `BiomeColours` (the seed-map picture) |
+| `maiden.war` | `Raider` (a maiden on a raid), `RaidGoals` (advance and steal, flee, targets, defend) |
+| `network` | `MenuPayload` (server to client), `ActionPayload` (client to server), `VillageViewPayload` (village screen, a building's blocks, the world map), `VillageActionPayload` (what's done on those screens), `Network` |
+| `client` | model, armor model, crown, renderers (maiden, bobber, marked chest), menu screen, client test |
+| `client.village` | `VillageScreen` (bell screen), `WorldMapScreen`, `TemplateCache` + `IsoRenderer` (building pictures), `Ui` |
 | `command` | `/maiden` test commands (operators), `/village` (everyone) |
 | `test` | the automatic game test |
 
@@ -194,6 +198,33 @@ Ideas accepted: village name and greeting title; daily schedule (work, evening a
 and marriage override it); gossip (`gossipSharePercent` of a change spreads to the village); requests board;
 prices follow affection (done); maidens defend in raids.
 
+## Politics (0.5.0)
+
+Rules:
+1. **Royals.** Each maiden village has `Royals.PER_VILLAGE` royals (1 for now; a number, not hard-coded): a free
+   resident is crowned when there's none. Royals wear a crown, can't be hired, skip chores, can be married.
+2. **Who may decide** a village's stances (`Diplomacy.rightToDecide`): someone married to its royal, someone who
+   defended it in a raid (Hero of the Village there, or beat back a war party), or a citizen of 14+ days.
+3. **The network** (`politics.Network`): every village is found from the world seed (structure placement, no
+   chunk loading), a few spots per tick, around maiden villages and wherever the world map is opened. All are
+   shown, visited or not.
+4. **Stances** are per neighbour (villages within 1500 blocks): trading, neutral or aggressive. Each village gets
+   a temperament at random (seeded) that decides its starting stances. Its royal may turn hostile towards a
+   village whose raid was beaten back. Players with the right change their village's side.
+5. **Raids** (`WarParties`): a village aggressive towards a neighbour sends a war party every 3-5 days, only while
+   a player is within 128 blocks of the target. 3-5 armed maidens in their village's colour appear at the edge
+   facing the attacker, walk to the bell, break doors, steal from chests (2 stacks each, up to 4). Beaten ones
+   (30% health) surrender, drop their swords and run home. Residents are never killed by raiders (kept at 2 hp).
+6. **Roads** (`Roads`): to each village's 2 nearest non-hostile neighbours. Maidens lay 48 steps a day from each
+   end, only in loaded land: a 3-wide path on the ground, plank bridges over water, a lantern post every 32.
+7. **Bell screen** (`VillageView` + `VillageScreen`): a map of the village (buildings outlined; hover shows who
+   sleeps there; beds marked with names); tabs Build (a card per building with a turning isometric picture; pick
+   one, click the map, right-click/R turns it), Diplomacy (each neighbour, both stances, buttons for those with
+   the right), News. `/village chat` keeps the old chat menu.
+8. **World map** (`WorldMap` + `WorldMapScreen`): 2048 x 2048 blocks of biome colours from the seed (worked out
+   off the main thread, cached), every village with its name and stance towards you, roads (built solid,
+   planned faint). Drag to move, scroll to zoom; click a village for details and stance buttons.
+
 ## Phases
 
 0. Reorganize into systems, design doc, config. (done in 0.2.0)
@@ -202,3 +233,4 @@ prices follow affection (done); maidens defend in raids.
 3. Repairs and road clearing. (done in 0.3.0)
 4. Housing: new houses, roads to them, the bell menu, new maidens arriving. (done in 0.3.0)
 5. Daily schedule, requests board, raid defence. (done in 0.3.0)
+6. Politics: royals, the village network, stances, raids, roads, bell screen, world map. (done in 0.5.0)

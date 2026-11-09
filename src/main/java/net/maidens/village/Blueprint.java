@@ -44,6 +44,8 @@ public final class Blueprint {
 
     private static final class Piece {
         final BoundingBox box;
+        /** What it is: a building's template name ("plains_small_house_1"), "road", or "" if unknown. */
+        String name = "";
         @Nullable int[] cells;
         boolean building;
         /** During a scan of a building: whether anything still needed doing. */
@@ -88,15 +90,17 @@ public final class Blueprint {
         return list == null ? List.of() : list;
     }
 
-    void addPiece(BoundingBox box) {
+    void addPiece(BoundingBox box, String name) {
         Piece p = new Piece(box);
+        p.name = name;
         pieces.add(p);
         index(p);
     }
 
     /** A new building: blocks to place, and spots to keep clear (everything else in the box is left alone). */
-    void addBuilding(BoundingBox box, Map<BlockPos, BlockState> blocks, Iterable<BlockPos> clear) {
+    void addBuilding(BoundingBox box, Map<BlockPos, BlockState> blocks, Iterable<BlockPos> clear, String name) {
         Piece p = new Piece(box);
+        p.name = name;
         p.cells = new int[p.size()];
         p.building = true;
         for (BlockPos c : clear) if (box.isInside(c)) p.cells[p.index(c)] = KEEP_CLEAR;
@@ -227,6 +231,15 @@ public final class Blueprint {
         }
     }
 
+    /** A piece as the village map shows it. */
+    public record PieceInfo(BoundingBox box, String name, boolean building) {}
+
+    public List<PieceInfo> pieces() {
+        List<PieceInfo> out = new ArrayList<>();
+        for (Piece p : pieces) out.add(new PieceInfo(p.box, p.name, p.building));
+        return out;
+    }
+
     public int recordedPieces() {
         int n = 0;
         for (Piece p : pieces) if (p.cells != null) n++;
@@ -256,6 +269,7 @@ public final class Blueprint {
             pt.putIntArray("Box", new int[]{p.box.minX(), p.box.minY(), p.box.minZ(), p.box.maxX(), p.box.maxY(), p.box.maxZ()});
             if (p.cells != null) pt.putIntArray("Cells", p.cells);
             if (p.building) pt.putBoolean("Building", true);
+            if (!p.name.isEmpty()) pt.putString("Name", p.name);
             list.add(pt);
         }
         t.put("Pieces", list);
@@ -283,6 +297,7 @@ public final class Blueprint {
                 if (cells.length == p.size()) p.cells = cells;
             }
             p.building = p.cells != null && pt.getBoolean("Building");
+            p.name = pt.getString("Name");
             bp.pieces.add(p);
             bp.index(p);
         }

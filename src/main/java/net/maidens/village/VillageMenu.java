@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -90,6 +91,16 @@ public final class VillageMenu {
         Buildings.Plan plan = Buildings.build(level, v, t, p.blockPosition());
         if (plan == null) return "There's no flat, free spot for that near here. Try somewhere else.";
         return "The maidens will build a " + Buildings.displayName(t, v.style) + " at " + plan.box().getCenter().toShortString() + ".";
+    }
+
+    /** A citizen placed a building on the village screen. Returns what to tell them. */
+    public static String buildAt(ServerLevel level, VillageRecord v, ServerPlayer p, String shortName, BlockPos corner, net.minecraft.world.level.block.Rotation rot) {
+        if (!v.isCitizen(p.getUUID())) return "Only citizens of " + v.name + " can choose what gets built.";
+        if (v.blueprint.isBuilding()) return "The maidens are still busy with the last building.";
+        ResourceLocation t = templateNamed(level, v, shortName);
+        if (t == null) return "There's no building called " + shortName + " in " + v.name + ".";
+        String why = Buildings.buildAt(level, v, t, corner, rot);
+        return why != null ? why : "The maidens will build a " + Buildings.displayName(t, v.style) + " there.";
     }
 
     static ResourceLocation templateNamed(ServerLevel level, VillageRecord v, String shortName) {

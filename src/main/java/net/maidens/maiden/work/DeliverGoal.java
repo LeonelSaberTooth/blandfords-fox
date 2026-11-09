@@ -48,6 +48,8 @@ public final class DeliverGoal extends Goal {
             if (--closeLid == 0 && e.lastChest != null) level.blockEvent(e.lastChest, level.getBlockState(e.lastChest).getBlock(), 1, 0);
             return;
         }
+        // done (the goal can be ticked once more before it notices it's finished)
+        if (e.deliverTo == null) return;
         ticks++;
         if (!(level.getBlockEntity(e.deliverTo) instanceof MarkedChestBlockEntity chest)) {
             // the chest is gone: look for another one, or give up on it

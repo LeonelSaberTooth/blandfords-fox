@@ -33,7 +33,7 @@ public final class Walls {
     public static final String NAME = "walls";
     /** How far the walls stand from the buildings. */
     static final int DISTANCE = 9;
-    private static final int ROUNDING = 8, MARGIN = DISTANCE + ROUNDING + 6, HEIGHT = 5, TOWER_EVERY = 28, GATE_HALF = 2, SEGMENT = 8;
+    private static final int ROUNDING = 16, MARGIN = DISTANCE + ROUNDING + 6, HEIGHT = 5, TOWER_EVERY = 28, GATE_HALF = 2, SEGMENT = 8;
     private static final int INF = Integer.MAX_VALUE / 4;
 
     private Walls() {}

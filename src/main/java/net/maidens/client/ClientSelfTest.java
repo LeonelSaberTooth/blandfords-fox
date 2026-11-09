@@ -197,6 +197,7 @@ public final class ClientSelfTest {
             bag(line.get(5), Items.IRON_SWORD, Items.SHIELD, Items.IRON_HELMET, Items.IRON_CHESTPLATE);
             line.get(5).employment().hireForTest(net.maidens.maiden.work.Job.GUARD, null);
             line.get(4).setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_HOE));
+            line.get(0).setRoyal(true);
             bag(line.get(3), Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE);
             bag(line.get(2), Items.GOLDEN_CHESTPLATE);
             bag(line.get(1), Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE);

@@ -663,6 +663,22 @@ final class VillageCheck {
             net.maidens.village.People.jobs(level, v, rs);
             log.accept("economy: jobs " + net.maidens.village.People.lastJobs);
         }
+        // the work spots, and a worker for each job if the village has nobody free (a small test village)
+        net.minecraft.util.RandomSource r = level.getRandom();
+        BlockPos[] spots = {net.maidens.village.WorkSites.forest(level, v, r), net.maidens.village.WorkSites.mine(level, v, r), net.maidens.village.WorkSites.water(level, v, r)};
+        net.maidens.maiden.work.Job[] jobs = {net.maidens.maiden.work.Job.WOOD, net.maidens.maiden.work.Job.MINE, net.maidens.maiden.work.Job.FISH};
+        log.accept("  spots: wood " + spots[0] + ", mine " + spots[1] + ", water " + spots[2] + " (bell " + v.bell() + ")");
+        for (int i = 0; i < 3; i++) {
+            net.maidens.maiden.work.Job j = jobs[i];
+            if (spots[i] == null || rs.stream().anyMatch(m -> m.employment().forVillage() && m.employment().job() == j)) continue;
+            for (Maiden m : rs) {
+                if (m.isBaby() || m.isRoyal() || m.employment().isWorking() || !m.residence().inVillage()) continue;
+                if (m.isGuard()) m.setGuard(false);
+                m.employment().startForVillage(j, spots[i], net.maidens.village.WorkSites.away(v, spots[i]));
+                log.accept("  (test) " + m.name() + " made a " + j.button.toLowerCase());
+                break;
+            }
+        }
         storeBefore = new java.util.TreeMap<>(v.store);
         log.accept("  store at the start: " + v.store + "; food " + net.maidens.village.Economy.food(v));
     }

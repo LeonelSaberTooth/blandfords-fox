@@ -18,6 +18,9 @@ import net.minecraft.util.Mth;
 public class MaidenModel extends HumanoidModel<Maiden> {
     public static final ModelLayerLocation LAYER =
             new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "maiden"), "main");
+    /** Her body at home in casual clothes (thinner legs, a little apart): {@link MaidenCasualGeometry}. */
+    public static final ModelLayerLocation CASUAL =
+            new ModelLayerLocation(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "maiden"), "casual");
 
     private static final float LEG = 24.0F * Mth.DEG_TO_RAD, ARM = 17.0F * Mth.DEG_TO_RAD;
     /** Steps per distance walked, relative to vanilla (smaller steps need a few more of them). */

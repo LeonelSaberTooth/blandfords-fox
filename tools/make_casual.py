@@ -9,7 +9,7 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEX = os.path.join(ROOT, 'src', 'main', 'resources', 'assets', 'maidens', 'textures', 'entity', 'maiden')
-J = json.load(open(os.path.join(ROOT, 'art', 'maiden.bbmodel')))
+J = json.load(open(os.path.join(ROOT, 'art', 'maiden_casual.bbmodel')))
 OWN = ('head', 'neck', 'head_layer')   # parts taken whole from each maiden's own skin
 
 def regions(names):

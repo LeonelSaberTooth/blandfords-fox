@@ -26,12 +26,23 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
         return out;
     }
 
+    /** Her usual body, and her body at home in casual clothes. */
+    private final MaidenModel usual, casual;
+
     public MaidenRenderer(EntityRendererProvider.Context context) {
         super(context, new MaidenModel(context.bakeLayer(MaidenModel.LAYER)), 0.45F);
+        usual = model;
+        casual = new MaidenModel(context.bakeLayer(MaidenModel.CASUAL));
         addLayer(new HumanoidArmorLayer<>(this, new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.INNER)),
                 new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.OUTER)), context.getModelManager()));
         addLayer(new CrownLayer(this, context.getModelSet()));
         addLayer(new JobHatLayer(this, context.getModelSet()));
+    }
+
+    @Override
+    public void render(Maiden maiden, float yaw, float partialTick, PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light) {
+        model = maiden.isCasual() && !maiden.isBaby() ? casual : usual;
+        super.render(maiden, yaw, partialTick, pose, buffers, light);
     }
 
     /** Her name only shows in her menu, never above her head. */

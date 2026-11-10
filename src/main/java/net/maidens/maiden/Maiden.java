@@ -617,6 +617,7 @@ public class Maiden extends AbstractVillager {
         }
         if (!hat.equals(entityData.get(HAT))) entityData.set(HAT, hat);
         boolean casual = kind() == Kind.WOMAN && !isBaby() && !employment.isWorking() && getTarget() == null
+                && getItemBySlot(EquipmentSlot.CHEST).isEmpty() && getItemBySlot(EquipmentSlot.LEGS).isEmpty() && getItemBySlot(EquipmentSlot.FEET).isEmpty()
                 && !level().canSeeSky(blockPosition().above()) && level().getBrightness(net.minecraft.world.level.LightLayer.SKY, blockPosition().above()) < 14
                 && blockPosition().getY() > level().getSeaLevel() - 8;
         if (casual != isCasual()) entityData.set(CASUAL, casual);

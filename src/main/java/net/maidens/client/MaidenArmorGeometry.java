@@ -54,15 +54,10 @@ public final class MaidenArmorGeometry {
         leftArm.addOrReplaceChild("left_sleeve", CubeListBuilder.create()
                 .texOffs(40, 16).mirror().addBox(-1F, 0F, -2F, 4F, 12F, 4F, d),
                 PartPose.offsetAndRotation(-1F, -1F, 0F, 0F, 0F, -0.08727F));
-        // her legs are 3 wide, a little apart and splayed 4 degrees: the armor leg sits centred on each, splayed alike
-        PartDefinition rightLeg = root.addOrReplaceChild("right_leg", CubeListBuilder.create(), pose(MaidenGeometry.RIGHT_LEG));
-        rightLeg.addOrReplaceChild("right_legging", CubeListBuilder.create()
-                .texOffs(0, 16).addBox(-2.5F, legDrop, -2.5F, 4F, 12F, 4F, d),
-                PartPose.offsetAndRotation(0F, 0F, 0.5F, 0F, 0F, -0.06981F));
-        PartDefinition leftLeg = root.addOrReplaceChild("left_leg", CubeListBuilder.create(), pose(MaidenGeometry.LEFT_LEG));
-        leftLeg.addOrReplaceChild("left_legging", CubeListBuilder.create()
-                .texOffs(0, 16).mirror().addBox(-1.5F, legDrop, -2.5F, 4F, 12F, 4F, d),
-                PartPose.offsetAndRotation(0F, 0F, 0.5F, 0F, 0F, 0.06981F));
+        root.addOrReplaceChild("right_leg", CubeListBuilder.create()
+                .texOffs(0, 16).addBox(-2F, legDrop, -2F, 4F, 12F, 4F, d), pose(MaidenGeometry.RIGHT_LEG));
+        root.addOrReplaceChild("left_leg", CubeListBuilder.create()
+                .texOffs(0, 16).mirror().addBox(-2F, legDrop, -2F, 4F, 12F, 4F, d), pose(MaidenGeometry.LEFT_LEG));
         return LayerDefinition.create(mesh, 64, 32);
     }
 

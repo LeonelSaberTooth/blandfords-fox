@@ -53,6 +53,8 @@ public final class Employment {
     @Nullable BlockPos deliverTo;
     boolean resumeAfterDelivery;
     @Nullable BlockPos lastChest;
+    /** A job for her own village (given by it, not hired): she works in work hours and brings it all to the village. */
+    boolean forVillage;
     /** The job is ending (shift over, or she had to give up): a miner first climbs back out. */
     boolean wrappingUp;
     String wrapUpMessage = "";
@@ -75,6 +77,30 @@ public final class Employment {
 
     public boolean isWorking() {
         return job != Job.NONE;
+    }
+
+    /** Hired by a player (not working for her village). */
+    public boolean isHired() {
+        return job != Job.NONE && !forVillage;
+    }
+
+    public boolean forVillage() {
+        return forVillage;
+    }
+
+    /** At work right now: hired, or her village's work during work hours. */
+    public boolean busyNow() {
+        return isHired() || forVillage && net.maidens.maiden.home.Schedule.now(m) == net.maidens.maiden.home.Schedule.Activity.WORK;
+    }
+
+    /** Her village gives her a job: where, and which way (a miner digs that way). */
+    public void startForVillage(Job j, BlockPos at, Direction dir) {
+        employer = null;
+        employerName = "";
+        start(j, dir);
+        workPos = at;
+        forVillage = true;
+        shiftLeft = -1;
     }
 
     @Nullable
@@ -122,7 +148,10 @@ public final class Employment {
         if (job != Job.NONE && shiftLeft > 0 && --shiftLeft == 0) finish("My shift's over!");
         if (m.tickCount % 20 == 0) {
             if (job == Job.GUARD && m.getTarget() == null) equip(Job.GUARD);
-            dress();
+            if (isHired() || !m.isGuard()) dress();       // (a village guard keeps her own helmet)
+            // her village's work done for the day: what she gathered goes to its store
+            if (forVillage && m.tickCount % 100 == 0 && deliverTo == null && !busyNow() && hasDeliverables()
+                    && !(job == Job.MINE && workPos != null && m.getY() < workPos.getY() - 2)) Delivery.start(this, true);
         }
     }
 
@@ -201,6 +230,11 @@ public final class Employment {
             ContainerHelper.clearOrCountMatchingItems(p.getInventory(), s -> s.is(Items.EMERALD), rent, false);
         }
         if (!mine) shiftLeft = wife ? -1 : MaidensConfig.SHIFT_TICKS.get();
+        if (forVillage) {
+            // what she gathered for her village stays with it
+            net.maidens.village.VillageRecord v = net.maidens.village.VillageSocial.villageOf(m);
+            if (v != null) Delivery.unloadToVillage(this, v);
+        }
         employer = p.getUUID();
         employerName = n;
         lastEmployer = p.getUUID();
@@ -243,6 +277,7 @@ public final class Employment {
 
     void start(Job newJob, Direction facing) {
         job = newJob;
+        forVillage = false;
         workPos = m.blockPosition();      // she works around where you hired her
         workDir = facing.getAxis().isHorizontal() ? facing : Direction.NORTH;
         mineStep = 0;
@@ -358,6 +393,7 @@ public final class Employment {
         if (deliverTo != null) tag.putLong("DeliverTo", deliverTo.asLong());
         tag.putBoolean("Resume", resumeAfterDelivery);
         tag.putBoolean("WrappingUp", wrappingUp);
+        tag.putBoolean("ForVillage", forVillage);
         tag.putString("WrapUpMessage", wrapUpMessage);
     }
 
@@ -376,6 +412,7 @@ public final class Employment {
         deliverTo = tag.contains("DeliverTo") ? BlockPos.of(tag.getLong("DeliverTo")) : null;
         resumeAfterDelivery = tag.getBoolean("Resume");
         wrappingUp = tag.getBoolean("WrappingUp");
+        forVillage = tag.getBoolean("ForVillage");
         wrapUpMessage = tag.getString("WrapUpMessage");
     }
 }

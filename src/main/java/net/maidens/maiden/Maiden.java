@@ -340,7 +340,7 @@ public class Maiden extends AbstractVillager {
 
     /** A village maiden nobody has claimed: not hired and not married. Only she does village chores and routine. */
     public boolean hasVillageDuties() {
-        return residence.inVillage() && !employment.isWorking() && !relationships.isMarried() && !isBaby() && !raider.active();
+        return residence.inVillage() && !employment.isHired() && !relationships.isMarried() && !isBaby() && !raider.active();
     }
 
     /** Fights monsters: a hired guard, or a village maiden defending her village in a raid. */
@@ -365,7 +365,7 @@ public class Maiden extends AbstractVillager {
                 && (WarParties.raidOn(residence.village()) || sl.getRaidAt(blockPosition()) != null && sl.getRaidAt(blockPosition()).isActive());
         if (raid == defending) return;
         defending = raid;
-        if (employment.isWorking()) return;
+        if (employment.isHired()) return;
         if (raid) {
             if (isSleeping()) stopSleeping();
             if (getMainHandItem().isEmpty()) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
@@ -638,14 +638,14 @@ public class Maiden extends AbstractVillager {
     private void updateLooks() {
         String hat = "";
         if (!isBaby() && !isRoyal()) {
-            if (employment.isWorking()) hat = employment.job().hat;
+            if (employment.busyNow()) hat = employment.job().hat;
             else if (hasVillageDuties() && net.maidens.maiden.home.Schedule.now(this) == net.maidens.maiden.home.Schedule.Activity.WORK
                     && residence.jobSite() != null && residence.profession() != null && distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(residence.jobSite())) < 10 * 10) {
                 hat = net.minecraft.core.registries.BuiltInRegistries.VILLAGER_PROFESSION.getKey(residence.profession()).getPath();
             }
         }
         if (!hat.equals(entityData.get(HAT))) entityData.set(HAT, hat);
-        boolean casual = kind() == Kind.WOMAN && !isBaby() && !employment.isWorking() && getTarget() == null
+        boolean casual = kind() == Kind.WOMAN && !isBaby() && !employment.busyNow() && getTarget() == null
                 && getItemBySlot(EquipmentSlot.CHEST).isEmpty() && getItemBySlot(EquipmentSlot.LEGS).isEmpty() && getItemBySlot(EquipmentSlot.FEET).isEmpty()
                 && !level().canSeeSky(blockPosition().above()) && level().getBrightness(net.minecraft.world.level.LightLayer.SKY, blockPosition().above()) < 14
                 && blockPosition().getY() > level().getSeaLevel() - 8;

@@ -24,7 +24,7 @@ import java.util.Optional;
  * </ul>
  */
 public final class Housing {
-    private static final int MAX_RESIDENTS = 40, DAY = 24000, SETTLE_TICKS = 1200;
+    private static final int MAX_RESIDENTS = 60, DAY = 24000, SETTLE_TICKS = 1200;
 
     private Housing() {}
 
@@ -38,6 +38,7 @@ public final class Housing {
             if (residents.isEmpty()) continue;
             Royals.tick(level, v, residents);
             People.tick(level, v, residents);
+            Economy.tick(level, v, residents);
             // its neighbours, looked up from the seed a few at a time
             Network network = Network.get(level);
             network.know(level, v);
@@ -46,8 +47,14 @@ public final class Housing {
             for (Maiden m : residents) if (m.residence().bed() == null && m.tickCount > SETTLE_TICKS) bedless++;
             if (bedless > 0) {
                 if (MaidensConfig.HOUSING.get() && !v.blueprint.isBuilding()) houseFor(level, v);
-            } else if (residents.size() < MAX_RESIDENTS && level.getGameTime() - v.lastArrival >= DAY) {
-                arrive(level, v);
+            } else if (residents.size() < MAX_RESIDENTS && level.getGameTime() - v.lastArrival >= DAY && Economy.food(v) >= Economy.NEWCOMER_FOOD) {
+                // someone new moves in if there's food to spare: into a free bed, or (with no bed free) the village
+                // builds a house for her, if it has the logs and stone
+                if (arrive(level, v) != null) v.take(Economy.FOOD, Economy.NEWCOMER_FOOD);
+                else if (MaidensConfig.HOUSING.get() && !v.blueprint.isBuilding() && Economy.canBuildHouse(v) && houseFor(level, v) != null) {
+                    Economy.payForHouse(v);
+                    network.news(level, v.id, v.name + " is growing: a new house is going up.");
+                }
             }
         }
     }

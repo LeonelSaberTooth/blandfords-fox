@@ -39,7 +39,7 @@ final class VillageChoreGoal extends Goal {
     public boolean canUse() {
         if (--cooldown > 0) return false;
         cooldown = 10;     // (goals are only checked every other tick, so not tickCount % n)
-        if (!m.hasVillageDuties() || m.isRoyal() || m.isGuard() || !m.isFree() || m.isSleeping() || !choreTime(m)) return false;
+        if (!m.hasVillageDuties() || m.employment().busyNow() || m.isRoyal() || m.isGuard() || !m.isFree() || m.isSleeping() || !choreTime(m)) return false;
         chore = Upkeep.take(m);
         return chore != null;
     }
@@ -105,7 +105,7 @@ final class VillageChoreGoal extends Goal {
         if (chore != null) Upkeep.giveBack(chore, ticks >= GIVE_UP || noPath >= 6, m.level().getGameTime());
         chore = null;
         m.getNavigation().stop();
-        if (!m.employment().isWorking()) m.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+        if (!m.employment().isWorking() && !m.isGuard()) m.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
     }
 
     /** Chores are for the working day and the evening at the bell, not when she should be at home or asleep. */

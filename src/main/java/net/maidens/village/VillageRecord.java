@@ -52,6 +52,11 @@ public final class VillageRecord {
     public int castleTurn;
     /** Whether its banner stands by the bell, and whether its fields are laid out. */
     public boolean bannerUp, farmsPlanned;
+    /** What the village has gathered (item id, count): food from its fields and boats, logs, stone. */
+    public final Map<String, Integer> store = new java.util.TreeMap<>();
+    /** Whether it's been given its first stock, and the last day its people ate. */
+    public boolean stocked;
+    public long lastMeal = -1;
     /** The gates in its walls. */
     public final java.util.List<Gate> gates = new java.util.ArrayList<>();
 
@@ -108,6 +113,49 @@ public final class VillageRecord {
     public long citizenDays(UUID player, long today) {
         if (!citizens.contains(player)) return -1;
         return today - citizenSince.getOrDefault(player, today);
+    }
+
+    // ------------------------------------------------------------------ the store
+
+    private static String key(net.minecraft.world.item.Item i) {
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).toString();
+    }
+
+    public void storeAdd(net.minecraft.world.item.ItemStack s) {
+        if (!s.isEmpty()) storeAdd(s.getItem(), s.getCount());
+    }
+
+    public void storeAdd(net.minecraft.world.item.Item i, int n) {
+        if (n > 0) store.merge(key(i), n, Integer::sum);
+    }
+
+    public int count(net.minecraft.world.item.Item i) {
+        return store.getOrDefault(key(i), 0);
+    }
+
+    /** How many of the items matching a test are in store. */
+    public int count(java.util.function.Predicate<net.minecraft.world.item.Item> test) {
+        int n = 0;
+        for (var e : store.entrySet()) if (test.test(itemOf(e.getKey()))) n += e.getValue();
+        return n;
+    }
+
+    /** Takes n of the items matching a test (the most plentiful first). False (and nothing taken) if there aren't that many. */
+    public boolean take(java.util.function.Predicate<net.minecraft.world.item.Item> test, int n) {
+        if (count(test) < n) return false;
+        while (n > 0) {
+            String most = null;
+            for (var e : store.entrySet()) if (test.test(itemOf(e.getKey())) && (most == null || e.getValue() > store.get(most))) most = e.getKey();
+            int have = store.get(most), t = Math.min(have, n);
+            if (have == t) store.remove(most);
+            else store.put(most, have - t);
+            n -= t;
+        }
+        return true;
+    }
+
+    private static net.minecraft.world.item.Item itemOf(String k) {
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(k));
     }
 
     public BlockPos centre() {
@@ -172,6 +220,11 @@ public final class VillageRecord {
         t.putBoolean("Fortified", fortified);
         t.putBoolean("BannerUp", bannerUp);
         t.putBoolean("FarmsPlanned", farmsPlanned);
+        CompoundTag st = new CompoundTag();
+        store.forEach(st::putInt);
+        t.put("Store", st);
+        t.putBoolean("Stocked", stocked);
+        t.putLong("LastMeal", lastMeal);
         if (castleCorner != null) {
             t.putLong("CastleCorner", castleCorner.asLong());
             t.putInt("CastleTurn", castleTurn);
@@ -212,6 +265,10 @@ public final class VillageRecord {
         r.fortified = t.getBoolean("Fortified");
         r.bannerUp = t.getBoolean("BannerUp");
         r.farmsPlanned = t.getBoolean("FarmsPlanned");
+        CompoundTag st = t.getCompound("Store");
+        for (String k : st.getAllKeys()) r.store.put(k, st.getInt(k));
+        r.stocked = t.getBoolean("Stocked");
+        if (t.contains("LastMeal")) r.lastMeal = t.getLong("LastMeal");
         if (t.contains("CastleCorner")) {
             r.castleCorner = BlockPos.of(t.getLong("CastleCorner"));
             r.castleTurn = t.getInt("CastleTurn");

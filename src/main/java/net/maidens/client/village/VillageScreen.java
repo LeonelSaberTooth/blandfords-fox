@@ -28,7 +28,7 @@ import java.util.List;
  */
 public class VillageScreen extends Screen {
     private static final ResourceLocation MAP = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "village_map");
-    private static final String[] TABS = {"Build", "Diplomacy", "News"};
+    private static final String[] TABS = {"Build", "Politics", "News", "Store"};
 
     private record Piece(int x0, int z0, int x1, int z1, String name, boolean isNew) {}
 
@@ -46,6 +46,10 @@ public class VillageScreen extends Screen {
     private final List<Piece> pieces = new ArrayList<>();
     private final List<Person> people = new ArrayList<>();
     private final List<String> news = new ArrayList<>();
+    private final List<net.minecraft.world.item.ItemStack> store = new ArrayList<>();
+    private int[] stock = new int[4];
+    private String jobs = "";
+    private net.minecraft.world.item.ItemStack storeHover;
     private final List<Tpl> templates = new ArrayList<>();
     private final List<Neighbour> neighbours = new ArrayList<>();
 
@@ -100,6 +104,15 @@ public class VillageScreen extends Screen {
         }
         news.clear();
         for (Tag e : t.getList("News", Tag.TAG_STRING)) news.add(e.getAsString());
+        store.clear();
+        CompoundTag st = t.getCompound("Store");
+        for (String k : st.getAllKeys()) {
+            net.minecraft.world.item.Item it = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(k));
+            if (it != net.minecraft.world.item.Items.AIR) store.add(new net.minecraft.world.item.ItemStack(it, Math.max(1, st.getInt(k))));
+        }
+        store.sort(java.util.Comparator.comparingInt(net.minecraft.world.item.ItemStack::getCount).reversed());
+        stock = t.getIntArray("Stock");
+        jobs = t.getString("Jobs");
         templates.clear();
         for (Tag e : t.getList("Templates", Tag.TAG_COMPOUND)) {
             CompoundTag p = (CompoundTag) e;
@@ -266,7 +279,7 @@ public class VillageScreen extends Screen {
     }
 
     private void renderSide(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        int tw = (sideW - 4) / 3;
+        int tw = (sideW - 2 * (TABS.length - 1)) / TABS.length;
         for (int i = 0; i < TABS.length; i++) {
             int bx = sideX + i * (tw + 2);
             Ui.button(g, font, TABS[i], bx, sideY, tw, 16, tab == i, Ui.inside(mouseX, mouseY, bx, sideY, tw, 16), true);
@@ -277,9 +290,12 @@ public class VillageScreen extends Screen {
         switch (tab) {
             case 0 -> renderBuild(g, mouseX, mouseY, cy, ch);
             case 1 -> renderDiplomacy(g, mouseX, mouseY, cy);
-            default -> renderNews(g, cy);
+            case 2 -> renderNews(g, cy);
+            default -> renderStore(g, mouseX, mouseY, cy, ch);
         }
         g.disableScissor();
+        if (tab == 3 && storeHover != null)
+            g.renderTooltip(font, Component.literal(storeHover.getHoverName().getString() + " x" + storeHover.getCount()), mouseX, mouseY);
         int by = sideY + sideH - 36;
         Ui.button(g, font, "World map", sideX, by, sideW, 16, false, Ui.inside(mouseX, mouseY, sideX, by, sideW, 16), true);
         Ui.button(g, font, "Done", sideX, by + 20, sideW, 16, false, Ui.inside(mouseX, mouseY, sideX, by + 20, sideW, 16), true);
@@ -364,6 +380,41 @@ public class VillageScreen extends Screen {
         }
     }
 
+    private void renderStore(GuiGraphics g, int mouseX, int mouseY, int cy, int ch) {
+        int x = sideX + 4, y = cy + 4 - (int) scroll;
+        if (stock.length == 4) {
+            String head = "Food " + stock[0] + " (eats " + (stock[3] + 1) / 2 + " a day)   Logs " + stock[1] + "   Stone " + stock[2];
+            for (FormattedCharSequence line : font.split(Component.literal(head), sideW - 8)) {
+                g.drawString(font, line, x, y, Ui.TEXT, false);
+                y += 10;
+            }
+            boolean house = stock[1] >= 24 && stock[2] >= 24;
+            Ui.small(g, font, house ? "Enough for a new house (24 logs, 24 stone)." : "A new house takes 24 logs and 24 stone.", x, y, house ? 0xFF2A6A2A : Ui.TEXT_LIGHT, false, 0.7F);
+            y += 8;
+        }
+        for (FormattedCharSequence line : font.split(Component.literal(jobs), sideW - 8)) {
+            g.drawString(font, line, x, y, Ui.TEXT_LIGHT, false);
+            y += 10;
+        }
+        y += 4;
+        if (store.isEmpty()) g.drawString(font, "The store is empty.", x, y, Ui.TEXT, false);
+        int per = Math.max(1, (sideW - 8) / 20);
+        storeHover = null;
+        for (int i = 0; i < store.size(); i++) {
+            int ix = x + (i % per) * 20, iy = y + (i / per) * 20;
+            if (iy + 18 < cy || iy > cy + ch) continue;
+            net.minecraft.world.item.ItemStack s = store.get(i);
+            g.fill(ix, iy, ix + 18, iy + 18, 0xFF8B8B8B);
+            g.renderItem(s, ix + 1, iy + 1);
+            String n = s.getCount() >= 1000 ? s.getCount() / 1000 + "k" : String.valueOf(s.getCount());
+            g.pose().pushPose();
+            g.pose().translate(0, 0, 200);
+            g.drawString(font, n, ix + 18 - font.width(n), iy + 10, 0xFFFFFFFF, true);
+            g.pose().popPose();
+            if (Ui.inside(mouseX, mouseY, ix, iy, 18, 18) && mouseY > cy && mouseY < cy + ch) storeHover = s;
+        }
+    }
+
     private static int darker(int rgb) {
         return (rgb >> 1) & 0x7F7F7F;
     }
@@ -378,7 +429,7 @@ public class VillageScreen extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         // tabs and buttons
-        int tw = (sideW - 4) / 3;
+        int tw = (sideW - 2 * (TABS.length - 1)) / TABS.length;
         for (int i = 0; i < TABS.length; i++) {
             if (Ui.inside(mx, my, sideX + i * (tw + 2), sideY, tw, 16)) {
                 tab = i;

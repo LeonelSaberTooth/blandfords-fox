@@ -54,7 +54,7 @@ final class MineTask extends WorkTask {
         if (busy > 0) { busy--; return; }
         Employment e = job();
         if (e.workPos == null) { e.giveUp("I don't know where to dig."); return; }
-        if (e.wrappingUp || e.bagFull()) { climbOut(e); return; }
+        if (e.wrappingUp || e.bagFull() || e.forVillage && !e.busyNow()) { climbOut(e); return; }
         int step = e.mineStep + 1;
         int stairs = stairsDown();
         if (step > stairs + TUNNEL) { e.giveUp("I've finished the tunnel! Come and see what I found."); return; }
@@ -120,6 +120,7 @@ final class MineTask extends WorkTask {
         if (m.distanceToSqr(Vec3.atBottomCenterOf(e.workPos)) <= 2.5 * 2.5) {      // out at the top
             m.getNavigation().stop();
             if (e.wrappingUp) e.finish(e.wrapUpMessage);
+            else if (e.forVillage && !e.busyNow()) { if (e.hasDeliverables()) Delivery.start(e, false); }    // done for the day
             else e.bagFullDuringWork();
             return;
         }

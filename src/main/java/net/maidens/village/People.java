@@ -1,6 +1,7 @@
 package net.maidens.village;
 
 import net.maidens.maiden.Maiden;
+import net.maidens.maiden.work.Job;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -34,6 +35,54 @@ public final class People {
     static void tick(ServerLevel level, VillageRecord v, List<Maiden> residents) {
         marry(level, v, residents);
         guards(v, residents);
+        jobs(level, v, residents);
+    }
+
+    /** How the last job search went (for the self test). */
+    public static String lastJobs = "";
+
+    /**
+     * Work for the village: woodcutters (one for every eight villagers), miners (one for every ten) and, with water
+     * nearby, fishers (one for every twelve), from the grown-ups who aren't guards, royals or hired. One more a minute.
+     */
+    public static void jobs(ServerLevel level, VillageRecord v, List<Maiden> residents) {
+        int n = residents.size();
+        int wood = 0, mine = 0, fish = 0;
+        for (Maiden m : residents) {
+            if (!m.employment().forVillage()) continue;
+            switch (m.employment().job()) {
+                case WOOD -> wood++;
+                case MINE -> mine++;
+                case FISH -> fish++;
+                default -> {}
+            }
+        }
+        Job want = wood < Math.max(1, n / 8) ? Job.WOOD : mine < Math.max(1, n / 10) ? Job.MINE : fish < Math.max(1, n / 12) ? Job.FISH : null;
+        lastJobs = n + " residents: " + wood + " woodcutters, " + mine + " miners, " + fish + " fishers";
+        if (want == null) return;
+        Maiden pick = null;
+        for (Maiden m : residents) {
+            if (m.isBaby() || m.isOld() || m.isGuard() || m.isRoyal() || !m.hasVillageDuties() || m.employment().isWorking()) continue;
+            // the ones with no trade of their own first; farmers stay in the fields
+            var prof = m.profession();
+            if (prof == net.minecraft.world.entity.npc.VillagerProfession.FARMER) continue;
+            if (pick == null || prof == null && pick.profession() != null) pick = m;
+        }
+        if (pick == null) return;
+        RandomSource r = level.getRandom();
+        net.minecraft.core.BlockPos at = switch (want) {
+            case WOOD -> WorkSites.forest(level, v, r);
+            case MINE -> WorkSites.mine(level, v, r);
+            case FISH -> WorkSites.water(level, v, r);
+            default -> null;
+        };
+        if (at == null) {
+            lastJobs += "; no spot for a " + want.button.toLowerCase();
+            return;
+        }
+        net.minecraft.core.Direction dir = WorkSites.away(v, at);
+        pick.employment().startForVillage(want, at, dir);
+        lastJobs += "; " + pick.name() + " is now a " + want.button.toLowerCase() + " at " + at.toShortString();
     }
 
     private static boolean free(Maiden m) {

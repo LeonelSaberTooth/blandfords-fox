@@ -163,8 +163,19 @@ final class VillageCheck {
                 if (fortified(level, st)) {
                     finder(level);
                     people(level);
-                    return true;
+                    next(t, () -> economyStart(level));
                 }
+            }
+            case 9 -> {
+                if (st == 1200) economyWorkers(level, "mid-shift");
+                if (st == 1600) {
+                    level.setDayTime(level.getDayTime() / 24000 * 24000 + 9050);     // work's over: to the store with it
+                    economyWorkers(level, "end of shift");
+                }
+                if (st < 2800) return false;
+                economyCheck(level);
+                raidLead(level);
+                return true;
             }
             default -> {
                 return true;
@@ -639,6 +650,50 @@ final class VillageCheck {
         int fields = net.maidens.village.Farms.plan(level, v);
         log.accept("  fields: " + fields + " laid out (" + net.maidens.village.Farms.lastSearch + "); ripe crop near the bell: " + net.maidens.village.Farms.ripe(level, v, v.centre()));
         log.accept("  rank of the tester: " + net.maidens.politics.Diplomacy.rank(level, v, tester.getUUID()).label);
+    }
+
+    private java.util.Map<String, Integer> storeBefore;
+
+    /** The village's store and its workers: jobs given out at the start of a working day. */
+    private void economyStart(ServerLevel level) {
+        VillageRecord v = record;
+        level.setDayTime(level.getDayTime() / 24000 * 24000 + 24000 + 1600);
+        List<Maiden> rs = VillageSocial.residents(level, v);
+        for (int i = 0; i < 4; i++) {
+            net.maidens.village.People.jobs(level, v, rs);
+            log.accept("economy: jobs " + net.maidens.village.People.lastJobs);
+        }
+        storeBefore = new java.util.TreeMap<>(v.store);
+        log.accept("  store at the start: " + v.store + "; food " + net.maidens.village.Economy.food(v));
+    }
+
+    private void economyWorkers(ServerLevel level, String when) {
+        for (Maiden m : VillageSocial.residents(level, record)) {
+            var e = m.employment();
+            if (!e.forVillage()) continue;
+            int items = 0;
+            for (int i = 0; i < e.bag().getContainerSize(); i++) items += e.bag().getItem(i).getCount();
+            log.accept("  " + when + ": " + m.name() + " (" + e.job().button + ") " + (int) Math.sqrt(m.blockPosition().distSqr(e.workPos()))
+                    + " blocks from her spot, " + items + " items in her bag, busy " + e.busyNow() + ", delivering " + e.isDelivering()
+                    + ", hat '" + m.hat() + "', casual " + m.isCasual());
+        }
+    }
+
+    private void economyCheck(ServerLevel level) {
+        VillageRecord v = record;
+        java.util.Map<String, Integer> gained = new java.util.TreeMap<>();
+        v.store.forEach((k, n) -> {
+            int d = n - storeBefore.getOrDefault(k, 0);
+            if (d != 0) gained.put(k.replace("minecraft:", ""), d);
+        });
+        log.accept("economy: store changed by " + gained + "; food " + net.maidens.village.Economy.food(v) + ", logs " + v.count(net.maidens.village.Economy.LOGS)
+                + ", stone " + v.count(net.maidens.village.Economy.STONE));
+        economyWorkers(level, "after delivery");
+    }
+
+    /** A raid led by the tester. */
+    private void raidLead(ServerLevel level) {
+        VillageRecord v = record;
         Network n = Network.get(level);
         KnownVillage self = n.know(level, v);
         List<KnownVillage> nb = n.neighbours(self);

@@ -28,6 +28,14 @@ public final class Delivery {
     static boolean start(Employment e, boolean resume) {
         Maiden m = e.maiden();
         if (e.workPos == null || !(m.level() instanceof ServerLevel level)) return false;
+        // working for her village: it all goes to the village's store, by the bell
+        if (e.forVillage) {
+            net.maidens.village.VillageRecord v = net.maidens.village.VillageSocial.villageOf(m);
+            if (v == null) return false;
+            e.deliverTo = v.bell() != null ? v.bell() : v.centre();
+            e.resumeAfterDelivery = resume;
+            return true;
+        }
         MarkedChestBlockEntity chest = MarkedChestBlockEntity.nearest(level, e.workPos, RANGE);
         if (chest == null) return false;
         e.deliverTo = chest.getBlockPos();
@@ -62,6 +70,21 @@ public final class Delivery {
         m.level().playSound(null, chest.getBlockPos(), SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 0.5F, 1.0F);
         if (!allFit && e.employerPlayer() instanceof ServerPlayer sp) m.say(sp, "The marked chest is full! Some of it's still in my bag.");
         return allFit;
+    }
+
+    /** She's at the bell: what she gathered goes into her village's store (all but her own things). */
+    static void unloadToVillage(Employment e, net.maidens.village.VillageRecord v) {
+        Maiden m = e.maiden();
+        SimpleContainer bag = e.bag();
+        for (int i = 0; i < bag.getContainerSize(); i++) {
+            ItemStack s = bag.getItem(i);
+            if (s.isEmpty() || keeps(s)) continue;
+            v.storeAdd(s);
+            bag.setItem(i, ItemStack.EMPTY);
+        }
+        bag.setChanged();
+        m.swing(InteractionHand.MAIN_HAND);
+        if (m.level() instanceof ServerLevel level) net.maidens.village.Villages.get(level).setDirty();
     }
 
     static boolean isSeed(ItemStack s) {

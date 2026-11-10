@@ -51,6 +51,21 @@ public final class DeliverGoal extends Goal {
         // done (the goal can be ticked once more before it notices it's finished)
         if (e.deliverTo == null) return;
         ticks++;
+        net.maidens.village.VillageRecord village = e.forVillage() ? net.maidens.village.VillageSocial.villageOf(m) : null;
+        if (village != null) {
+            // to the village's store at the bell
+            Vec3 b = Vec3.atBottomCenterOf(e.deliverTo);
+            if (m.distanceToSqr(b) > 4 * 4 && ticks < 1200) {
+                if (--repath <= 0) {
+                    repath = 20;
+                    m.getNavigation().moveTo(b.x, e.deliverTo.getY(), b.z, 0.6);
+                }
+                return;
+            }
+            Delivery.unloadToVillage(e, village);
+            e.deliverTo = null;
+            return;
+        }
         if (!(level.getBlockEntity(e.deliverTo) instanceof MarkedChestBlockEntity chest)) {
             // the chest is gone: look for another one, or give up on it
             if (!Delivery.start(e, e.resumeAfterDelivery)) e.deliverTo = null;

@@ -44,7 +44,7 @@ final class FieldWorkGoal extends Goal {
     public boolean canUse() {
         if (--cooldown > 0) return false;
         cooldown = 100;
-        if (!m.hasVillageDuties() || m.isGuard() || m.isRoyal() || m.isBaby() || !m.isFree() || !farmer()
+        if (!m.hasVillageDuties() || m.employment().isWorking() || m.isGuard() || m.isRoyal() || m.isBaby() || !m.isFree() || !farmer()
                 || Schedule.now(m) != Schedule.Activity.WORK || !(m.level() instanceof ServerLevel level)) return false;
         VillageRecord v = VillageSocial.villageOf(m);
         if (v == null || !v.farmsPlanned) return false;
@@ -90,6 +90,19 @@ final class FieldWorkGoal extends Goal {
             level.playSound(null, crop, SoundEvents.CROP_BREAK, SoundSource.BLOCKS, 0.8F, 1.0F);
             level.setBlock(crop, cb.getStateForAge(0), Block.UPDATE_CLIENTS);
             m.swing(InteractionHand.MAIN_HAND);
+            // the harvest goes to the village's store (all but the seed planted again)
+            VillageRecord home = VillageSocial.villageOf(m);
+            if (home != null) {
+                boolean seedBack = false;
+                for (net.minecraft.world.item.ItemStack d : Block.getDrops(s, level, crop, null)) {
+                    if (!seedBack && d.is(s.getBlock().asItem())) {
+                        d.shrink(1);
+                        seedBack = true;
+                    }
+                    home.storeAdd(d);
+                }
+                net.maidens.village.Villages.get(level).setDirty();
+            }
         }
         VillageRecord v = VillageSocial.villageOf(m);
         crop = v == null ? null : Farms.ripe(level, v, m.blockPosition());

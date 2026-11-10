@@ -32,7 +32,7 @@ public final class Royals {
         if (v.royals.size() >= PER_VILLAGE || residents.isEmpty()) return;
         // prefer someone free (not hired, not married to a player)
         List<Maiden> choice = new ArrayList<>();
-        for (Maiden m : residents) if (!m.isRoyal() && !m.employment().isWorking() && !m.relationships().isMarried()) choice.add(m);
+        for (Maiden m : residents) if (!m.isRoyal() && !m.employment().isHired() && !m.relationships().isMarried()) choice.add(m);
         if (choice.isEmpty()) for (Maiden m : residents) if (!m.isRoyal()) choice.add(m);
         if (choice.isEmpty()) return;
         crown(level, v, choice.get(level.getRandom().nextInt(choice.size())));

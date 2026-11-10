@@ -83,6 +83,11 @@ public final class VillageView {
         ListTag news = new ListTag();
         for (String line : network.news(v.id)) news.add(StringTag.valueOf(line));
         t.put("News", news);
+        CompoundTag store = new CompoundTag();
+        v.store.forEach(store::putInt);
+        t.put("Store", store);
+        t.putIntArray("Stock", new int[]{Economy.food(v), v.count(Economy.LOGS), v.count(Economy.STONE), residents.size()});
+        t.putString("Jobs", jobs(residents));
         ListTag templates = new ListTag();
         for (ResourceLocation tpl : Buildings.templates(level, v.style)) {
             CompoundTag tt = new CompoundTag();
@@ -110,6 +115,23 @@ public final class VillageView {
         }
         t.put("Neighbours", nb);
         return t;
+    }
+
+    /** Who works at what: "3 farmers, 2 woodcutters, 1 miner". */
+    private static String jobs(List<Maiden> residents) {
+        int farm = 0, wood = 0, mine = 0, fish = 0, guard = 0;
+        for (Maiden m : residents) {
+            if (m.isGuard()) guard++;
+            else if (m.employment().forVillage()) switch (m.employment().job()) {
+                case WOOD -> wood++;
+                case MINE -> mine++;
+                case FISH -> fish++;
+                default -> {}
+            }
+            else if (!m.isBaby() && !m.isRoyal() && !m.employment().isHired()
+                    && (m.profession() == null || m.profession() == net.minecraft.world.entity.npc.VillagerProfession.FARMER)) farm++;
+        }
+        return farm + " farming, " + wood + " cutting wood, " + mine + " mining, " + fish + " fishing, " + guard + " on guard";
     }
 
     /** A top-down picture of the village and its surroundings, in vanilla map colours (packed ids, 0 where not loaded). */

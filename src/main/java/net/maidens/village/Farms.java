@@ -72,7 +72,6 @@ public final class Farms {
             int w = alongX ? LENGTH : WIDTH, l = alongX ? WIDTH : LENGTH;
             BoundingBox fp = new BoundingBox(x - w / 2, 0, z - l / 2, x - w / 2 + w - 1, 0, z - l / 2 + l - 1);
             if (!level.hasChunksAt(fp.minX() - 1, fp.minZ() - 1, fp.maxX() + 1, fp.maxZ() + 1)) continue;
-            if (v.wallBox != null && v.wallBox.inflatedBy(-6).intersects(fp)) continue;          // outside the walls
             BoundingBox column = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
             if (v.blueprint.overlaps(column.inflatedBy(3))) continue;
             int base = level(level, fp);

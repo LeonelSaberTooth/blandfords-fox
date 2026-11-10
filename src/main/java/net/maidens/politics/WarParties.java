@@ -254,7 +254,7 @@ public final class WarParties {
             if (m.isBaby() || m.isOld() || m.isRoyal() || !m.hasVillageDuties() || m.raider().active()) continue;
             fighters.add(m);
         }
-        if (fighters.size() < 2) return "Not enough of " + home.name + "'s people are around to raid with you. Gather them at home first.";
+        if (fighters.isEmpty()) return "Not enough of " + home.name + "'s people are around to raid with you. Gather them at home first.";
         Raid raid = new Raid(self, target, level.dimension(), level.getGameTime());
         raid.leader = p.getUUID();
         for (Maiden m : fighters) {

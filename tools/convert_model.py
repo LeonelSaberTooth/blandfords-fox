@@ -104,10 +104,8 @@ casual = CLASS != 'MaidenGeometry'
 for t in J['textures']:
     data = base64.b64decode(t['source'].split(',', 1)[1])
     name = t['name']
-    if 'comp' in name:
-        out = 'casual_1.png'
-    elif casual:
-        continue            # the casual model's own copies of the skins aren't used
+    if 'comp' in name or casual:
+        continue            # the casual body's clothes come from tools/make_layers.py
     else:
         m = re.search(r'_(\d+)\.png$', name)
         out = f'maiden_{m.group(1) if m else 1}.png'

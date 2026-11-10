@@ -3,7 +3,8 @@
   layers/tone_<n>.png         her skin, all over (from maiden n's skin colour, with her face's own shading)
   layers/casual_tone_<n>.png  the same on the casual body (thinner legs: different texture spots)
   layers/clothes_<n>.png      maiden n's clothes (everything on her body that isn't skin)
-  layers/casual_clothes.png   the casual clothes (from casual_1), on the casual body
+  layers/casual_clothes_<n>.png  her clothes at home: a plain covered shift (in a soft shade of outfit n), on the
+                              casual body
   layers/child_clothes_<n>.png  children's clothes (covered, plain), in outfit n's main colour
   layers/eyes_<n>.png         maiden n's eyes (and lids)
   layers/hair_<n>.png         maiden n's hair (her head except the face, and the long hair layer)
@@ -122,6 +123,27 @@ def main_colour(layer):
                 counts[c[:3]] = counts.get(c[:3], 0) + 1
     return max(counts, key=counts.get) if counts else (90, 90, 120)
 
+def casual_clothes(colour):
+    """A plain shift for home: covers her from the neck to the knees, short sleeves, in a soft colour."""
+    soft = colour
+    out = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    for side, (u0, v0, u1, v1) in faces(CASUAL, BODY):
+        for x in range(u0, u1):
+            for y in range(v0, v1):
+                part = next(e['name'] for e in CASUAL['elements'] for f in e['faces'].values()
+                            if e['name'] in BODY and min(f['uv'][0], f['uv'][2]) <= x < max(f['uv'][0], f['uv'][2])
+                            and min(f['uv'][1], f['uv'][3]) <= y < max(f['uv'][1], f['uv'][3]))
+                rows = max(1, v1 - v0)
+                if part in ('right_arm', 'left_arm') and (y - v0) > rows * 0.35 and side not in ('up',):
+                    continue                    # short sleeves
+                if part in ('right_leg', 'left_leg') and (y - v0) > rows * 0.4 and side not in ('up',):
+                    continue                    # to the knee
+                if part == 'neck':
+                    continue
+                k = SHADE[side] - 0.08 * (y - v0) / rows - (0.04 if (x * 3 + y) % 7 == 0 else 0)
+                out.putpixel((x, y), shade(soft, k))
+    return out
+
 def child_clothes(colour):
     out = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
     trousers = tuple(max(0, int(v * 0.6)) for v in colour)
@@ -135,6 +157,7 @@ def child_clothes(colour):
                 out.putpixel((x, y), shade(c, k))
     return out
 
+SHIFTS = [(176, 196, 222), (236, 222, 196), (178, 200, 170), (226, 180, 186), (196, 184, 220)]   # soft blue, cream, sage, rose, lavender
 HAIR_ONLY = {2: 9}       # skin 2: only her hair, and her headband (this row of her head) painted over
 
 def without_band(hair, row):
@@ -152,7 +175,6 @@ n = 1
 while os.path.exists(os.path.join(TEX, f'maiden_{n}.png')):
     skins.append(Image.open(os.path.join(TEX, f'maiden_{n}.png')).convert('RGBA'))
     n += 1
-casual = Image.open(os.path.join(TEX, 'casual_1.png')).convert('RGBA')
 whole = hair = 0
 for n, img in enumerate(skins, start=1):
     tone = tone_of(img)
@@ -166,10 +188,9 @@ for n, img in enumerate(skins, start=1):
         clothes = clothes_layer(USUAL, img, tone)
         clothes.save(os.path.join(OUT, f'clothes_{whole}.png'))
         child_clothes(main_colour(clothes)).save(os.path.join(OUT, f'child_clothes_{whole}.png'))
+        casual_clothes(SHIFTS[(whole - 1) % len(SHIFTS)]).save(os.path.join(OUT, f'casual_clothes_{whole}.png'))
         eyes_layer(img).save(os.path.join(OUT, f'eyes_{whole}.png'))
     hair += 1
     h.save(os.path.join(OUT, f'hair_{hair}.png'))
     print('skin', n, 'tone', tone, 'hair only' if n in HAIR_ONLY else '')
 print(whole, 'skin tones, clothes and eyes;', hair, 'hairstyles')
-clothes_layer(CASUAL, casual, tone_of(casual)).save(os.path.join(OUT, 'casual_clothes.png'))
-print('casual clothes, tone', tone_of(casual))

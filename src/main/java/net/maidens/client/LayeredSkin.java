@@ -34,7 +34,7 @@ public final class LayeredSkin {
         String base = body == Body.CASUAL ? "casual_tone_" + (tone + 1) : "tone_" + (tone + 1);
         String clothes = switch (body) {
             case USUAL -> "clothes_" + (outfit + 1);
-            case CASUAL -> "casual_clothes";
+            case CASUAL -> "casual_clothes_" + (outfit + 1);
             case CHILD -> "child_clothes_" + (outfit + 1);
         };
         for (String layer : new String[]{base, clothes, "eyes_" + (eyes + 1), "hair_" + (hair + 1)}) {

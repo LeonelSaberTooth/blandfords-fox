@@ -46,7 +46,14 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
     @Override
     public ResourceLocation getTextureLocation(Maiden maiden) {
         LayeredSkin.Body body = maiden.isBaby() ? LayeredSkin.Body.CHILD : maiden.isCasual() ? LayeredSkin.Body.CASUAL : LayeredSkin.Body.USUAL;
-        return LayeredSkin.get(body, maiden.getSkin(), maiden.outfit(), maiden.eyes(), maiden.hair());
+        String job = body == LayeredSkin.Body.USUAL ? maiden.hat() : "";
+        String type = "plains";
+        if (!job.isEmpty()) {
+            // a villager's clothes for where she is (a desert robe in the desert...)
+            var t = net.minecraft.world.entity.npc.VillagerType.byBiome(maiden.level().getBiome(maiden.blockPosition()));
+            type = net.minecraft.core.registries.BuiltInRegistries.VILLAGER_TYPE.getKey(t).getPath();
+        }
+        return LayeredSkin.get(body, maiden.getSkin(), maiden.outfit(), maiden.eyes(), maiden.hair(), job, type);
     }
 
     @Override

@@ -3,8 +3,11 @@
   layers/tone_<n>.png         her skin, all over (from maiden n's skin colour, with her face's own shading)
   layers/casual_tone_<n>.png  the same on the casual body (thinner legs: different texture spots)
   layers/clothes_<n>.png      maiden n's clothes (everything on her body that isn't skin)
-  layers/casual_clothes_<n>.png  her clothes at home: a plain covered shift (in a soft shade of outfit n), on the
-                              casual body
+  layers/casual_clothes.png   her clothes at home (from art/skincomp.png, the casual texture: everything on it that
+                              isn't skin), on the casual body, over her own skin tone
+  layers/job_map.png          where each spot of the usual body takes its colour from a vanilla villager's texture
+                              (red = x, green = y, opaque where mapped): her work clothes are the villager clothes of
+                              her trade, put on her body by LayeredSkin
   layers/child_clothes_<n>.png  children's clothes (covered, plain), in outfit n's main colour
   layers/eyes_<n>.png         maiden n's eyes (and lids)
   layers/hair_<n>.png         maiden n's hair (her head except the face, and the long hair layer)
@@ -157,6 +160,73 @@ def child_clothes(colour):
                 out.putpixel((x, y), shade(c, k))
     return out
 
+def casual_layer():
+    """The casual texture's clothes (everything on it that isn't skin) on the casual body."""
+    img = Image.open(os.path.join(ROOT, 'art', 'skincomp.png')).convert('RGBA')
+    return clothes_layer(CASUAL, img, tone_of(img))
+
+# ------------------------------------------------------------------ work clothes: a villager's, on her body
+
+# vanilla VillagerModel boxes: (texture u, v), size (w, h, d)
+ROBE = ((0, 38), (8, 20, 6))
+VLEG = ((0, 22), (4, 12, 4))
+VARM = ((44, 22), (4, 8, 4))
+
+def box_face(box, side):
+    """Where a face of a vanilla box is in its texture: (u0, v0, w, h)."""
+    (u, v), (w, h, d) = box
+    return {'east': (u, v + d, d, h), 'north': (u + d, v + d, w, h), 'west': (u + d + w, v + d, d, h),
+            'south': (u + d + w + d, v + d, w, h), 'up': (u + d, v, w, d), 'down': (u + d + w, v, w, d)}[side]
+
+def job_map():
+    """For each spot on her body (torso and legs, upper arms): the villager texture spot it takes. Heights are
+    matched as a share of her height from neck to feet (a villager is 24 tall: the robe covers the top 20)."""
+    out = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    top = 27.5
+    for e in USUAL['elements']:
+        name = e['name']
+        if name not in ('chest', 'breast', 'waist', 'hips', 'right_leg', 'left_leg', 'right_arm', 'left_arm'):
+            continue
+        (x0, y0, z0), (x1, y1, z1) = e['from'], e['to']
+        for side, f in e['faces'].items():
+            u0, v0, u1, v1 = f['uv']
+            fu0, fv0, fu1, fv1 = int(min(u0, u1)), int(min(v0, v1)), int(max(u0, u1)), int(max(v0, v1))
+            W, H = fu1 - fu0, fv1 - fv0
+            for i in range(W):
+                for j in range(H):
+                    fx, fy = (i + 0.5) / W, (j + 0.5) / H
+                    if name in ('right_arm', 'left_arm'):
+                        if side in ('north', 'south', 'east', 'west') and fy > 0.62:
+                            continue                       # her forearms and hands stay bare
+                        su, sv, sw, sh = box_face(VARM, side)
+                        sy = fy / 0.62 if side in ('north', 'south', 'east', 'west') else fy
+                        src = (su + int(fx * sw), sv + min(sh - 1, int(sy * sh)))
+                    else:
+                        # the height of this spot (faces up/down are flat: their own height)
+                        if side in ('up', 'down'):
+                            y = y1 if side == 'up' else y0
+                        else:
+                            y = y1 - fy * (y1 - y0)
+                        t = (top - y) / top * 24                 # rows down from a villager's shoulders
+                        s2 = 'north' if name == 'breast' and side not in ('south',) else side
+                        if name == 'breast' and s2 == 'north':
+                            fx = (fx * (x1 - x0) + x0 + 4) / 8 if side == 'north' else (0.05 if side == 'east' else 0.95)
+                        elif side in ('north', 'south', 'up', 'down'):
+                            fx = (x0 + 4 + fx * (x1 - x0)) / 8   # across the robe, by where she is
+                        if t < 20 or name in ('chest', 'breast', 'waist', 'hips'):
+                            su, sv, sw, sh = box_face(ROBE, s2)
+                            if s2 in ('up', 'down'):
+                                src = (su + min(sw - 1, int(fx * sw)), sv + min(sh - 1, int(fy * sh)))
+                            else:
+                                src = (su + min(sw - 1, int(fx * sw)), sv + min(sh - 1, int(min(19.99, t))))
+                        else:
+                            su, sv, sw, sh = box_face(VLEG, side)
+                            lx = fx if side in ('east', 'west', 'up', 'down') else (fx * 8 - (0 if fx < 0.5 else 4)) / 4
+                            lx = max(0.0, min(0.999, lx))
+                            src = (su + int(lx * sw), sv + min(sh - 1, int((t - 12) / 12 * sh)) if side not in ('up', 'down') else sv + int(fy * sh))
+                    out.putpixel((fu0 + i, fv0 + j), (src[0], src[1], 0, 255))
+    return out
+
 SHIFTS = [(176, 196, 222), (236, 222, 196), (178, 200, 170), (226, 180, 186), (196, 184, 220)]   # soft blue, cream, sage, rose, lavender
 HAIR_ONLY = {2: 9}       # skin 2: only her hair, and her headband (this row of her head) painted over
 
@@ -188,9 +258,10 @@ for n, img in enumerate(skins, start=1):
         clothes = clothes_layer(USUAL, img, tone)
         clothes.save(os.path.join(OUT, f'clothes_{whole}.png'))
         child_clothes(main_colour(clothes)).save(os.path.join(OUT, f'child_clothes_{whole}.png'))
-        casual_clothes(SHIFTS[(whole - 1) % len(SHIFTS)]).save(os.path.join(OUT, f'casual_clothes_{whole}.png'))
         eyes_layer(img).save(os.path.join(OUT, f'eyes_{whole}.png'))
     hair += 1
     h.save(os.path.join(OUT, f'hair_{hair}.png'))
     print('skin', n, 'tone', tone, 'hair only' if n in HAIR_ONLY else '')
+casual_layer().save(os.path.join(OUT, 'casual_clothes.png'))
+job_map().save(os.path.join(OUT, 'job_map.png'))
 print(whole, 'skin tones, clothes and eyes;', hair, 'hairstyles')

@@ -4,6 +4,9 @@
 - Looks are put together from layers: skin tone, clothes, eye colour and hair are chosen separately for each maiden
   (normal, casual and children's clothes). The model is player height again, with the smaller chest.
 - Arms sway half as much when idle.
+- Casual clothes indoors are the casual texture, over each maiden's own skin tone.
+- Work clothes: at work a maiden wears a vanilla villager's clothes for her trade (its robe for where she is, and
+  its trade's apron, gloves and so on), with the trade's hat.
 - The village store: farmers bring in their harvest, and villages now give their own people work: woodcutters
   (logs), miners (stone and ore) and fishers (fish), in work hours, delivered to the store by the bell at the end of
   the day. The bell screen has a Store tab.

@@ -19,31 +19,79 @@ public final class LayeredSkin {
     /** Which body (the texture spots differ) and which clothes. */
     public enum Body { USUAL, CASUAL, CHILD }
 
-    private static final Map<Long, ResourceLocation> MADE = new HashMap<>();
+    private static final Map<String, ResourceLocation> MADE = new HashMap<>();
     private static final Map<String, NativeImage> LAYERS = new HashMap<>();
 
     private LayeredSkin() {}
 
     public static ResourceLocation get(Body body, int tone, int outfit, int eyes, int hair) {
-        long key = (((body.ordinal() * 16L + tone) * 16 + outfit) * 16 + eyes) * 16 + hair;
-        return MADE.computeIfAbsent(key, k -> make(k, body, tone, outfit, eyes, hair));
+        return get(body, tone, outfit, eyes, hair, "", "plains");
     }
 
-    private static ResourceLocation make(long key, Body body, int tone, int outfit, int eyes, int hair) {
+    /**
+     * With work clothes: job is a villager profession ("farmer"...; "" for her own clothes) and type the villager
+     * type of where she is ("plains", "desert"...). Her work clothes are that villager's robe and trade clothes.
+     */
+    public static ResourceLocation get(Body body, int tone, int outfit, int eyes, int hair, String job, String type) {
+        if (body != Body.USUAL) job = "";
+        String key = body.ordinal() + "_" + tone + "_" + outfit + "_" + eyes + "_" + hair + (job.isEmpty() ? "" : "_" + job + "_" + type);
+        String j = job;
+        return MADE.computeIfAbsent(key, k -> make(k, body, tone, outfit, eyes, hair, j, type));
+    }
+
+    private static ResourceLocation make(String key, Body body, int tone, int outfit, int eyes, int hair, String job, String type) {
         NativeImage out = new NativeImage(64, 64, true);
         String base = body == Body.CASUAL ? "casual_tone_" + (tone + 1) : "tone_" + (tone + 1);
         String clothes = switch (body) {
             case USUAL -> "clothes_" + (outfit + 1);
-            case CASUAL -> "casual_clothes_" + (outfit + 1);
+            case CASUAL -> "casual_clothes";
             case CHILD -> "child_clothes_" + (outfit + 1);
         };
+        NativeImage work = job.isEmpty() ? null : workClothes(job, type);
         for (String layer : new String[]{base, clothes, "eyes_" + (eyes + 1), "hair_" + (hair + 1)}) {
+            if (layer.equals(clothes) && work != null) {
+                over(out, work);
+                continue;
+            }
             NativeImage img = layer(layer);
             if (img != null) over(out, img);
         }
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "dynamic/maiden_" + Long.toHexString(key));
+        if (work != null) work.close();
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "dynamic/maiden_" + key.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_]", "_"));
         Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(out));
         return id;
+    }
+
+    /** A vanilla villager's clothes (its body, its type's robe, its trade's clothes) moved onto her body by job_map. */
+    private static NativeImage workClothes(String job, String type) {
+        NativeImage map = layer("job_map");
+        if (map == null) return null;
+        NativeImage villager = new NativeImage(64, 64, true);
+        for (String path : new String[]{"villager/villager", "villager/type/" + type, "villager/profession/" + job}) {
+            NativeImage img = vanilla(path);
+            if (img != null) over(villager, img);
+        }
+        NativeImage out = new NativeImage(64, 64, true);
+        for (int y = 0; y < 64; y++)
+            for (int x = 0; x < 64; x++) {
+                int m = map.getPixelRGBA(x, y);
+                if (m >>> 24 == 0) continue;
+                int u = m & 255, v = m >> 8 & 255;
+                if (u < villager.getWidth() && v < villager.getHeight()) out.setPixelRGBA(x, y, villager.getPixelRGBA(u, v));
+            }
+        villager.close();
+        return out;
+    }
+
+    private static NativeImage vanilla(String path) {
+        return LAYERS.computeIfAbsent("vanilla:" + path, n -> {
+            ResourceLocation loc = ResourceLocation.withDefaultNamespace("textures/entity/" + path + ".png");
+            try (InputStream in = Minecraft.getInstance().getResourceManager().getResource(loc).orElseThrow().open()) {
+                return NativeImage.read(in);
+            } catch (Exception e) {
+                return null;
+            }
+        });
     }
 
     private static NativeImage layer(String name) {

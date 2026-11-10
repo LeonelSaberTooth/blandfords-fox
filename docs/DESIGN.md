@@ -244,6 +244,24 @@ Rules:
 5. `/village find walled` (and `/village find maiden`): the nearest one from the seed, visited or not.
    The world map rings walled villages.
 
+## People, ranks, fields (0.7.0)
+
+1. `Maiden.Kind` (woman, man, old woman, old man) is synced; children are vanilla babies (`CHILDHOOD` 3 days) and
+   the only ones who age. `People.roll` decides a newcomer; `People.tick` (once a minute) marries (50% / 80% old,
+   opposite kind, same age) and keeps guards (one per gate, or two, plus one per 8) with posts by the gates.
+2. Looks (`Maiden.updateLooks`, once a second): `HAT` is the villager profession whose hat she wears (hired job, or
+   her workstation in work hours) drawn by `JobHatLayer`; `CASUAL` (grown women, indoors, not working, no armor)
+   switches to `MaidenCasualGeometry` and casual_<n>.png. Men and the old are the usual body with a tinted head.
+3. Two bodies from Blockbench: art/maiden.bbmodel (the usual one) and art/maiden_casual.bbmodel;
+   tools/convert_model.py makes each geometry; tools/make_casual.py and tools/make_child.py make the casual and
+   children's textures.
+4. `Diplomacy.Rank`: visitor, citizen, leader. Leaders get "Lead a raid" on hostile neighbours
+   (`WarParties.lead`): up to five of the village's people follow them (`RaidGoals.FollowLeader`), the raid starts
+   when they arrive, and the loot goes to the leader.
+5. `Heraldry`: banner colours and pattern from the village id; sandstone for the desert. `Farms`: fields by the
+   gates, levelled if need be, tended by `FieldWorkGoal`. `HomeVillages`: a region ticket on each online player's
+   best-standing village.
+
 ## Phases
 
 0. Reorganize into systems, design doc, config. (done in 0.2.0)
@@ -254,3 +272,4 @@ Rules:
 5. Daily schedule, requests board, raid defence. (done in 0.3.0)
 6. Politics: royals, the village network, stances, raids, roads, bell screen, world map. (done in 0.5.0)
 7. Castles and walls. (0.6.0)
+8. People, ranks, banners, fields, home villages. (0.7.0)

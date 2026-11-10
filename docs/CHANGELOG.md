@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0
+- People: men, old women and men, and children (who grow up in three days) live in maiden villages (placeholder
+  looks for now). Half the grown-ups and most of the old marry each other. Some are guards: one at each gate.
+- Villager job hats while working; casual clothes (and the casual body) indoors.
+- The model's legs are a pixel longer; the thin-legged body is for casual clothes only.
+- Reputation: visitor, citizen, leader (married its royal or saved it from a raid). Leaders can lead raids.
+- Every village has its own banner (castle, wall towers, by the bell); desert castles and walls are sandstone.
+- Fields of crops outside the village (by the gates), tended by its farmers.
+- Your home village (best standing) keeps running while you're away.
+- Walls: two gates with guards, planned as soon as the village is found and built as the land loads; raiders come
+  in through a gate; the royal sleeps in the castle.
+- Fixes: arm swings, faster farming, woodcutters replant and give up unreachable trees, miners find ores (and dig
+  for a held ore or stone), fishing in ponds, no suffocating, no teleporting in sight, getting up out of bed,
+  home in the morning and evening, walking on powder snow, building near water, 3-wide village paths, roads join
+  the streets, jobless villagers in maiden villages replaced, a faster and bigger world map with coordinates.
+
 ## 0.6.0
 - Castles and walls: about a third of maiden villages have a stone castle (keep with a throne room and the
   royal's bedroom, corner towers, gatehouse) and walls with towers and gates around the whole village.

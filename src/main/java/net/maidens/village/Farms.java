@@ -26,7 +26,9 @@ import java.util.Set;
 public final class Farms {
     public static final String NAME = "field";
     /** One field: 9 across (a channel in the middle, four rows either side), this long. */
-    private static final int WIDTH = 9, LENGTH = 15, FIELDS = 3, TRIES = 60;
+    private static final int WIDTH = 9, LENGTH = 15, FIELDS = 3, TRIES = 120;
+    /** How the last search went (for the self test). */
+    public static String lastSearch = "";
     private static final Block[] CROPS = {Blocks.WHEAT, Blocks.CARROTS, Blocks.POTATOES, Blocks.BEETROOTS};
 
     private Farms() {}
@@ -53,14 +55,14 @@ public final class Farms {
         // near a gate if there are walls (so the farmers get there), else anywhere round the edge
         List<double[]> ways = new ArrayList<>();
         for (VillageRecord.Gate g : v.gates) ways.add(new double[]{g.pos.getX(), g.pos.getZ(), g.dx, g.dz});
-        int made = 0;
+        int made = 0, unloaded = 0, taken = 0, rough = 0;
         for (int i = 0; i < TRIES && made < FIELDS; i++) {
             int x, z;
             if (!ways.isEmpty()) {
                 double[] g = ways.get(i % ways.size());
                 double len = Math.sqrt(g[2] * g[2] + g[3] * g[3]);
                 double ox = g[2] / Math.max(1, len), oz = g[3] / Math.max(1, len);
-                double out = 10 + r.nextInt(16), side = r.nextInt(31) - 15;
+                double out = 16 + r.nextInt(28), side = r.nextInt(41) - 20;
                 x = (int) (g[0] + ox * out - oz * side);
                 z = (int) (g[1] + oz * out + ox * side);
             } else {
@@ -71,14 +73,15 @@ public final class Farms {
             boolean alongX = r.nextBoolean();
             int w = alongX ? LENGTH : WIDTH, l = alongX ? WIDTH : LENGTH;
             BoundingBox fp = new BoundingBox(x - w / 2, 0, z - l / 2, x - w / 2 + w - 1, 0, z - l / 2 + l - 1);
-            if (!level.hasChunksAt(fp.minX() - 1, fp.minZ() - 1, fp.maxX() + 1, fp.maxZ() + 1)) continue;
+            if (!level.hasChunksAt(fp.minX() - 1, fp.minZ() - 1, fp.maxX() + 1, fp.maxZ() + 1)) { unloaded++; continue; }
             BoundingBox column = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
-            if (v.blueprint.overlaps(column.inflatedBy(3))) continue;
+            if (v.blueprint.overlaps(column.inflatedBy(2))) { taken++; continue; }
             int base = level(level, fp);
-            if (base == Integer.MIN_VALUE) continue;
+            if (base == Integer.MIN_VALUE) { rough++; continue; }
             add(level, v, fp, base, alongX, CROPS[r.nextInt(CROPS.length)], r);
             made++;
         }
+        lastSearch = made + " fields (" + taken + " spots taken, " + rough + " too rough or wet, " + unloaded + " not loaded)";
         Villages.get(level).setDirty();
         return made;
     }
@@ -97,7 +100,7 @@ public final class Farms {
                 sum += h;
                 n++;
             }
-        return max - min > 2 ? Integer.MIN_VALUE : (int) Math.round((double) sum / n);
+        return max - min > 3 ? Integer.MIN_VALUE : (int) Math.round((double) sum / n);
     }
 
     private static void add(ServerLevel level, VillageRecord v, BoundingBox fp, int base, boolean alongX, Block crop, RandomSource r) {

@@ -637,7 +637,7 @@ final class VillageCheck {
                 + " (" + net.maidens.village.Heraldry.base(v.id).getName() + " with " + net.maidens.village.Heraldry.pattern(v.id).location().getPath()
                 + " in " + net.maidens.village.Heraldry.accent(v.id).getName() + ")");
         int fields = net.maidens.village.Farms.plan(level, v);
-        log.accept("  fields: " + fields + " laid out; ripe crop near the bell: " + net.maidens.village.Farms.ripe(level, v, v.centre()));
+        log.accept("  fields: " + fields + " laid out (" + net.maidens.village.Farms.lastSearch + "); ripe crop near the bell: " + net.maidens.village.Farms.ripe(level, v, v.centre()));
         log.accept("  rank of the tester: " + net.maidens.politics.Diplomacy.rank(level, v, tester.getUUID()).label);
         Network n = Network.get(level);
         KnownVillage self = n.know(level, v);

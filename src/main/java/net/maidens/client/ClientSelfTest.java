@@ -41,7 +41,7 @@ public final class ClientSelfTest {
 
     private static int tick = -1;
     private static BlockPos spot;
-    private static final List<Maiden> line = new ArrayList<>(), row2 = new ArrayList<>();
+    private static final List<Maiden> line = new ArrayList<>(), row2 = new ArrayList<>(), variants = new ArrayList<>();
     private static double walkX;
 
     private ClientSelfTest() {}
@@ -217,7 +217,43 @@ public final class ClientSelfTest {
             player(server).teleportTo(server.overworld(), spot.getX() + 0.5, spot.getY() + 0.6, spot.getZ() + 12.5, 180, 12);
         });
         if (t == 1490) shot(mc, "people");
-        if (t == 1500) mc.stop();
+        // ten maidens put together from random parts (skin tone, clothes, eyes, hair): at home in casual clothes
+        // (under the roof), out in their usual clothes, and at work (with their job's hat and tool)
+        if (t == 1492) server.execute(() -> {
+            for (Maiden m : line) m.discard();
+            for (Maiden m : row2) m.discard();
+            ServerLevel level = server.overworld();
+            net.minecraft.util.RandomSource r = net.minecraft.util.RandomSource.create(42);
+            for (int i = 0; i < 10; i++) {
+                Maiden m = ModEntities.MAIDEN.get().create(level);
+                m.moveTo(spot.getX() - 6.25 + i * 1.4, spot.getY(), spot.getZ() + 7.0, 180, 0);
+                m.setNoAi(true);
+                m.setYHeadRot(180);
+                m.setYBodyRot(180);
+                level.addFreshEntity(m);
+                m.ensureInitialised();
+                m.setLooks(r.nextInt(Maiden.SKINS), r.nextInt(Maiden.SKINS), r.nextInt(Maiden.SKINS), r.nextInt(Maiden.SKINS));
+                variants.add(m);
+            }
+            player(server).teleportTo(level, spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 0, 4);
+        });
+        if (t == 1530) shot(mc, "variants_casual");
+        if (t == 1532) server.execute(() -> {
+            for (int i = 0; i < variants.size(); i++) {
+                Maiden m = variants.get(i);
+                m.moveTo(spot.getX() - 6.25 + i * 1.4, spot.getY(), spot.getZ() - 1.0, 180, 0);
+                m.setYHeadRot(180);
+                m.setYBodyRot(180);
+            }
+            player(server).teleportTo(server.overworld(), spot.getX() + 0.5, spot.getY(), spot.getZ() - 7.5, 0, 4);
+        });
+        if (t == 1560) shot(mc, "variants_normal");
+        if (t == 1562) server.execute(() -> {
+            net.maidens.maiden.work.Job[] jobs = {net.maidens.maiden.work.Job.FARM, net.maidens.maiden.work.Job.WOOD, net.maidens.maiden.work.Job.MINE, net.maidens.maiden.work.Job.FISH};
+            for (int i = 0; i < variants.size(); i++) variants.get(i).employment().hireForTest(jobs[i % jobs.length], null);
+        });
+        if (t == 1590) shot(mc, "variants_work");
+        if (t == 1600) mc.stop();
     }
 
     private static void bag(Maiden m, net.minecraft.world.item.Item... items) {
@@ -262,7 +298,7 @@ public final class ClientSelfTest {
                 m.setYBodyRot(180);
                 level.addFreshEntity(m);
                 m.ensureInitialised();
-                m.setSkin(i);
+                m.setLooks(i, i, i, i);
                 line.add(m);
             }
             // a second row behind, under a roof: a man, an old woman, an old man, two children, and a woman in her
@@ -280,7 +316,7 @@ public final class ClientSelfTest {
                 m.ensureInitialised();
                 m.setKind(kinds[i]);
                 if (i == 3 || i == 4) m.makeChild();
-                m.setSkin(i);
+                m.setLooks(i, i, i, i);
                 row2.add(m);
             }
             line.get(4).employment().hireForTest(net.maidens.maiden.work.Job.FARM, null);

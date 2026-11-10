@@ -71,6 +71,10 @@ public class Maiden extends AbstractVillager {
     private static final EntityDataAccessor<Boolean> ROYAL = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.BOOLEAN);
     /** Woman, man, old woman, old man (children are the vanilla "baby" of any of them). */
     private static final EntityDataAccessor<Integer> KIND = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.INT);
+    /** Her looks, each picked separately (skin tone is SKIN): clothes, eyes, hair. */
+    private static final EntityDataAccessor<Integer> OUTFIT = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> EYES = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> HAIR = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.INT);
     /** In her casual clothes (at home, indoors). */
     private static final EntityDataAccessor<Boolean> CASUAL = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.BOOLEAN);
     /** The villager profession whose hat she wears while working ("" for none). */
@@ -170,6 +174,9 @@ public class Maiden extends AbstractVillager {
         builder.define(SKIN, 0);
         builder.define(ROYAL, false);
         builder.define(KIND, 0);
+        builder.define(OUTFIT, 0);
+        builder.define(EYES, 0);
+        builder.define(HAIR, 0);
         builder.define(CASUAL, false);
         builder.define(HAT, "");
     }
@@ -184,6 +191,26 @@ public class Maiden extends AbstractVillager {
 
     public boolean isRoyal() {
         return entityData.get(ROYAL);
+    }
+
+    public int outfit() {
+        return Math.floorMod(entityData.get(OUTFIT), SKINS);
+    }
+
+    public int eyes() {
+        return Math.floorMod(entityData.get(EYES), SKINS);
+    }
+
+    public int hair() {
+        return Math.floorMod(entityData.get(HAIR), SKINS);
+    }
+
+    /** Her looks: skin tone, clothes, eyes, hair (each one of the {@link #SKINS} we have). */
+    public void setLooks(int tone, int outfit, int eyes, int hair) {
+        setSkin(tone);
+        entityData.set(OUTFIT, Math.floorMod(outfit, SKINS));
+        entityData.set(EYES, Math.floorMod(eyes, SKINS));
+        entityData.set(HAIR, Math.floorMod(hair, SKINS));
     }
 
     public Kind kind() {
@@ -295,7 +322,7 @@ public class Maiden extends AbstractVillager {
         if (initialised || level().isClientSide) return;
         initialised = true;
         var r = getRandom();
-        setSkin(r.nextInt(SKINS));
+        setLooks(r.nextInt(SKINS), r.nextInt(SKINS), r.nextInt(SKINS), r.nextInt(SKINS));
         personality = Personality.byId(r.nextInt(Personality.values().length));
         if (!hasCustomName()) setCustomName(Component.literal(randomName(r, isMale())));
         if (home == null) home = blockPosition();
@@ -673,6 +700,9 @@ public class Maiden extends AbstractVillager {
         raider.save(tag);
         tag.putBoolean("MaidenReady", initialised);
         tag.putInt("Skin", getSkin());
+        tag.putInt("Outfit", outfit());
+        tag.putInt("Eyes", eyes());
+        tag.putInt("Hair", hair());
         tag.putInt("Personality", personality.ordinal());
         if (home != null) tag.putLong("Home", home.asLong());
         relationships.save(tag);
@@ -694,6 +724,9 @@ public class Maiden extends AbstractVillager {
         raider.load(tag);
         initialised = tag.getBoolean("MaidenReady");
         setSkin(tag.getInt("Skin"));
+        // from before her looks were picked separately: all of them from her one skin
+        int skin = getSkin();
+        setLooks(skin, tag.contains("Outfit") ? tag.getInt("Outfit") : skin, tag.contains("Eyes") ? tag.getInt("Eyes") : skin, tag.contains("Hair") ? tag.getInt("Hair") : skin);
         personality = Personality.byId(tag.getInt("Personality"));
         home = tag.contains("Home") ? BlockPos.of(tag.getLong("Home")) : null;
         relationships.load(tag);

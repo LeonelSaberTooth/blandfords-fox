@@ -11,20 +11,12 @@ import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.resources.ResourceLocation;
 
 public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
-    /** The model is 36.5 px tall; this makes her 1.95 blocks, the height of her hitbox, so she fits through doors. */
-    public static final float SCALE = 1.95F * 16.0F / 36.5F;
-    /** Children: the same body, this much smaller (their hitbox is vanilla's half). */
-    public static final float CHILD = 0.55F;
+    /** The model is 36.5 px tall; this makes her 1.8 blocks, as tall as a player (and her hitbox). */
+    public static final float SCALE = 1.8F * 16.0F / 36.5F;
+    /** Children: the same body, half the size (as their hitbox). */
+    public static final float CHILD = 0.5F;
 
-    private static final ResourceLocation[] SKINS = textures("maiden_"), CASUAL = textures("casual_"), CHILDREN = textures("child_");
 
-    private static ResourceLocation[] textures(String prefix) {
-        ResourceLocation[] out = new ResourceLocation[Maiden.SKINS];
-        for (int i = 0; i < out.length; i++) {
-            out[i] = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "textures/entity/maiden/" + prefix + (i + 1) + ".png");
-        }
-        return out;
-    }
 
     /** Her usual body, and her body at home in casual clothes. */
     private final MaidenModel usual, casual;
@@ -53,9 +45,8 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
     @Override
     public ResourceLocation getTextureLocation(Maiden maiden) {
-        int skin = maiden.getSkin();
-        if (maiden.isBaby()) return CHILDREN[skin];
-        return maiden.isCasual() ? CASUAL[skin] : SKINS[skin];
+        LayeredSkin.Body body = maiden.isBaby() ? LayeredSkin.Body.CHILD : maiden.isCasual() ? LayeredSkin.Body.CASUAL : LayeredSkin.Body.USUAL;
+        return LayeredSkin.get(body, maiden.getSkin(), maiden.outfit(), maiden.eyes(), maiden.hair());
     }
 
     @Override

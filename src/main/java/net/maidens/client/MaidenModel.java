@@ -66,6 +66,12 @@ public class MaidenModel extends HumanoidModel<Maiden> {
         put(leftArm, MaidenGeometry.LEFT_ARM);
         put(rightLeg, MaidenGeometry.RIGHT_LEG);
         put(leftLeg, MaidenGeometry.LEFT_LEG);
+        // vanilla's idle sway of the arms, halved
+        float swayZ = (Mth.cos(ageInTicks * 0.09F) * 0.05F + 0.05F) * 0.5F, swayX = Mth.sin(ageInTicks * 0.067F) * 0.05F * 0.5F;
+        rightArm.zRot -= swayZ;
+        leftArm.zRot += swayZ;
+        rightArm.xRot -= swayX;
+        leftArm.xRot += swayX;
         float c = Mth.cos(limbSwing * 0.6662F * CADENCE);
         float k = Math.min(1.0F, limbSwingAmount * 1.6F);
         rightLeg.xRot = c * LEG * k;

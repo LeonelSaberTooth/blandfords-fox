@@ -17,10 +17,10 @@ public final class ModEntities {
 
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MaidensMod.MOD_ID);
 
-    /** Player-sized: a little under two blocks, so she fits through doors. */
+    /** Player-sized: as tall as a player. */
     public static final DeferredHolder<EntityType<?>, EntityType<Maiden>> MAIDEN = ENTITIES.register("maiden",
             () -> EntityType.Builder.of(Maiden::new, MobCategory.MISC)
-                    .sized(0.6F, 1.95F)
+                    .sized(0.6F, 1.8F)
                     .eyeHeight(1.7F)
                     .clientTrackingRange(10)
                     .build(MaidensMod.MOD_ID + ":maiden"));

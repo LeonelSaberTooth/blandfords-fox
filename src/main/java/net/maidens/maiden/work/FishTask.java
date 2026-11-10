@@ -161,12 +161,12 @@ final class FishTask extends WorkTask {
         return best;
     }
 
-    /** Open water, not a farm's water hole or a puddle: most of the 5 x 5 around it is water. */
+    /** Open water, not a farm's water hole or channel: at least 7 of the 5 x 5 around it is water. */
     private static boolean open(ServerLevel level, BlockPos p) {
         int n = 0;
         for (int dx = -2; dx <= 2; dx++)
             for (int dz = -2; dz <= 2; dz++) if (level.getFluidState(p.offset(dx, 0, dz)).is(Fluids.WATER)) n++;
-        return n >= 12;
+        return n >= 7;
     }
 
     /** Dry ground next to the water where she can stand. */

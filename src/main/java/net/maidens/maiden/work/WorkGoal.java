@@ -69,12 +69,19 @@ public final class WorkGoal extends Goal {
         Employment e = m.employment();
         if (e.forVillage() && e.workPos() != null && !e.inMine() && !m.blockPosition().closerThan(e.workPos(), 36)) {
             if (--commute <= 0 || m.getNavigation().isDone()) {
-                commute = 60;
-                Vec3 to = Vec3.atBottomCenterOf(e.workPos());
-                Vec3 step = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPosTowards(m, 24, 8, to, Math.PI / 2);
-                if (step == null) step = net.minecraft.world.entity.ai.util.LandRandomPos.getPosTowards(m, 16, 7, to);
-                if (step != null) m.getNavigation().moveTo(step.x, step.y, step.z, 0.6);
-                else m.getNavigation().moveTo(to.x, to.y, to.z, 0.6);
+                commute = 200;
+                // the whole way planned at once (further than she usually plans: only now and then, for the long walk)
+                var range = m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
+                double was = range.getBaseValue();
+                range.setBaseValue(160);
+                net.minecraft.world.level.pathfinder.Path path = m.getNavigation().createPath(e.workPos(), 2);
+                range.setBaseValue(was);
+                if (path != null && path.getNodeCount() > 1) m.getNavigation().moveTo(path, 0.6);
+                else {
+                    Vec3 to = Vec3.atBottomCenterOf(e.workPos());
+                    Vec3 step = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPosTowards(m, 24, 8, to, Math.PI / 2);
+                    if (step != null) m.getNavigation().moveTo(step.x, step.y, step.z, 0.6);
+                }
             }
             if (SelfTestFlag.ON && m.tickCount % 20 == 0) e.note = j + " on her way, " + (int) Math.sqrt(m.blockPosition().distSqr(e.workPos())) + " blocks to go";
             return;

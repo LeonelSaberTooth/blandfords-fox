@@ -44,12 +44,26 @@ public final class WorkSites {
         return in || v.blueprint.overlaps(new BoundingBox(x - 1, -64, z - 1, x + 1, 320, z + 1));
     }
 
-    /** The height the village lives at (its bell), for spots she can walk to: not up a mountain or down a ravine. */
-    private static int home(ServerLevel level, VillageRecord v) {
+    /**
+     * The heights the village's people walk at: its bell, its gates, its fields (which may be down a hill from the
+     * houses). A work spot has to be near one of them: not up a mountain or down a ravine.
+     */
+    private static List<Integer> heights(ServerLevel level, VillageRecord v) {
+        List<Integer> ys = new ArrayList<>();
         BlockPos b = v.bell();
-        if (b != null) return b.getY();
-        BlockPos c = v.centre();
-        return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ());
+        if (b != null) ys.add(b.getY());
+        else {
+            BlockPos c = v.centre();
+            ys.add(level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ()));
+        }
+        for (VillageRecord.Gate g : v.gates) ys.add(g.pos.getY());
+        for (Blueprint.PieceInfo p : v.blueprint.pieces()) if (p.name().equals(Farms.NAME)) ys.add(p.box().maxY());
+        return ys;
+    }
+
+    private static boolean reachable(List<Integer> ys, int y) {
+        for (int h : ys) if (Math.abs(h - y) <= CLIMB) return true;
+        return false;
     }
 
     private static final int CLIMB = 10;
@@ -85,14 +99,14 @@ public final class WorkSites {
         List<java.util.Map.Entry<Long, Integer>> best = new ArrayList<>(squares.entrySet());
         best.removeIf(e -> e.getValue() < 2);
         best.sort((a, c) -> c.getValue() - a.getValue());
-        int y0 = home(level, v);
+        List<Integer> y0 = heights(level, v);
         for (var e : best) {
             int cx = net.minecraft.world.level.ChunkPos.getX(e.getKey()) * 16 + 8, cz = net.minecraft.world.level.ChunkPos.getZ(e.getKey()) * 16 + 8;
             for (int i = 0; i < 40; i++) {
                 int x = cx + r.nextInt(17) - 8, z = cz + r.nextInt(17) - 8;
                 if (taken(v, x, z)) continue;
                 BlockPos g = ground(level, x, z);
-                if (g != null && Math.abs(g.getY() - y0) <= CLIMB) return g;
+                if (g != null && reachable(y0, g.getY())) return g;
             }
         }
         return null;
@@ -101,7 +115,7 @@ public final class WorkSites {
     /** Dry ground a little way outside the village, by a gate if it has walls (she digs away from the village). */
     @Nullable
     public static BlockPos mine(ServerLevel level, VillageRecord v, RandomSource r) {
-        int y0 = home(level, v);
+        List<Integer> y0 = heights(level, v);
         for (int i = 0; i < 60; i++) {
             int x, z;
             if (!v.gates.isEmpty()) {
@@ -117,7 +131,7 @@ public final class WorkSites {
             }
             if (taken(v, x, z)) continue;
             BlockPos g = ground(level, x, z);
-            if (g != null && Math.abs(g.getY() - y0) <= CLIMB) return g;
+            if (g != null && reachable(y0, g.getY())) return g;
         }
         return null;
     }
@@ -125,13 +139,13 @@ public final class WorkSites {
     /** Dry ground on the shore of water near the village (not the fields' channels). */
     @Nullable
     public static BlockPos water(ServerLevel level, VillageRecord v, RandomSource r) {
-        int y0 = home(level, v);
+        List<Integer> y0 = heights(level, v);
         for (int i = 0; i < SAMPLES; i++) {
             int[] p = around(v, r, 48);
             if (!level.hasChunkAt(new BlockPos(p[0], 0, p[1])) || taken(v, p[0], p[1])) continue;
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, p[0], p[1]) - 1;
             BlockPos w = new BlockPos(p[0], y, p[1]);
-            if (Math.abs(y - y0) > CLIMB) continue;
+            if (!reachable(y0, y + 1)) continue;
             if (!level.getFluidState(w).is(net.minecraft.tags.FluidTags.WATER)) continue;
             // open water (not a puddle): water a few blocks each way
             int wet = 0;

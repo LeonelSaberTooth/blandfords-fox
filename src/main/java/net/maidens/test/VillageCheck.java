@@ -686,7 +686,7 @@ final class VillageCheck {
     private void economyWorkers(ServerLevel level, String when) {
         for (Maiden m : VillageSocial.residents(level, record)) {
             var e = m.employment();
-            if (!e.forVillage()) continue;
+            if (!e.forVillage() || e.job() == net.maidens.maiden.work.Job.NONE) continue;
             int items = 0;
             for (int i = 0; i < e.bag().getContainerSize(); i++) items += e.bag().getItem(i).getCount();
             log.accept("  " + when + ": " + m.name() + " (" + e.job().button + ") " + (int) Math.sqrt(m.blockPosition().distSqr(e.workPos()))

@@ -66,7 +66,7 @@ public final class WorkSites {
         return false;
     }
 
-    private static final int CLIMB = 10;
+    private static final int CLIMB = 10, FAR = 100;
 
     /** Dry, walkable ground at a column: the block above it, or null. */
     @Nullable
@@ -100,8 +100,11 @@ public final class WorkSites {
         best.removeIf(e -> e.getValue() < 1);
         best.sort((a, c) -> c.getValue() - a.getValue());
         List<Integer> y0 = heights(level, v);
+        BlockPos from = v.bell() != null ? v.bell() : v.centre();
         for (var e : best) {
             int cx = net.minecraft.world.level.ChunkPos.getX(e.getKey()) * 16 + 8, cz = net.minecraft.world.level.ChunkPos.getZ(e.getKey()) * 16 + 8;
+            double dx = cx - from.getX(), dz = cz - from.getZ();
+            if (dx * dx + dz * dz > FAR * FAR) continue;            // not a long day's walk away
             for (int i = 0; i < 40; i++) {
                 int x = cx + r.nextInt(17) - 8, z = cz + r.nextInt(17) - 8;
                 if (taken(v, x, z)) continue;

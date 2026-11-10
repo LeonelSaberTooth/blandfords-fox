@@ -125,6 +125,12 @@ final class MineTask extends WorkTask {
             return;
         }
         if (reach(feet(Math.max(0, here - WAYPOINT)), 1.5) && here <= 1) arriveNear(e);
+        if (stuck >= GIVE_UP && !e.inMine()) {
+            // not down the mine after all (or can't find the way up): out is wherever she is
+            stuck = 0;
+            if (e.wrappingUp) e.finish(e.wrapUpMessage);
+            else if (!e.forVillage || e.busyNow()) e.bagFullDuringWork();
+        }
     }
 
     /** At the top of the stairs but the pathfinder won't take the last step: she steps up. */

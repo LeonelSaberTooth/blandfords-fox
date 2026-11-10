@@ -5,6 +5,7 @@ import net.maidens.core.SelfTestFlag;
 import net.maidens.maiden.Maiden;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -32,6 +33,8 @@ public final class WorkGoal extends Goal {
         boolean time = !e.forVillage() || e.busyNow() || e.inMine();
         return e.job().atWorkSpot() && !e.isDelivering() && m.isFree() && time;
     }
+
+    private int commute;
 
     @Override
     public boolean canContinueToUse() {
@@ -61,6 +64,20 @@ public final class WorkGoal extends Goal {
             if (old != null) old.stop();
             running = j;
             task.reset();
+        }
+        // a long way to her village's work spot (further than she can plan a path): there a stretch at a time
+        Employment e = m.employment();
+        if (e.forVillage() && e.workPos() != null && !e.inMine() && !m.blockPosition().closerThan(e.workPos(), 36)) {
+            if (--commute <= 0 || m.getNavigation().isDone()) {
+                commute = 60;
+                Vec3 to = Vec3.atBottomCenterOf(e.workPos());
+                Vec3 step = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPosTowards(m, 24, 8, to, Math.PI / 2);
+                if (step == null) step = net.minecraft.world.entity.ai.util.LandRandomPos.getPosTowards(m, 16, 7, to);
+                if (step != null) m.getNavigation().moveTo(step.x, step.y, step.z, 0.6);
+                else m.getNavigation().moveTo(to.x, to.y, to.z, 0.6);
+            }
+            if (SelfTestFlag.ON && m.tickCount % 20 == 0) e.note = j + " on her way, " + (int) Math.sqrt(m.blockPosition().distSqr(e.workPos())) + " blocks to go";
+            return;
         }
         if (SelfTestFlag.ON && m.tickCount % 20 == 0) {
             m.employment().note = j + " at " + m.blockPosition().toShortString() + " " + task.debug()

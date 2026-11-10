@@ -88,9 +88,9 @@ public final class Employment {
 
     /** A miner down her mine (below where she started it, out of the sky, and not far from it). */
     public boolean inMine() {
-        if (job != Job.MINE || workPos == null || m.getY() >= workPos.getY() - 2) return false;
-        double dx = m.getX() - workPos.getX(), dz = m.getZ() - workPos.getZ();
-        return dx * dx + dz * dz < 240 * 240 && !m.level().canSeeSky(m.blockPosition().above());
+        if (job != Job.MINE || workPos == null || mineStep <= 0 || m.getY() >= workPos.getY() - 2) return false;
+        double dx = m.getX() - workPos.getX(), dz = m.getZ() - workPos.getZ(), r = mineStep + 6;
+        return dx * dx + dz * dz < r * r && !m.level().canSeeSky(m.blockPosition().above());
     }
 
     /** Hired by a player (not working for her village). */

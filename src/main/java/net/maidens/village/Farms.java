@@ -56,6 +56,7 @@ public final class Farms {
         List<double[]> ways = new ArrayList<>();
         for (VillageRecord.Gate g : v.gates) ways.add(new double[]{g.pos.getX(), g.pos.getZ(), g.dx, g.dz});
         int made = 0, unloaded = 0, taken = 0, rough = 0;
+        List<Object[]> rougher = new ArrayList<>();
         for (int i = 0; i < TRIES && made < FIELDS; i++) {
             int x, z;
             if (!ways.isEmpty()) {
@@ -76,9 +77,23 @@ public final class Farms {
             if (!level.hasChunksAt(fp.minX() - 1, fp.minZ() - 1, fp.maxX() + 1, fp.maxZ() + 1)) { unloaded++; continue; }
             BoundingBox column = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
             if (v.blueprint.overlaps(column.inflatedBy(2))) { taken++; continue; }
-            int base = level(level, fp);
-            if (base == Integer.MIN_VALUE) { rough++; continue; }
-            add(level, v, fp, base, alongX, CROPS[r.nextInt(CROPS.length)], r);
+            int[] lie = level(level, fp);
+            if (lie == null) { rough++; continue; }
+            if (lie[1] > 3) {
+                // hilly: kept in case nothing flat turns up (it's levelled: filled in and dug out)
+                if (lie[1] <= 8) rougher.add(new Object[]{fp, lie[0], alongX, lie[1]});
+                rough++;
+                continue;
+            }
+            add(level, v, fp, lie[0], alongX, CROPS[r.nextInt(CROPS.length)], r);
+            made++;
+        }
+        rougher.sort(java.util.Comparator.comparingInt(o -> (int) o[3]));
+        for (Object[] o : rougher) {
+            if (made >= FIELDS) break;
+            BoundingBox fp = (BoundingBox) o[0];
+            if (v.blueprint.overlaps(new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ()).inflatedBy(2))) continue;
+            add(level, v, fp, (int) o[1], (boolean) o[2], CROPS[r.nextInt(CROPS.length)], r);
             made++;
         }
         lastSearch = made + " fields (" + taken + " spots taken, " + rough + " too rough or wet, " + unloaded + " not loaded)";
@@ -86,21 +101,21 @@ public final class Farms {
         return made;
     }
 
-    /** Flat enough (2 at most) and dry: the ground's height, or MIN_VALUE. */
-    private static int level(ServerLevel level, BoundingBox fp) {
+    /** Dry ground: {its height, how uneven it is}, or null if there's water. */
+    private static int[] level(ServerLevel level, BoundingBox fp) {
         int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
         long sum = 0;
         int n = 0;
         for (int x = fp.minX(); x <= fp.maxX(); x++)
             for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
                 int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-                if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) return Integer.MIN_VALUE;
+                if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) return null;
                 min = Math.min(min, h);
                 max = Math.max(max, h);
                 sum += h;
                 n++;
             }
-        return max - min > 3 ? Integer.MIN_VALUE : (int) Math.round((double) sum / n);
+        return new int[]{(int) Math.round((double) sum / n), max - min};
     }
 
     private static void add(ServerLevel level, VillageRecord v, BoundingBox fp, int base, boolean alongX, Block crop, RandomSource r) {
@@ -111,7 +126,7 @@ public final class Farms {
             for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
                 BlockPos ground = new BlockPos(x, base, z);
                 // the ground under the field, filled in where it dips
-                for (int y = base - 1; y >= base - 3; y--) {
+                for (int y = base - 1; y >= base - 8; y--) {
                     BlockPos b = new BlockPos(x, y, z);
                     if (!level.getBlockState(b).canBeReplaced()) break;
                     blocks.put(b, Blocks.DIRT.defaultBlockState());
@@ -125,7 +140,7 @@ public final class Farms {
                     CropBlock cb = (CropBlock) crop;
                     blocks.put(ground.above(), cb.getStateForAge(r.nextInt(cb.getMaxAge() + 1)));
                 }
-                for (int y = 1; y <= 3; y++) if (channel || y > 1) clear.add(ground.above(y));
+                for (int y = 1; y <= 8; y++) if (channel || y > 1) clear.add(ground.above(y));
             }
         v.blueprint.addBuilding(BoundingBox.encapsulatingPositions(new ArrayList<>(blocks.keySet())).orElse(fp), blocks, clear, NAME, true);
     }

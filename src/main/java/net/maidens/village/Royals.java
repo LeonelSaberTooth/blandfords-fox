@@ -2,7 +2,11 @@ package net.maidens.village;
 
 import net.maidens.maiden.Maiden;
 import net.maidens.politics.Network;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ai.village.poi.PoiManager;
+import net.minecraft.world.entity.ai.village.poi.PoiTypes;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +27,7 @@ public final class Royals {
         for (Maiden m : residents) {
             boolean royal = v.isRoyal(m.getUUID());
             if (royal != m.isRoyal()) m.setRoyal(royal);
+            if (royal) moveIntoCastle(level, v, m);
         }
         if (v.royals.size() >= PER_VILLAGE || residents.isEmpty()) return;
         // prefer someone free (not hired, not married to a player)
@@ -31,6 +36,17 @@ public final class Royals {
         if (choice.isEmpty()) for (Maiden m : residents) if (!m.isRoyal()) choice.add(m);
         if (choice.isEmpty()) return;
         crown(level, v, choice.get(level.getRandom().nextInt(choice.size())));
+    }
+
+    /** A royal sleeps in the castle (a free bed there), once it has one. */
+    private static void moveIntoCastle(ServerLevel level, VillageRecord v, Maiden m) {
+        BoundingBox c = v.castle;
+        if (c == null || !level.hasChunksAt(c.minX(), c.minZ(), c.maxX(), c.maxZ())) return;
+        BlockPos bed = m.residence().bed();
+        if (bed != null && c.isInside(bed)) return;
+        BlockPos centre = c.getCenter();
+        level.getPoiManager().findAll(h -> h.is(PoiTypes.HOME), c::isInside, centre, 24, PoiManager.Occupancy.HAS_SPACE)
+                .findFirst().ifPresent(p -> m.residence().claimBed(level, p));
     }
 
     public static void crown(ServerLevel level, VillageRecord v, Maiden m) {

@@ -20,7 +20,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
  * Turns half of the villages into maiden villages, without touching world generation:
  * a villager placed by a village's own buildings, appearing in the world for the first time
  * (vanilla marks those to pick a profession on their first tick), is swapped for a maiden in the same spot
- * if its village's coin flip says so. Babies are left out. Every other villager is left alone.
+ * if its village's coin flip says so (a baby for a child). Every other villager is left alone.
  */
 @EventBusSubscriber(modid = MaidensMod.MOD_ID)
 public final class VillageConversion {
@@ -41,8 +41,11 @@ public final class VillageConversion {
     static void sweep(ServerLevel level, Villages villages) {
         for (VillageRecord v : villages.all()) {
             if (!level.isLoaded(v.centre())) continue;
-            for (Villager villager : level.getEntitiesOfClass(Villager.class, AABB.of(v.box).inflate(16), VillageConversion::fromVillageStructure)) {
-                convert(level, villager);
+            // structure villagers that slipped through, and any jobless villager who wandered or spawned in: a maiden
+            // village has maidens (a villager someone has traded with is left alone)
+            for (Villager villager : level.getEntitiesOfClass(Villager.class, AABB.of(v.box).inflate(16),
+                    vl -> fromVillageStructure(vl) || vl.getVillagerXp() == 0 && vl.getVillagerData().getProfession() == net.minecraft.world.entity.npc.VillagerProfession.NONE)) {
+                replace(level, villager, v);
             }
         }
     }
@@ -51,13 +54,22 @@ public final class VillageConversion {
         if (villager.isRemoved()) return;
         StructureStart village = Villages.villageAt(level, villager.blockPosition());
         if (village == null || !Villages.rollsMaidens(level, village)) return;
-        VillageRecord record = Villages.get(level).record(level, village);
+        replace(level, villager, Villages.get(level).record(level, village));
+    }
+
+    /** The villager goes; a maiden of that village takes her place (a baby just goes). */
+    private static void replace(ServerLevel level, Villager villager, VillageRecord record) {
+        if (villager.isRemoved()) return;
         villager.discard();
-        if (villager.isBaby()) return;
         Maiden m = ModEntities.MAIDEN.get().create(level);
         if (m == null) return;
         m.moveTo(villager.getX(), villager.getY(), villager.getZ(), villager.getYRot(), 0);
         m.ensureInitialised();
+        // who she is: a baby villager becomes a child; anyone else, as the village's people come
+        if (villager.isBaby()) {
+            m.setKind(level.getRandom().nextBoolean() ? Maiden.Kind.MAN : Maiden.Kind.WOMAN);
+            m.makeChild();
+        } else People.roll(m, level.getRandom());
         m.residence().joinVillage(record.id);
         level.addFreshEntity(m);
     }

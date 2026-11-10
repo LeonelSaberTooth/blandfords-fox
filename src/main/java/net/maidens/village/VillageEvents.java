@@ -29,13 +29,21 @@ public final class VillageEvents {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         Network network = Network.get(level);
         // one possible village checked every 4 ticks (a real one means laying out the whole village, as /locate does)
-        if (network.busy() && level.getGameTime() % 4 == 0) network.tick(level);
+        if (network.busy()) {
+            if (network.boosted(level)) {
+                // the world map is open: as many as fit in 6 ms this tick
+                long until = System.nanoTime() + 6_000_000L;
+                do network.tick(level); while (network.busy() && System.nanoTime() < until);
+            } else if (level.getGameTime() % 4 == 0) network.tick(level);
+        }
         Fortify.placeTick(level, Villages.get(level));
         if (level.getGameTime() % 100 == 0) {
             Villages villages = Villages.get(level);
             villages.recordLoadedPieces(level);
             Upkeep.tick(level, villages);
             Fortify.tick(level, villages);
+            HomeVillages.tick(level, villages);
+            Farms.tick(level, villages);
             VillageConversion.sweep(level, villages);
             WarParties.tick(level, villages);
             network.slowTick(level);
@@ -46,6 +54,7 @@ public final class VillageEvents {
     @SubscribeEvent
     public static void onServerStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
         WarParties.clear();
+        HomeVillages.clear();
     }
 
     @SubscribeEvent

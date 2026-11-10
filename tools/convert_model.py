@@ -2,7 +2,8 @@
 
 Writes:
   src/main/java/net/maidens/client/MaidenGeometry.java   (the parts, as Minecraft model code)
-  src/main/resources/assets/maidens/textures/entity/maiden/maiden_<n>.png   (one per texture in the file)
+  src/main/resources/assets/maidens/textures/entity/maiden/maiden_<n>.png   (one per skin in the file)
+  src/main/resources/assets/maidens/textures/entity/maiden/casual_1.png    (the casual one, "...comp")
 
 Blockbench (y up, feet at 0, the model's right at +x) becomes Minecraft model space (y down, feet at 24,
 the model's right at -x): x -> -x, y -> 24 - y, z stays; rotations about x and y change sign.
@@ -90,6 +91,18 @@ public final class MaidenGeometry {{
 '''
 os.makedirs(os.path.dirname(OUT), exist_ok=True); open(OUT, 'w').write(java)
 os.makedirs(TEX, exist_ok=True)
-for i, t in enumerate(J['textures']):
-    open(os.path.join(TEX, f'maiden_{i + 1}.png'), 'wb').write(base64.b64decode(t['source'].split(',', 1)[1]))
-print('model +', len(J['textures']), 'skins')
+# skins: altplayer_skin.png is maiden_1, altplayer_skin_<n>.png maiden_<n>; the "comp" one is her casual clothes
+# (casual_1.png; tools/make_casual.py makes the others from it)
+import re
+count = 0
+for t in J['textures']:
+    data = base64.b64decode(t['source'].split(',', 1)[1])
+    name = t['name']
+    if 'comp' in name:
+        out = 'casual_1.png'
+    else:
+        m = re.search(r'_(\d+)\.png$', name)
+        out = f'maiden_{m.group(1) if m else 1}.png'
+    open(os.path.join(TEX, out), 'wb').write(data)
+    count += 1
+print('model +', count, 'textures')

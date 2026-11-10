@@ -172,6 +172,7 @@ public final class Upkeep {
             if (!(e instanceof Maiden other) || !other.arriveNear(c.pos)) return false;
         }
         place(level, c.pos, c.block);
+        if (c.block.getBlock() instanceof net.minecraft.world.level.block.AbstractBannerBlock) Heraldry.decorate(level, c.pos, v.id);
         v.chores.remove(c.pos.asLong());
         // the other half of a door or bed, or the rest of the same block next to it, goes back at the same time
         for (Direction d : Direction.values()) {

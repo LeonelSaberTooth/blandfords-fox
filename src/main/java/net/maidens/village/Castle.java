@@ -20,7 +20,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
@@ -46,7 +45,7 @@ public final class Castle {
     public static final String NAME = "castle";
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, NAME);
     static final int SIZE = 25, HEIGHT = 18;
-    private static final int TRIES = 400, MAX_SLOPE = 10;
+    private static final int TRIES = 160, MAX_SLOPE = 10;
 
     /** How the last site search went (for the self test). */
     public static String lastSearch = "";
@@ -130,6 +129,8 @@ public final class Castle {
             d.set(x, 4, last, Blocks.STONE_BRICK_STAIRS.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH).setValue(StairBlock.HALF, Half.TOP));
         }
         keep(d);
+        // the village's banners either side of the gate, outside
+        for (int x : new int[]{9, 15}) d.set(x, 7, SIZE, Blocks.WHITE_WALL_BANNER.defaultBlockState().setValue(WallBannerBlock.FACING, Direction.SOUTH));
         // lanterns on posts around the courtyard
         for (int[] p : new int[][]{{4, 9}, {20, 9}, {4, 15}, {20, 15}}) {
             d.set(p[0], 1, p[1], Blocks.SPRUCE_FENCE.defaultBlockState());
@@ -203,10 +204,10 @@ public final class Castle {
         d.set(13, 1, z0 + 1, Blocks.POLISHED_ANDESITE.defaultBlockState());
         d.set(11, 2, z0 + 1, Blocks.LANTERN.defaultBlockState());
         d.set(13, 2, z0 + 1, Blocks.LANTERN.defaultBlockState());
-        for (int x : new int[]{10, 14}) d.set(x, 3, z0 + 1, Blocks.RED_WALL_BANNER.defaultBlockState().setValue(WallBannerBlock.FACING, Direction.SOUTH));
+        for (int x : new int[]{10, 14}) d.set(x, 3, z0 + 1, Blocks.WHITE_WALL_BANNER.defaultBlockState().setValue(WallBannerBlock.FACING, Direction.SOUTH));
         for (int z : new int[]{9, 12}) {
-            d.set(x0 + 1, 3, z, Blocks.RED_WALL_BANNER.defaultBlockState().setValue(WallBannerBlock.FACING, Direction.EAST));
-            d.set(x1 - 1, 3, z, Blocks.RED_WALL_BANNER.defaultBlockState().setValue(WallBannerBlock.FACING, Direction.WEST));
+            d.set(x0 + 1, 3, z, Blocks.WHITE_WALL_BANNER.defaultBlockState().setValue(WallBannerBlock.FACING, Direction.EAST));
+            d.set(x1 - 1, 3, z, Blocks.WHITE_WALL_BANNER.defaultBlockState().setValue(WallBannerBlock.FACING, Direction.WEST));
         }
         // the royal bedroom
         for (int x : new int[]{10, 11}) {
@@ -245,14 +246,14 @@ public final class Castle {
         return BoundingBox.fromCorners(a, b);
     }
 
-    /** The castle placed with its corner (ground floor) at a spot and turned, ready to add to a village. */
-    static Buildings.Plan plan(BlockPos corner, Rotation rot) {
+    /** The castle placed with its corner (ground floor) at a spot and turned, in the village's stone and colours. */
+    static Buildings.Plan plan(BlockPos corner, Rotation rot, VillageRecord v) {
         StructurePlaceSettings settings = new StructurePlaceSettings().setRotation(rot);
         Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
         Set<BlockPos> clear = new HashSet<>();
         int beds = 0;
         for (Map.Entry<BlockPos, BlockState> e : design().entrySet()) {
-            BlockState s = e.getValue().rotate(rot);
+            BlockState s = Heraldry.dress(e.getValue(), v).rotate(rot);
             blocks.put(StructureTemplate.calculateRelativePosition(settings, e.getKey()).offset(corner), s);
             if (s.getBlock() instanceof BedBlock && s.getValue(BedBlock.PART) == BedPart.HEAD) beds++;
         }
@@ -282,57 +283,51 @@ public final class Castle {
 
     /**
      * The best spot for a castle just outside the village (or up a nearby hill), facing the village: flat enough,
-     * dry, loaded, clear of its buildings. Null if there's none.
+     * mostly dry, clear of its buildings. Worked out from the lie of the land, loaded or not. Null if there's none;
+     * else {corner, (turn, 0, 0)}.
      */
     @Nullable
     static BlockPos[] findSite(ServerLevel level, VillageRecord v) {
+        Heights heights = new Heights(level);
         var r = net.minecraft.util.RandomSource.create(v.id ^ 0xCA57L);
         BlockPos c = v.centre();
-        int centreY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ());
+        int centreY = heights.ground(c.getX(), c.getZ());
         double half = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2.0;
         BlockPos best = null;
         Rotation bestRot = Rotation.NONE;
         double bestScore = Double.MAX_VALUE;
-        int unloaded = 0, overlap = 0, wetCount = 0, steep = 0, good = 0;
+        int overlap = 0, wetCount = 0, steep = 0, good = 0;
         for (int i = 0; i < TRIES; i++) {
             double angle = r.nextDouble() * Math.PI * 2;
             double dist = half * 0.6 + 14 + r.nextDouble() * (half * 0.5 + 24);
             int x = c.getX() + (int) (Math.cos(angle) * dist), z = c.getZ() + (int) (Math.sin(angle) * dist);
             Rotation rot = facing(c.getX() - x, c.getZ() - z);
-            BlockPos corner0 = cornerFor(x, 0, z, rot);
-            BoundingBox fp = footprint(corner0, rot);
-            if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) { unloaded++; continue; }
-            BoundingBox flat = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
-            if (v.blueprint.overlaps(flat.inflatedBy(4))) { overlap++; continue; }
-            int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
+            BoundingBox fp = footprint(cornerFor(x, 0, z, rot), rot);
+            BoundingBox column = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
+            if (v.blueprint.overlaps(column.inflatedBy(4))) { overlap++; continue; }
+            int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE, wet = 0;
             long sum = 0;
-            int n = 0;
-            boolean wet = false;
-            for (int px = fp.minX(); px <= fp.maxX() && !wet; px += 2)
-                for (int pz = fp.minZ(); pz <= fp.maxZ(); pz += 2) {
-                    int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, px, pz) - 1;
-                    if (!level.getFluidState(new BlockPos(px, h, pz)).isEmpty()) {
-                        wet = true;
-                        break;
-                    }
+            for (int px = fp.minX(); px <= fp.maxX(); px += 6)
+                for (int pz = fp.minZ(); pz <= fp.maxZ(); pz += 6) {
+                    int h = heights.ground(px, pz);
+                    if (heights.wet(px, pz)) wet++;
                     min = Math.min(min, h);
                     max = Math.max(max, h);
                     sum += h;
-                    n++;
                 }
-            if (wet || n == 0) { wetCount++; continue; }
+            if (wet > 3) { wetCount++; continue; }
             if (max - min > MAX_SLOPE) { steep++; continue; }
             good++;
-            int base = (int) Math.round((double) sum / n);
+            int base = (int) Math.round(sum / 25.0);
             // close to the village, on flat ground, and a little higher up is nicer
-            double score = dist + (max - min) * 4 - Math.min(12, base - centreY) * 2.5;
+            double score = dist + (max - min) * 4 - Math.min(12, base - centreY) * 2.5 + wet * 6;
             if (score < bestScore) {
                 bestScore = score;
                 best = new BlockPos(x, base, z);
                 bestRot = rot;
             }
         }
-        lastSearch = good + " good spots of " + TRIES + " (" + overlap + " on buildings, " + steep + " too steep, " + wetCount + " wet, " + unloaded + " not loaded)";
+        lastSearch = good + " good spots of " + TRIES + " (" + overlap + " on buildings, " + steep + " too steep, " + wetCount + " wet)";
         if (best == null) return null;
         return new BlockPos[]{cornerFor(best.getX(), best.getY(), best.getZ(), bestRot), new BlockPos(bestRot.ordinal(), 0, 0)};
     }

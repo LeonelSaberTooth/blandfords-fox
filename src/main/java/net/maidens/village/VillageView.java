@@ -54,12 +54,14 @@ public final class VillageView {
         String right = Diplomacy.rightToDecide(level, v, p);
         t.putString("Right", right == null ? "" : right);
         t.putString("HowTo", Diplomacy.howToEarnIt(level, v, p));
+        Diplomacy.Rank rank = Diplomacy.rank(level, v, p.getUUID());
+        t.putString("Rank", rank.label);
         t.putBoolean("Building", v.blueprint.isBuilding());
         t.putString("Project", v.project);
         map(level, v, t);
         ListTag pieces = new ListTag();
         for (Blueprint.PieceInfo pi : v.blueprint.pieces()) {
-            if (pi.name().equals("road") || pi.name().equals(Buildings.NOT_A_BUILDING) || pi.name().equals(Walls.NAME)) continue;
+            if (pi.name().equals("road") || pi.name().equals("banner") || pi.name().equals(Buildings.NOT_A_BUILDING) || pi.name().equals(Walls.NAME)) continue;
             CompoundTag pt = new CompoundTag();
             pt.putIntArray("Box", new int[]{pi.box().minX(), pi.box().minZ(), pi.box().maxX(), pi.box().maxZ()});
             pt.putString("Name", pi.name().isEmpty() ? "" : Buildings.displayName(ResourceLocation.withDefaultNamespace(pi.name()), v.style));
@@ -103,6 +105,7 @@ public final class VillageView {
             nt.putInt("Distance", (int) Math.round(self.distanceTo(o)));
             nt.putInt("Ours", network.stance(self, o).ordinal());
             nt.putInt("Theirs", network.stance(o, self).ordinal());
+            nt.putBoolean("MayRaid", rank == Diplomacy.Rank.LEADER && o.maiden && network.stance(self, o) == Stance.AGGRESSIVE);
             nb.add(nt);
         }
         t.put("Neighbours", nb);
@@ -160,10 +163,14 @@ public final class VillageView {
                 KnownVillage other = Network.get(level).village(a.number());
                 yield other == null ? "There's no such village." : Diplomacy.setStance(level, v, p, other, Stance.byId(a.extra()));
             }
+            case VillageActionPayload.RAID -> {
+                KnownVillage other = Network.get(level).village(a.number());
+                yield other == null ? "There's no such village." : net.maidens.politics.WarParties.lead(level, v, other, p);
+            }
             default -> null;
         };
         if (reply != null) p.sendSystemMessage(Component.literal(reply));
-        open(level, v, p);
+        if (a.action() != VillageActionPayload.RAID) open(level, v, p);
     }
 
     private static CompoundTag card(String name, String display, int beds, int[] size) {

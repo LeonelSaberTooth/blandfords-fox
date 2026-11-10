@@ -175,11 +175,18 @@ public class WorldMapScreen extends Screen {
             if (Math.abs(mouseX - sx) <= r + 2 && Math.abs(mouseY - sz) <= r + 2) hover = v;
         }
         g.disableScissor();
-        Ui.small(g, font, "scroll to zoom, drag to move - " + (int) Math.round(1 / zoom) + " blocks per pixel", mapX + 3, mapY + mapH - 8, 0xFFFFFFFF, true, 0.65F);
+        String where = "";
+        if (Ui.inside(mouseX, mouseY, mapX, mapY, mapW, mapH)) {
+            int wx = (int) Math.floor(centreX + (mouseX - mapX - mapW / 2.0) / zoom), wz = (int) Math.floor(centreZ + (mouseY - mapY - mapH / 2.0) / zoom);
+            where = "  |  " + wx + ", " + wz;
+        }
+        if (texture == null) g.drawCenteredString(font, "Drawing the map...", mapX + mapW / 2, mapY + mapH / 2 - 4, 0xFFFFFFFF);
+        Ui.small(g, font, "scroll to zoom, drag to move" + where, mapX + 3, mapY + mapH - 8, 0xFFFFFFFF, true, 0.65F);
         renderSide(g, mouseX, mouseY);
         if (hover != null) {
             List<Component> tip = new ArrayList<>();
             tip.add(Component.literal(hover.name()));
+            tip.add(Component.literal(hover.x() + ", " + hover.z()).withStyle(ChatFormatting.DARK_GRAY));
             tip.add(Component.literal(!hover.maiden() ? "a villager village" : hover.id() == viewer ? "your village" : hover.theirs() == null ? "a maiden village"
                     : "they're " + hover.theirs().label + " towards you").withStyle(ChatFormatting.GRAY));
             g.renderComponentTooltip(font, tip, mouseX, mouseY);
@@ -353,7 +360,7 @@ public class WorldMapScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
         if (Ui.inside(mx, my, mapX, mapY, mapW, mapH)) {
             double min = Math.min(mapW, mapH) / (double) (pixels * scale) * 0.5;
-            zoom = Mth.clamp(zoom * (scrollY > 0 ? 1.25 : 0.8), min, 2.0);
+            zoom = Mth.clamp(zoom * (scrollY > 0 ? 1.25 : 0.8), min, 1.0);
             return true;
         }
         return super.mouseScrolled(mx, my, scrollX, scrollY);

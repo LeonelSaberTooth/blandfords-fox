@@ -28,12 +28,12 @@ public final class MaidenArmorGeometry {
 
     /** Helmet, chestplate, boots: vanilla's outer layer. */
     public static LayerDefinition outer() {
-        return create(new CubeDeformation(1.0F), 2F);
+        return create(new CubeDeformation(1.0F), 3F);
     }
 
     /**
-     * @param legDrop how far down her 14-tall leg the 12-tall armor leg sits: leggings start at her hips (0),
-     *                boots reach her feet (2)
+     * @param legDrop how far down her 15-tall leg the 12-tall armor leg sits: leggings start at her hips (0),
+     *                boots reach her feet (3)
      */
     private static LayerDefinition create(CubeDeformation d, float legDrop) {
         MeshDefinition mesh = new MeshDefinition();
@@ -54,10 +54,15 @@ public final class MaidenArmorGeometry {
         leftArm.addOrReplaceChild("left_sleeve", CubeListBuilder.create()
                 .texOffs(40, 16).mirror().addBox(-1F, 0F, -2F, 4F, 12F, 4F, d),
                 PartPose.offsetAndRotation(-1F, -1F, 0F, 0F, 0F, -0.08727F));
-        root.addOrReplaceChild("right_leg", CubeListBuilder.create()
-                .texOffs(0, 16).addBox(-2F, legDrop, -2F, 4F, 12F, 4F, d), pose(MaidenGeometry.RIGHT_LEG));
-        root.addOrReplaceChild("left_leg", CubeListBuilder.create()
-                .texOffs(0, 16).mirror().addBox(-2F, legDrop, -2F, 4F, 12F, 4F, d), pose(MaidenGeometry.LEFT_LEG));
+        // her legs are 3 wide, a little apart and splayed 4 degrees: the armor leg sits centred on each, splayed alike
+        PartDefinition rightLeg = root.addOrReplaceChild("right_leg", CubeListBuilder.create(), pose(MaidenGeometry.RIGHT_LEG));
+        rightLeg.addOrReplaceChild("right_legging", CubeListBuilder.create()
+                .texOffs(0, 16).addBox(-2.5F, legDrop, -2.5F, 4F, 12F, 4F, d),
+                PartPose.offsetAndRotation(0F, 0F, 0.5F, 0F, 0F, -0.06981F));
+        PartDefinition leftLeg = root.addOrReplaceChild("left_leg", CubeListBuilder.create(), pose(MaidenGeometry.LEFT_LEG));
+        leftLeg.addOrReplaceChild("left_legging", CubeListBuilder.create()
+                .texOffs(0, 16).mirror().addBox(-1.5F, legDrop, -2.5F, 4F, 12F, 4F, d),
+                PartPose.offsetAndRotation(0F, 0F, 0.5F, 0F, 0F, 0.06981F));
         return LayerDefinition.create(mesh, 64, 32);
     }
 

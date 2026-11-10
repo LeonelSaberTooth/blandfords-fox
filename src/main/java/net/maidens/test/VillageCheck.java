@@ -162,6 +162,7 @@ final class VillageCheck {
             case 8 -> {
                 if (fortified(level, st)) {
                     finder(level);
+                    people(level);
                     return true;
                 }
             }
@@ -615,6 +616,39 @@ final class VillageCheck {
             log.accept("  castle bed found: " + (throne == null ? "no" : throne.toShortString()));
         }
         return !v.blueprint.hasInstant() || t >= 1200;
+    }
+
+    /** Who lives there now, their fields and banner, and a raid led by the tester. */
+    private void people(ServerLevel level) {
+        VillageRecord v = record;
+        List<Maiden> rs = VillageSocial.residents(level, v);
+        java.util.Map<String, Integer> kinds = new java.util.TreeMap<>();
+        int children = 0, married = 0, guards = 0, hats = 0, casual = 0;
+        for (Maiden m : rs) {
+            kinds.merge(m.kind().name(), 1, Integer::sum);
+            if (m.isBaby()) children++;
+            if (m.spouse() != null) married++;
+            if (m.isGuard()) guards++;
+            if (!m.hat().isEmpty()) hats++;
+            if (m.isCasual()) casual++;
+        }
+        log.accept("people: " + rs.size() + " " + kinds + ", " + children + " children, " + married + " married to each other, " + guards
+                + " guards, " + hats + " wearing a job hat, " + casual + " in casual clothes; banner by the bell " + v.bannerUp
+                + " (" + net.maidens.village.Heraldry.base(v.id).getName() + " with " + net.maidens.village.Heraldry.pattern(v.id).location().getPath()
+                + " in " + net.maidens.village.Heraldry.accent(v.id).getName() + ")");
+        int fields = net.maidens.village.Farms.plan(level, v);
+        log.accept("  fields: " + fields + " laid out; ripe crop near the bell: " + net.maidens.village.Farms.ripe(level, v, v.centre()));
+        log.accept("  rank of the tester: " + net.maidens.politics.Diplomacy.rank(level, v, tester.getUUID()).label);
+        Network n = Network.get(level);
+        KnownVillage self = n.know(level, v);
+        List<KnownVillage> nb = n.neighbours(self);
+        if (!nb.isEmpty()) {
+            net.maidens.politics.Diplomacy.setStance(level, v, tester, nb.get(0), net.maidens.politics.Stance.AGGRESSIVE);
+            log.accept("  lead a raid on " + nb.get(0).name + ": " + net.maidens.politics.WarParties.lead(level, v, nb.get(0), tester));
+            int following = 0;
+            for (Maiden m : VillageSocial.residents(level, v)) if (m.raider().active() && m.raider().resident()) following++;
+            log.accept("  " + following + " residents are on the raid");
+        }
     }
 
     /** /village find walled, as the command does it. */

@@ -29,7 +29,7 @@ final class ScheduleGoal extends Goal {
     public boolean canUse() {
         if (--cooldown > 0) return false;
         cooldown = 10;     // (goals are only checked every other tick, so not tickCount % n)
-        if (!m.hasVillageDuties() || !m.isFree() || m.isSleeping() || m.getTarget() != null) return false;
+        if (!m.hasVillageDuties() || m.isGuard() || !m.isFree() || m.isSleeping() || m.getTarget() != null) return false;
         activity = Schedule.now(m);
         to = Schedule.place(m, activity);
         return to != null && !there();

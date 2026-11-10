@@ -41,12 +41,16 @@ public final class Walls {
     /** What was planned, for the self test and the village info. */
     public record Result(int columns, int blocks, int gates, int towers, int pieces, BoundingBox enclosed) {}
 
-    /** Plans the walls and adds them to the village. Returns null if its land isn't all loaded yet. */
+    /**
+     * Plans the walls and adds them to the village, around its buildings and any extra areas (room kept for a castle
+     * still to come). Unloaded land is planned from the world's terrain shape, and built when it loads.
+     */
     @Nullable
-    static Result plan(ServerLevel level, VillageRecord v, boolean instant) {
+    static Result plan(ServerLevel level, VillageRecord v, boolean instant, BoundingBox... extra) {
         // the area: every building and street, with room around them
         List<BoundingBox> boxes = new ArrayList<>();
         for (Blueprint.PieceInfo p : v.blueprint.pieces()) if (!p.name().equals(NAME)) boxes.add(p.box());
+        for (BoundingBox b : extra) if (b != null) boxes.add(b);
         if (boxes.isEmpty()) return null;
         int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
         for (BoundingBox b : boxes) {
@@ -56,7 +60,7 @@ public final class Walls {
             maxZ = Math.max(maxZ, b.maxZ());
         }
         int x0 = minX - MARGIN, z0 = minZ - MARGIN, w = maxX - minX + 1 + 2 * MARGIN, h = maxZ - minZ + 1 + 2 * MARGIN;
-        if (!level.hasChunksAt(x0, z0, x0 + w - 1, z0 + h - 1)) return null;
+        Heights heights = new Heights(level);
 
         // 1. distance to the nearest building, grown out by DISTANCE + ROUNDING
         int[] d = new int[w * h];
@@ -88,17 +92,8 @@ public final class Walls {
         Map<Integer, Integer> water = new HashMap<>();
         for (int i : wall) {
             int x = x0 + i % w, z = z0 + i / w;
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-            BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, y, z);
-            int surface = y;
-            for (int n = 0; n < 24; n++) {
-                BlockState s = level.getBlockState(p);
-                boolean soft = s.isAir() || s.is(BlockTags.LOGS) || s.is(BlockTags.LEAVES) || s.canBeReplaced() || !s.getFluidState().isEmpty();
-                if (!soft) break;
-                p.move(0, -1, 0);
-            }
-            ground.put(i, p.getY());
-            if (!level.getFluidState(new BlockPos(x, surface, z)).isEmpty()) water.put(i, surface);
+            ground.put(i, heights.ground(x, z));
+            if (heights.wet(x, z)) water.put(i, heights.surface(x, z));
         }
         // the top follows the ground, evened out over its neighbours
         Map<Integer, Integer> top = new HashMap<>();
@@ -132,7 +127,11 @@ public final class Walls {
             double dx = o.x - self.x, dz = o.z - self.z, len = Math.sqrt(dx * dx + dz * dz);
             if (len > 1) rays.add(new double[]{self.x, self.z, dx / len, dz / len});
         }
-        for (double[] ray : rays) {
+        // two gates: towards the nearest neighbour (or east), and the next way out that points well away from it
+        List<int[]> candidates = new ArrayList<>();
+        List<double[]> ordered = new ArrayList<>(rays.subList(4, rays.size()));
+        ordered.addAll(rays.subList(0, 4));
+        for (double[] ray : ordered) {
             int[] hit = null;
             for (double t = 0; t < w + h; t += 0.5) {
                 int x = (int) Math.floor(ray[0] + ray[2] * t) - x0, z = (int) Math.floor(ray[1] + ray[3] * t) - z0;
@@ -140,9 +139,18 @@ public final class Walls {
                 if (wallSet.contains(z * w + x)) hit = new int[]{x, z};      // keep going: the outermost crossing
             }
             if (hit == null) continue;
-            boolean near = false;
-            for (int[] g : gates) if (Math.abs(g[0] - hit[0]) + Math.abs(g[1] - hit[1]) < 14) near = true;
-            if (!near) gates.add(new int[]{hit[0], hit[1], (int) Math.signum(ray[2] * 4), (int) Math.signum(ray[3] * 4)});
+            candidates.add(new int[]{hit[0], hit[1], (int) Math.signum(ray[2] * 4), (int) Math.signum(ray[3] * 4), (int) Math.round(ray[2] * 1000), (int) Math.round(ray[3] * 1000)});
+        }
+        if (!candidates.isEmpty()) {
+            int[] first = candidates.get(0);
+            gates.add(first);
+            for (int[] c2 : candidates) {
+                double dot = (first[4] * c2[4] + first[5] * c2[5]) / 1e6;
+                if (dot < -0.3) {           // pointing well away from the first (more than ~110 degrees apart)
+                    gates.add(c2);
+                    break;
+                }
+            }
         }
         Set<Integer> gate = new HashSet<>();
         for (int[] g : gates)
@@ -186,9 +194,9 @@ public final class Walls {
                     clear.add(p);
                     continue;
                 }
-                blocks.put(p, Castle.stone(x, y, z));
+                blocks.put(p, Heraldry.forStyle(Castle.stone(x, y, z), v.style));
             }
-            if (f[i] <= 4 && (x + z) % 2 == 0) blocks.put(new BlockPos(x, t + 1, z), Blocks.STONE_BRICKS.defaultBlockState());
+            if (f[i] <= 4 && (x + z) % 2 == 0) blocks.put(new BlockPos(x, t + 1, z), Heraldry.forStyle(Blocks.STONE_BRICKS.defaultBlockState(), v.style));
             if (isGate) for (int y = g + 1; y <= g + 4; y++) clear.add(new BlockPos(x, y, z));
         }
         int towerBlocks = 0;
@@ -198,16 +206,26 @@ public final class Walls {
             for (int dx = -2; dx <= 2; dx++)
                 for (int dz = -2; dz <= 2; dz++) {
                     int x = x0 + tw[0] + dx, z = z0 + tw[1] + dz;
-                    int col = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-                    int from = Math.min(g, col) + 1;
+                    int from = Math.min(g, heights.ground(x, z)) + 1;
                     for (int y = from; y <= t; y++) {
-                        blocks.put(new BlockPos(x, y, z), Castle.stone(x, y, z));
+                        blocks.put(new BlockPos(x, y, z), Heraldry.forStyle(Castle.stone(x, y, z), v.style));
                         towerBlocks++;
                     }
                     boolean edge = Math.abs(dx) == 2 || Math.abs(dz) == 2;
-                    if (edge && (dx + dz) % 2 == 0) blocks.put(new BlockPos(x, t + 1, z), Blocks.STONE_BRICKS.defaultBlockState());
+                    if (edge && (dx + dz) % 2 == 0) blocks.put(new BlockPos(x, t + 1, z), Heraldry.forStyle(Blocks.STONE_BRICKS.defaultBlockState(), v.style));
                     if (!edge && dx == 0 && dz == 0) blocks.put(new BlockPos(x, t + 1, z), Blocks.LANTERN.defaultBlockState());
                 }
+        }
+        // the village's banner on the outer face of each tower, below the battlements
+        for (int[] tw : towers) {
+            int i = tw[1] * w + tw[0];
+            int tx = x0 + tw[0], tz = z0 + tw[1];
+            double ox = tx - c.getX(), oz = tz - c.getZ();
+            net.minecraft.core.Direction out = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? net.minecraft.core.Direction.EAST : net.minecraft.core.Direction.WEST)
+                    : (oz > 0 ? net.minecraft.core.Direction.SOUTH : net.minecraft.core.Direction.NORTH);
+            BlockPos at = new BlockPos(tx + out.getStepX() * 3, top.get(i) + 2, tz + out.getStepZ() * 3);
+            if (!blocks.containsKey(at)) blocks.put(at, Heraldry.recolour(Blocks.WHITE_WALL_BANNER.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.WallBannerBlock.FACING, out), v.id));
         }
         for (BlockPos p : blocks.keySet()) clear.remove(p);
 
@@ -229,14 +247,11 @@ public final class Walls {
             v.blueprint.addBuilding(box, sb, sc, NAME, instant);
             pieces++;
         }
-        // the gates joined to the streets inside
+        // the gates (joined to the streets inside once their land is loaded, see joinGates)
+        v.gates.clear();
         for (int[] g : gates) {
-            int ix = x0 + g[0] - g[2] * 3, iz = z0 + g[1] - g[3] * 3;
-            BlockPos inner = new BlockPos(ix, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, ix, iz) - 1, iz);
-            BoundingBox gateBox = BoundingBox.fromCorners(new BlockPos(x0 + g[0] - 3, inner.getY(), z0 + g[1] - 3), new BlockPos(x0 + g[0] + 3, inner.getY() + 5, z0 + g[1] + 3));
-            Buildings.Plan pseudo = new Buildings.Plan(Castle.ID, gateBox, Map.of(), Set.of(), 0, inner);
-            Buildings.Plan road = Buildings.road(level, v, pseudo);
-            if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", instant);
+            int gx = x0 + g[0], gz = z0 + g[1];
+            v.gates.add(new VillageRecord.Gate(new BlockPos(gx, heights.ground(gx, gz) + 1, gz), g[2], g[3]));
         }
         int minWx = Integer.MAX_VALUE, minWz = Integer.MAX_VALUE, maxWx = Integer.MIN_VALUE, maxWz = Integer.MIN_VALUE;
         for (int i : wall) {
@@ -249,6 +264,22 @@ public final class Walls {
         v.wallBox = enclosed;
         Villages.get(level).setDirty();
         return new Result(wall.size(), blocks.size(), gates.size(), towers.size(), pieces, enclosed);
+    }
+
+    /** Joins each gate whose land is loaded now to the streets inside (a path from just inside it). */
+    static void joinGates(ServerLevel level, VillageRecord v) {
+        for (VillageRecord.Gate g : v.gates) {
+            if (g.joined) continue;
+            BlockPos at = g.pos;
+            if (!level.hasChunksAt(at.getX() - 24, at.getZ() - 24, at.getX() + 24, at.getZ() + 24)) continue;
+            g.joined = true;
+            int ix = at.getX() - g.dx * 3, iz = at.getZ() - g.dz * 3;
+            BlockPos inner = new BlockPos(ix, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, ix, iz) - 1, iz);
+            BoundingBox gateBox = BoundingBox.fromCorners(new BlockPos(at.getX() - 3, inner.getY(), at.getZ() - 3), new BlockPos(at.getX() + 3, inner.getY() + 5, at.getZ() + 3));
+            Buildings.Plan road = Buildings.road(level, v, new Buildings.Plan(Castle.ID, gateBox, Map.of(), Set.of(), 0, inner));
+            if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", true);
+            Villages.get(level).setDirty();
+        }
     }
 
     private static long segment(BlockPos p) {

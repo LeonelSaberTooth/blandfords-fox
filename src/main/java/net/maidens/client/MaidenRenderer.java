@@ -11,14 +11,19 @@ import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.resources.ResourceLocation;
 
 public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
-    /** The model is 35.5 px tall; this makes her 1.95 blocks, the height of her hitbox, so she fits through doors. */
-    public static final float SCALE = 1.95F * 16.0F / 35.5F;
+    /** The model is 36.5 px tall; this makes her 1.95 blocks, the height of her hitbox, so she fits through doors. */
+    public static final float SCALE = 1.95F * 16.0F / 36.5F;
+    /** Children: the same body, this much smaller (their hitbox is vanilla's half). */
+    public static final float CHILD = 0.55F;
 
-    private static final ResourceLocation[] SKINS = new ResourceLocation[Maiden.SKINS];
-    static {
-        for (int i = 0; i < SKINS.length; i++) {
-            SKINS[i] = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "textures/entity/maiden/maiden_" + (i + 1) + ".png");
+    private static final ResourceLocation[] SKINS = textures("maiden_"), CASUAL = textures("casual_"), CHILDREN = textures("child_");
+
+    private static ResourceLocation[] textures(String prefix) {
+        ResourceLocation[] out = new ResourceLocation[Maiden.SKINS];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "textures/entity/maiden/" + prefix + (i + 1) + ".png");
         }
+        return out;
     }
 
     public MaidenRenderer(EntityRendererProvider.Context context) {
@@ -26,6 +31,7 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
         addLayer(new HumanoidArmorLayer<>(this, new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.INNER)),
                 new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.OUTER)), context.getModelManager()));
         addLayer(new CrownLayer(this, context.getModelSet()));
+        addLayer(new JobHatLayer(this, context.getModelSet()));
     }
 
     /** Her name only shows in her menu, never above her head. */
@@ -36,11 +42,14 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
     @Override
     public ResourceLocation getTextureLocation(Maiden maiden) {
-        return SKINS[maiden.getSkin()];
+        int skin = maiden.getSkin();
+        if (maiden.isBaby()) return CHILDREN[skin];
+        return maiden.isCasual() ? CASUAL[skin] : SKINS[skin];
     }
 
     @Override
     protected void scale(Maiden maiden, PoseStack poseStack, float partialTick) {
-        poseStack.scale(SCALE, SCALE, SCALE);
+        float s = maiden.isBaby() ? SCALE * CHILD : SCALE;
+        poseStack.scale(s, s, s);
     }
 }

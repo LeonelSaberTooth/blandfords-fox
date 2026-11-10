@@ -48,6 +48,9 @@ public final class WarParties {
         final List<UUID> raiders = new ArrayList<>();
         final Set<UUID> fighters = new HashSet<>();
         int stolen;
+        /** A raid a player leads, and when its raiders reached the village (-1: still on the way). */
+        @Nullable UUID leader;
+        long arrived = -1;
 
         Raid(KnownVillage from, KnownVillage to, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension, long started) {
             this.from = from;
@@ -137,6 +140,17 @@ public final class WarParties {
     @Nullable
     private static BlockPos edgeFacing(ServerLevel level, VillageRecord v, KnownVillage from) {
         BlockPos c = v.centre();
+        // a walled village: just outside the gate nearest where they come from (so they walk in through it)
+        VillageRecord.Gate best = null;
+        double bestD = Double.MAX_VALUE;
+        for (VillageRecord.Gate g : v.gates) {
+            double d = Math.pow(g.pos.getX() - from.x, 2) + Math.pow(g.pos.getZ() - from.z, 2);
+            if (d < bestD) { bestD = d; best = g; }
+        }
+        if (best != null) {
+            int x = best.pos.getX() + best.dx * 6, z = best.pos.getZ() + best.dz * 6;
+            if (level.hasChunkAt(new BlockPos(x, 0, z))) return new BlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z);
+        }
         double angle = Math.atan2(from.z - c.getZ(), from.x - c.getX());
         int dist = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 16;
         for (int i = 0; i < 7; i++) {
@@ -155,7 +169,20 @@ public final class WarParties {
         for (UUID id : r.raiders) {
             if (level.getEntity(id) instanceof Maiden m && m.isAlive() && !m.raider().surrendered()) fighting++;
         }
-        boolean over = fighting == 0 || level.getGameTime() - r.started > RAID_TICKS;
+        long now = level.getGameTime();
+        boolean over;
+        if (r.leader != null) {
+            // a player's raid: the clock starts when they get there (and a day on the road is long enough)
+            if (r.arrived < 0) {
+                for (UUID id : r.raiders) {
+                    if (level.getEntity(id) instanceof Maiden m && Math.pow(m.getX() - r.to.x, 2) + Math.pow(m.getZ() - r.to.z, 2) < 72 * 72) {
+                        r.arrived = now;
+                        break;
+                    }
+                }
+            }
+            over = fighting == 0 || r.arrived >= 0 && now - r.arrived > RAID_TICKS * 2 || r.arrived < 0 && now - r.started > 24000;
+        } else over = fighting == 0 || now - r.started > RAID_TICKS;
         if (!over) return;
         LOG.info("Raid on {} by {} over after {} ticks ({} still fighting)", r.to.name, r.from.name, level.getGameTime() - r.started, fighting);
         ACTIVE.remove(r.to.id);
@@ -178,12 +205,71 @@ public final class WarParties {
             outcome = r.from.name + "'s raiders pulled back" + (r.stolen > 0 ? " with " + r.stolen + " stacks of stolen goods." : ".");
             for (UUID id : r.raiders) if (level.getEntity(id) instanceof Maiden m && m.isAlive()) m.raider().surrender();
         }
+        if (r.leader != null) endLed(level, r);
         network.news(level, r.to.id, outcome);
+        if (r.leader != null) network.news(level, r.from.id, outcome);
         if (target != null) tell(level, target, Component.literal(outcome).withStyle(ChatFormatting.GOLD));
         // the raided village's royal wants revenge (unless a player decided otherwise)
         if (network.setStanceByRoyal(r.to, r.from, Stance.AGGRESSIVE)) {
             network.news(level, r.to.id, r.to.name + " swore revenge on " + r.from.name + ".");
         }
+    }
+
+    /** A player's raid is over: their raiders go home, and what they took goes to the player who led them. */
+    private static void endLed(ServerLevel level, Raid r) {
+        Player leader = level.getPlayerByUUID(r.leader);
+        for (UUID id : r.raiders) {
+            if (!(level.getEntity(id) instanceof Maiden m)) continue;
+            var bag = m.employment().bag();
+            if (leader != null) {
+                for (int i = 0; i < bag.getContainerSize(); i++) {
+                    ItemStack st = bag.getItem(i);
+                    if (st.isEmpty() || st.getItem() instanceof net.minecraft.world.item.SwordItem) continue;
+                    if (!leader.getInventory().add(st.copy())) leader.drop(st.copy(), false);
+                    bag.setItem(i, ItemStack.EMPTY);
+                }
+            }
+            m.raider().finish();
+        }
+    }
+
+    /**
+     * A leader of a village leads a raid on a village it's hostile to: up to five of its guards and grown-ups who are
+     * around follow the player there, and fight and steal when they arrive. Returns what to tell the player.
+     */
+    public static String lead(ServerLevel level, VillageRecord home, KnownVillage target, ServerPlayer p) {
+        if (net.maidens.politics.Diplomacy.rank(level, home, p.getUUID()) != net.maidens.politics.Diplomacy.Rank.LEADER)
+            return "Only a leader of " + home.name + " can lead its people on a raid: marry its royal, or save it from one.";
+        Network n = Network.get(level);
+        KnownVillage self = n.know(level, home);
+        if (!target.maiden || target.id == self.id) return "That's not a village " + home.name + " can raid.";
+        if (n.stance(self, target) != Stance.AGGRESSIVE) return home.name + " isn't hostile towards " + target.name + ": set it to Aggressive first.";
+        if (ACTIVE.containsKey(target.id)) return target.name + " is already being raided.";
+        for (Raid r : ACTIVE.values()) if (r.leader != null && r.from.id == self.id) return home.name + "'s raiders are already out.";
+        List<Maiden> fighters = new ArrayList<>();
+        List<Maiden> residents = new ArrayList<>(VillageSocial.residents(level, home));
+        residents.sort((a, b) -> Boolean.compare(b.isGuard(), a.isGuard()));
+        for (Maiden m : residents) {
+            if (fighters.size() >= 5) break;
+            if (m.isBaby() || m.isOld() || m.isRoyal() || !m.hasVillageDuties() || m.raider().active()) continue;
+            fighters.add(m);
+        }
+        if (fighters.size() < 2) return "Not enough of " + home.name + "'s people are around to raid with you. Gather them at home first.";
+        Raid raid = new Raid(self, target, level.dimension(), level.getGameTime());
+        raid.leader = p.getUUID();
+        for (Maiden m : fighters) {
+            BlockPos back = m.residence().bed() != null ? m.residence().bed() : home.centre();
+            m.raider().follow(target.id, self.id, back, p.getUUID());
+            if (!(m.getMainHandItem().getItem() instanceof net.minecraft.world.item.SwordItem)) m.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
+            m.clearRestriction();
+            if (m.isSleeping()) m.stopSleeping();
+            raid.raiders.add(m.getUUID());
+        }
+        ACTIVE.put(target.id, raid);
+        n.news(level, self.id, p.getName().getString() + " is leading " + fighters.size() + " of " + home.name + "'s people to raid " + target.name + ".");
+        int dist = (int) Math.sqrt(Math.pow(target.x - p.getX(), 2) + Math.pow(target.z - p.getZ(), 2));
+        return fighters.size() + " of " + home.name + "'s people will follow you to " + target.name + " (" + dist + " blocks away, at "
+                + target.x + ", " + target.z + "). Lead them there!";
     }
 
     /** A raider was hit by a player: they count as one of the village's defenders. */

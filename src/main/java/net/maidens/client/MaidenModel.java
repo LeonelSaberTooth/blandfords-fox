@@ -25,12 +25,35 @@ public class MaidenModel extends HumanoidModel<Maiden> {
     /** Looking up is scaled down by this, and stops at MAX_UP degrees. */
     private static final float UP_SCALE = 0.4F, MAX_UP = 20.0F;
 
+    /** Her chest piece (hidden on men and children). */
+    private final ModelPart breast;
+    /** Colour over the head while rendering (placeholder looks: blue for men, dark red / blue for the old), or -1. */
+    private int headTint = -1;
+
     public MaidenModel(ModelPart root) {
         super(root);
+        breast = body.hasChild("breast_cube") ? body.getChild("breast_cube") : null;
+    }
+
+    @Override
+    public void renderToBuffer(com.mojang.blaze3d.vertex.PoseStack pose, com.mojang.blaze3d.vertex.VertexConsumer buffer, int light, int overlay, int color) {
+        // no baby proportions (children are the same body, shrunk by the renderer); the head tinted for the placeholders
+        int head = headTint == -1 ? color : net.minecraft.util.FastColor.ARGB32.multiply(color, headTint);
+        for (ModelPart p : headParts()) p.render(pose, buffer, light, overlay, head);
+        for (ModelPart p : bodyParts()) p.render(pose, buffer, light, overlay, color);
     }
 
     @Override
     public void setupAnim(Maiden maiden, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
+        Maiden.Kind kind = maiden.kind();
+        headTint = switch (kind) {
+            case MAN -> 0xFF5070F0;
+            case OLD_WOMAN -> 0xFF8A2020;
+            case OLD_MAN -> 0xFF203070;
+            default -> -1;
+        };
+        if (breast != null) breast.visible = kind == Maiden.Kind.WOMAN && !maiden.isBaby() || kind == Maiden.Kind.OLD_WOMAN;
+        young = false;
         float pitch = headPitch < 0 ? Math.max(headPitch * UP_SCALE, -MAX_UP) : headPitch;
         super.setupAnim(maiden, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, pitch);
         put(head, MaidenGeometry.HEAD);

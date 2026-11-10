@@ -24,6 +24,11 @@ public final class Dialogue {
             "Linnea", "Ada", "Briar", "Coralie", "Delphine", "Esme", "Gwen", "Ilse", "Kaia", "Lark", "Marigold", "Nora",
             "Ophelia", "Poppy", "Rhea", "Sylvie"};
 
+    public static final String[] MALE_NAMES = {
+            "Aldric", "Bram", "Cedric", "Dorian", "Edmund", "Finn", "Gareth", "Hugo", "Ivo", "Jasper", "Kian", "Leif",
+            "Milo", "Niall", "Osric", "Percival", "Quentin", "Rowan", "Silas", "Tobin", "Ulric", "Victor", "Wendel", "Alaric",
+            "Bastian", "Corin", "Darian", "Emrys", "Florian", "Gideon", "Hollis", "Lucan", "Merrick", "Oren", "Pell", "Torin"};
+
     private static final Map<String, String[]> COMMON = load("common");
     public static final String[] TIRED = COMMON.get("tired");
     public static final String[] MARRIED_ELSEWHERE = COMMON.get("married_elsewhere");

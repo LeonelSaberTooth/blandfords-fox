@@ -18,6 +18,10 @@ public final class Raider {
     @Nullable private BlockPos retreat;
     private boolean surrendered;
     private int stolen;
+    /** A raid a player leads: who (she follows them there), and she's one of her own village's people (she goes
+     * home afterwards and carries on, rather than leaving the world). */
+    @Nullable private java.util.UUID leader;
+    private boolean resident;
 
     public Raider(Maiden m) {
         this.m = m;
@@ -54,6 +58,36 @@ public final class Raider {
         retreat = retreatTo;
     }
 
+    /** Joins a raid a player leads, from her own village. */
+    public void follow(long targetVillage, long fromVillage, BlockPos home, java.util.UUID player) {
+        start(targetVillage, fromVillage, home);
+        leader = player;
+        resident = true;
+        surrendered = false;
+        stolen = 0;
+    }
+
+    @Nullable
+    public java.util.UUID leader() {
+        return leader;
+    }
+
+    public boolean resident() {
+        return resident;
+    }
+
+    /** The raid is over for her: back to her own life (a resident), sword away unless she's a guard. */
+    public void finish() {
+        target = from = NONE;
+        retreat = null;
+        leader = null;
+        surrendered = false;
+        stolen = 0;
+        if (!m.isGuard() && m.getMainHandItem().getItem() instanceof net.minecraft.world.item.SwordItem)
+            m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.EMPTY);
+        m.setTarget(null);
+    }
+
     /** Beaten (or done stealing): sword down, off home. */
     public void surrender() {
         if (surrendered) return;
@@ -78,6 +112,8 @@ public final class Raider {
         tag.putLong("RaidFrom", from);
         if (retreat != null) tag.putLong("RaidRetreat", retreat.asLong());
         tag.putBoolean("Surrendered", surrendered);
+        if (leader != null) tag.putUUID("RaidLeader", leader);
+        tag.putBoolean("RaidResident", resident);
     }
 
     public void load(CompoundTag tag) {
@@ -85,5 +121,7 @@ public final class Raider {
         from = tag.contains("RaidFrom") ? tag.getLong("RaidFrom") : NONE;
         retreat = tag.contains("RaidRetreat") ? BlockPos.of(tag.getLong("RaidRetreat")) : null;
         surrendered = tag.getBoolean("Surrendered");
+        leader = tag.hasUUID("RaidLeader") ? tag.getUUID("RaidLeader") : null;
+        resident = tag.getBoolean("RaidResident");
     }
 }

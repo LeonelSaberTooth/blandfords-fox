@@ -56,7 +56,7 @@ public final class Schedule {
 
     /** Twice a second: lies down in her bed at night when she's next to it, gets up when it's time (or someone needs her). */
     public static void tick(Maiden m) {
-        boolean night = m.hasVillageDuties() && m.isFree() && m.getTarget() == null && now(m) == Activity.SLEEP;
+        boolean night = m.hasVillageDuties() && !m.isGuard() && m.isFree() && m.getTarget() == null && now(m) == Activity.SLEEP;
         BlockPos bed = m.residence().bed();
         if (m.isSleeping()) {
             if (!night) m.stopSleeping();

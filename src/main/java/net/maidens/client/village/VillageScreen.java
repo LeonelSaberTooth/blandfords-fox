@@ -36,10 +36,10 @@ public class VillageScreen extends Screen {
 
     private record Tpl(String name, String display, int beds, int sx, int sz) {}
 
-    private record Neighbour(long id, String name, int distance, Stance ours, Stance theirs) {}
+    private record Neighbour(long id, String name, int distance, Stance ours, Stance theirs, boolean mayRaid) {}
 
     private long id;
-    private String name = "", royal = "", right = "", howTo = "", project = "";
+    private String name = "", royal = "", right = "", howTo = "", project = "", rank = "";
     private boolean citizen, building;
     private int mx0, mz0, mpw, mph, mstep = 1;
     private DynamicTexture texture;
@@ -72,6 +72,7 @@ public class VillageScreen extends Screen {
         royal = t.getString("Royal");
         right = t.getString("Right");
         howTo = t.getString("HowTo");
+        rank = t.getString("Rank");
         citizen = t.getBoolean("Citizen");
         building = t.getBoolean("Building");
         project = t.getString("Project");
@@ -108,7 +109,7 @@ public class VillageScreen extends Screen {
         neighbours.clear();
         for (Tag e : t.getList("Neighbours", Tag.TAG_COMPOUND)) {
             CompoundTag p = (CompoundTag) e;
-            neighbours.add(new Neighbour(p.getLong("Id"), p.getString("Name"), p.getInt("Distance"), Stance.byId(p.getInt("Ours")), Stance.byId(p.getInt("Theirs"))));
+            neighbours.add(new Neighbour(p.getLong("Id"), p.getString("Name"), p.getInt("Distance"), Stance.byId(p.getInt("Ours")), Stance.byId(p.getInt("Theirs")), p.getBoolean("MayRaid")));
         }
         if (building) selected = null;
     }
@@ -318,7 +319,7 @@ public class VillageScreen extends Screen {
 
     private void renderDiplomacy(GuiGraphics g, int mouseX, int mouseY, int cy) {
         int x = sideX + 4, y = cy + 4 - (int) scroll;
-        String head = right.isEmpty() ? howTo : "You may speak for " + name + ": " + right + ".";
+        String head = "Your standing: " + rank + ". " + (right.isEmpty() ? howTo : "You may speak for " + name + ": " + right + ".");
         for (FormattedCharSequence line : font.split(Component.literal(head), sideW - 8)) {
             g.drawString(font, line, x, y, right.isEmpty() ? Ui.TEXT_LIGHT : 0xFF2A6A2A, false);
             y += 10;
@@ -342,6 +343,10 @@ public class VillageScreen extends Screen {
                             n.ours() == s, Ui.inside(mouseX, mouseY, bx, y, bw, 12), true);
                 }
                 y += 14;
+                if (n.mayRaid()) {
+                    Ui.button(g, font, "Lead a raid", x, y, sideW - 12, 12, false, Ui.inside(mouseX, mouseY, x, y, sideW - 12, 12), true);
+                    y += 14;
+                }
             }
             y += 5;
         }
@@ -426,6 +431,10 @@ public class VillageScreen extends Screen {
     /** Asks for the world map around this village (it opens when it arrives). */
     public void openWorldMap() {
         int cx = mx0 + mpw * mstep / 2, cz = mz0 + mph * mstep / 2;
+        // the screen opens now ("drawing the map..."); the picture follows in a second or two
+        net.minecraft.nbt.CompoundTag waiting = new net.minecraft.nbt.CompoundTag();
+        waiting.putLong("Viewer", id);
+        Minecraft.getInstance().setScreen(new WorldMapScreen(this, waiting));
         PacketDistributor.sendToServer(new VillageActionPayload(VillageActionPayload.WORLD_MAP, id, "", 0, cx, cz, 0));
     }
 
@@ -437,7 +446,7 @@ public class VillageScreen extends Screen {
     /** Lays the diplomacy rows out as they're drawn, to find the button under the mouse. */
     private boolean clickStance(double mx, double my, int cy) {
         int x = sideX + 4, y = cy + 4 - (int) scroll;
-        y += font.split(Component.literal("You may speak for " + name + ": " + right + "."), sideW - 8).size() * 10 + 4;
+        y += font.split(Component.literal("Your standing: " + rank + ". You may speak for " + name + ": " + right + "."), sideW - 8).size() * 10 + 4;
         for (Neighbour n : neighbours) {
             y += 18;
             int bw = (sideW - 14) / 3;
@@ -447,7 +456,16 @@ public class VillageScreen extends Screen {
                     return true;
                 }
             }
-            y += 19;
+            y += 14;
+            if (n.mayRaid()) {
+                if (Ui.inside(mx, my, x, y, sideW - 12, 12)) {
+                    PacketDistributor.sendToServer(new VillageActionPayload(VillageActionPayload.RAID, id, "", n.id(), 0, 0, 0));
+                    onClose();
+                    return true;
+                }
+                y += 14;
+            }
+            y += 5;
         }
         return false;
     }

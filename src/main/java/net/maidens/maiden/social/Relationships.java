@@ -125,7 +125,8 @@ public final class Relationships {
             m.burst(ParticleTypes.HEART, 3);
             return Dialogue.pick(Dialogue.SPOUSE, r, n);
         }
-        if (kind == ActionPayload.FLIRT && spouse != null) return Dialogue.pick(Dialogue.MARRIED_ELSEWHERE, r, n);
+        if (kind == ActionPayload.FLIRT && m.isBaby()) return "Ew! Grown-ups are weird.";
+        if (kind == ActionPayload.FLIRT && (spouse != null || m.spouse() != null)) return Dialogue.pick(Dialogue.MARRIED_ELSEWHERE, r, n);
         int count = switch (kind) {
             case ActionPayload.CHAT -> b.chats++;
             case ActionPayload.JOKE -> b.jokes++;
@@ -201,8 +202,9 @@ public final class Relationships {
     @Nullable
     private String propose(ServerPlayer p, ItemStack ring) {
         String n = p.getName().getString();
+        if (m.isBaby()) return null;
         if (isMarriedTo(p)) return "We're already married, silly! But thank you.";
-        if (spouse != null) return Dialogue.pick(Dialogue.MARRIED_ELSEWHERE, m.getRandom(), n);
+        if (spouse != null || m.spouse() != null) return Dialogue.pick(Dialogue.MARRIED_ELSEWHERE, m.getRandom(), n);
         Marriages marriages = Marriages.get(p.server);
         UUID theirs = marriages.spouse(p.getUUID());
         if (theirs != null && !theirs.equals(m.getUUID())) return "Aren't you already married, " + n + "?";

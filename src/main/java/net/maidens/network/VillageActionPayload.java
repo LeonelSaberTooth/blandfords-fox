@@ -21,6 +21,8 @@ public record VillageActionPayload(int action, long village, String text, long n
     public static final int TEMPLATE = 3;
     /** Send the world map around x, z, number blocks across. */
     public static final int WORLD_MAP = 4;
+    /** Lead a raid on village number (a leader only). */
+    public static final int RAID = 5;
 
     public static final Type<VillageActionPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(MaidensMod.MOD_ID, "village_action"));
     public static final StreamCodec<FriendlyByteBuf, VillageActionPayload> STREAM_CODEC = CustomPacketPayload.codec(VillageActionPayload::write, VillageActionPayload::read);

@@ -39,7 +39,7 @@ final class VillageChoreGoal extends Goal {
     public boolean canUse() {
         if (--cooldown > 0) return false;
         cooldown = 10;     // (goals are only checked every other tick, so not tickCount % n)
-        if (!m.hasVillageDuties() || m.isRoyal() || !m.isFree() || m.isSleeping() || !choreTime(m)) return false;
+        if (!m.hasVillageDuties() || m.isRoyal() || m.isGuard() || !m.isFree() || m.isSleeping() || !choreTime(m)) return false;
         chore = Upkeep.take(m);
         return chore != null;
     }

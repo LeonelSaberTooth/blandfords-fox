@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
+import org.jetbrains.annotations.Nullable;
 
 /** What raiders do, and what defenders do about them. */
 public final class RaidGoals {
@@ -121,6 +122,59 @@ public final class RaidGoals {
         }
     }
 
+    /** On a raid a player leads: she follows them until they're close to the village they're raiding. */
+    public static final class FollowLeader extends Goal {
+        private final Maiden m;
+        private int repath;
+
+        public FollowLeader(Maiden m) {
+            this.m = m;
+            setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
+        }
+
+        @Nullable
+        private net.minecraft.world.entity.player.Player leader() {
+            java.util.UUID id = m.raider().leader();
+            return id == null ? null : m.level().getPlayerByUUID(id);
+        }
+
+        /** Still on the way: no raided village around here yet, or not near it. */
+        private boolean onTheWay() {
+            if (!m.raider().active() || m.raider().surrendered() || leader() == null || !(m.level() instanceof ServerLevel level)) return false;
+            net.maidens.politics.KnownVillage t = net.maidens.politics.Network.get(level).village(m.raider().target());
+            if (t == null) return true;
+            double dx = m.getX() - t.x, dz = m.getZ() - t.z;
+            return dx * dx + dz * dz > 72 * 72 || Villages.get(level).byId(t.id) == null;
+        }
+
+        @Override
+        public boolean canUse() {
+            return onTheWay() && m.getTarget() == null;
+        }
+
+        @Override
+        public boolean canContinueToUse() {
+            return onTheWay() && m.getTarget() == null;
+        }
+
+        @Override
+        public void tick() {
+            var p = leader();
+            if (p == null) return;
+            m.getLookControl().setLookAt(p);
+            double d = m.distanceToSqr(p);
+            // left far behind (the leader rode off): she catches up, out of sight
+            if (d > 40 * 40) {
+                m.moveNear(p.blockPosition().relative(p.getDirection().getOpposite(), 6));
+                return;
+            }
+            if (d < 4 * 4) { m.getNavigation().stop(); return; }
+            if (--repath > 0) return;
+            repath = 10;
+            m.getNavigation().moveTo(p, d > 12 * 12 ? 0.9 : 0.6);
+        }
+    }
+
     /** A raider who's given up runs back the way she came and leaves. */
     public static final class Flee extends Goal {
         private final Maiden m;
@@ -146,7 +200,8 @@ public final class RaidGoals {
         public void tick() {
             BlockPos home = m.raider().retreat();
             if (++ticks > 600 || home == null || m.distanceToSqr(Vec3.atCenterOf(home)) < 4 * 4) {
-                m.discard();       // gone home
+                if (m.raider().resident()) m.raider().finish();     // one of a player's raiders: back to her life
+                else m.discard();                                  // gone home
                 return;
             }
             if (--repath > 0) return;

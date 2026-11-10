@@ -142,6 +142,17 @@ public final class Network extends SavedData {
         checked.clear();
     }
 
+    /** Until when (game time) spots are checked as fast as the tick allows: someone has the world map open. */
+    private long boostUntil;
+
+    public void boost(ServerLevel level) {
+        boostUntil = level.getGameTime() + 1200;
+    }
+
+    public boolean boosted(ServerLevel level) {
+        return level.getGameTime() < boostUntil;
+    }
+
     /** Whether spots are still waiting to be checked. */
     public boolean busy() {
         return !pending.isEmpty();

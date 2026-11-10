@@ -239,7 +239,7 @@ public final class Blueprint {
      * Puts instant pieces in place, up to budget spots per call, in land that's loaded (the rest waits until it is).
      * Blocks go in without sounds or drops; spots to keep clear are emptied. Returns how many blocks were set.
      */
-    int placeInstant(ServerLevel level, int budget) {
+    int placeInstant(ServerLevel level, int budget, java.util.function.Consumer<BlockPos> banner) {
         int set = 0, skipped = 0;
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         while (budget > 0 && skipped <= pieces.size()) {
@@ -272,6 +272,7 @@ public final class Blueprint {
                             if (blocked) continue;
                         }
                         level.setBlock(p, want, Block.UPDATE_CLIENTS);
+                        if (want.getBlock() instanceof net.minecraft.world.level.block.AbstractBannerBlock) banner.accept(p.immutable());
                         set++;
                     }
                 } else if (!now.isAir() && expected(p) == null) {

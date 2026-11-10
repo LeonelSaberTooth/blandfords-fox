@@ -31,10 +31,12 @@ public final class MaidenAi {
         goals.addGoal(2, new FleeMonstersGoal(m));
         goals.addGoal(2, new GuardAttackGoal(m));
         goals.addGoal(3, new FollowEmployerGoal(m));
+        goals.addGoal(3, new RaidGoals.FollowLeader(m));    // on the way to a raid a player leads
         goals.addGoal(3, new DeliverGoal(m));               // taking her bag to a marked chest
         goals.addGoal(4, new WorkGoal(m));
         goals.addGoal(4, new RaidGoals.Advance(m));         // a raider pushing into the village
         goals.addGoal(4, new VillageChoreGoal(m));          // only when not hired or married
+        goals.addGoal(4, new FieldWorkGoal(m));             // the village's farmers in its fields
         goals.addGoal(5, new ScheduleGoal(m));              // a free village maiden's day
         goals.addGoal(5, new MoveTowardsRestrictionGoal(m, 0.6));
         goals.addGoal(6, new OpenDoorGoal(m, true));

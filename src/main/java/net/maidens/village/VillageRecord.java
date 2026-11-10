@@ -47,6 +47,26 @@ public final class VillageRecord {
     @org.jetbrains.annotations.Nullable public BoundingBox wallBox;
     /** Whether a fortified-by-nature village has had its castle and walls planned (or tried to). */
     public boolean fortified;
+    /** Where its castle will go (corner, and the turn as x of the second), chosen before the land there loads. */
+    @org.jetbrains.annotations.Nullable public BlockPos castleCorner;
+    public int castleTurn;
+    /** Whether its banner stands by the bell, and whether its fields are laid out. */
+    public boolean bannerUp, farmsPlanned;
+    /** The gates in its walls. */
+    public final java.util.List<Gate> gates = new java.util.ArrayList<>();
+
+    /** A gate: where it is, which way is out, and whether a path joins it to the streets yet. */
+    public static final class Gate {
+        public final BlockPos pos;
+        public final int dx, dz;
+        public boolean joined;
+
+        public Gate(BlockPos pos, int dx, int dz) {
+            this.pos = pos;
+            this.dx = dx;
+            this.dz = dz;
+        }
+    }
     /** When the last new maiden moved in (game time). */
     long lastArrival = Long.MIN_VALUE / 2;
     /** What needs fixing right now (not saved: found again by the scan after a restart). */
@@ -150,6 +170,22 @@ public final class VillageRecord {
         if (castle != null) t.putIntArray("Castle", boxArray(castle));
         if (wallBox != null) t.putIntArray("WallBox", boxArray(wallBox));
         t.putBoolean("Fortified", fortified);
+        t.putBoolean("BannerUp", bannerUp);
+        t.putBoolean("FarmsPlanned", farmsPlanned);
+        if (castleCorner != null) {
+            t.putLong("CastleCorner", castleCorner.asLong());
+            t.putInt("CastleTurn", castleTurn);
+        }
+        net.minecraft.nbt.ListTag gl = new net.minecraft.nbt.ListTag();
+        for (Gate g : gates) {
+            CompoundTag gt = new CompoundTag();
+            gt.putLong("Pos", g.pos.asLong());
+            gt.putInt("Dx", g.dx);
+            gt.putInt("Dz", g.dz);
+            gt.putBoolean("Joined", g.joined);
+            gl.add(gt);
+        }
+        t.put("Gates", gl);
         return t;
     }
 
@@ -174,6 +210,18 @@ public final class VillageRecord {
         r.castle = boxOf(t.getIntArray("Castle"));
         r.wallBox = boxOf(t.getIntArray("WallBox"));
         r.fortified = t.getBoolean("Fortified");
+        r.bannerUp = t.getBoolean("BannerUp");
+        r.farmsPlanned = t.getBoolean("FarmsPlanned");
+        if (t.contains("CastleCorner")) {
+            r.castleCorner = BlockPos.of(t.getLong("CastleCorner"));
+            r.castleTurn = t.getInt("CastleTurn");
+        }
+        for (net.minecraft.nbt.Tag e : t.getList("Gates", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            CompoundTag gt = (CompoundTag) e;
+            Gate g = new Gate(BlockPos.of(gt.getLong("Pos")), gt.getInt("Dx"), gt.getInt("Dz"));
+            g.joined = gt.getBoolean("Joined");
+            r.gates.add(g);
+        }
         CompoundTag tr = t.getCompound("Trades");
         for (String k : tr.getAllKeys()) {
             try {

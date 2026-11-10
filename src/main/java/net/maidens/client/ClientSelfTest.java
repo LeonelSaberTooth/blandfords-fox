@@ -255,6 +255,24 @@ public final class ClientSelfTest {
                 m.setSkin(i);
                 line.add(m);
             }
+            // a second row behind, under a roof: a man, an old woman, an old man, two children, and a woman in her
+            // casual clothes (she's indoors); and the farmer in the front row wears her hat
+            for (int dx = -9; dx <= 9; dx++)
+                for (int dz = 5; dz <= 10; dz++) level.setBlock(spot.offset(dx, 3, dz), Blocks.OAK_PLANKS.defaultBlockState(), 3);
+            Maiden.Kind[] kinds = {Maiden.Kind.MAN, Maiden.Kind.OLD_WOMAN, Maiden.Kind.OLD_MAN, Maiden.Kind.WOMAN, Maiden.Kind.MAN, Maiden.Kind.WOMAN};
+            for (int i = 0; i < kinds.length; i++) {
+                Maiden m = ModEntities.MAIDEN.get().create(level);
+                m.moveTo(spot.getX() - 5.0 + i * 2.5, y, spot.getZ() + 7.0, 180, 0);
+                m.setNoAi(true);
+                m.setYHeadRot(180);
+                m.setYBodyRot(180);
+                level.addFreshEntity(m);
+                m.ensureInitialised();
+                m.setKind(kinds[i]);
+                if (i == 3 || i == 4) m.makeChild();
+                m.setSkin(i);
+            }
+            line.get(4).employment().hireForTest(net.maidens.maiden.work.Job.FARM, null);
             // armor goes in their bags (they wear the best of it); the guard holds her shield
             bag(line.get(5), Items.IRON_SWORD, Items.SHIELD, Items.IRON_HELMET, Items.IRON_CHESTPLATE);
             line.get(5).employment().hireForTest(net.maidens.maiden.work.Job.GUARD, null);

@@ -37,6 +37,7 @@ public final class Housing {
             List<Maiden> residents = VillageSocial.residents(level, v);
             if (residents.isEmpty()) continue;
             Royals.tick(level, v, residents);
+            People.tick(level, v, residents);
             // its neighbours, looked up from the seed a few at a time
             Network network = Network.get(level);
             network.know(level, v);
@@ -90,6 +91,7 @@ public final class Housing {
         if (m == null) return null;
         m.moveTo(spot.getX() + 0.5, spot.getY() + 1, spot.getZ() + 0.5, level.getRandom().nextFloat() * 360, 0);
         m.ensureInitialised();
+        People.roll(m, level.getRandom());
         m.residence().joinVillage(v.id);
         level.addFreshEntity(m);
         v.lastArrival = level.getGameTime();

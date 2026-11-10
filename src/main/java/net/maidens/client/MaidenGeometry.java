@@ -12,12 +12,12 @@ public final class MaidenGeometry {
     private MaidenGeometry() {}
 
     /** Each part's pivot in model space (where HumanoidModel's own positions get put back after it moves them). */
-    static final float[] HEAD = {0F, -3.5F, 0F};
-    static final float[] BODY = {0F, -2.5F, 0F};
-    static final float[] RIGHT_ARM = {-4.5F, -1.5F, 0F};
-    static final float[] LEFT_ARM = {4.5F, -1.5F, 0F};
-    static final float[] RIGHT_LEG = {-2F, 10F, 0F};
-    static final float[] LEFT_LEG = {2F, 10F, 0F};
+    static final float[] HEAD = {0F, -4.5F, 0F};
+    static final float[] BODY = {0F, -3.5F, 0F};
+    static final float[] RIGHT_ARM = {-4.5F, -2.5F, 0F};
+    static final float[] LEFT_ARM = {4.5F, -2.5F, 0F};
+    static final float[] RIGHT_LEG = {-2F, 9F, 0F};
+    static final float[] LEFT_LEG = {2F, 9F, 0F};
 
     public static LayerDefinition create() {
         MeshDefinition mesh = new MeshDefinition();
@@ -27,7 +27,7 @@ public final class MaidenGeometry {
                 .texOffs(0, 0).addBox(-4F, -8F, -3.5F, 8F, 8F, 7F, new CubeDeformation(0F))
                 // head_layer
                 .texOffs(34, 0).addBox(-4F, -8F, -3.5F, 8F, 22F, 7F, new CubeDeformation(0.1F)),
-                PartPose.offset(0F, -3.5F, 0F));
+                PartPose.offset(0F, -4.5F, 0F));
         PartDefinition p_body = root.addOrReplaceChild("body", CubeListBuilder.create()
                 // neck
                 .texOffs(22, 15).addBox(-1.5F, -1F, -1.5F, 3F, 1F, 3F, new CubeDeformation(0F))
@@ -36,30 +36,32 @@ public final class MaidenGeometry {
                 // waist
                 .texOffs(0, 24).addBox(-3F, 5F, -1.5F, 6F, 5F, 3F, new CubeDeformation(0F))
                 // hips
-                .texOffs(0, 32).addBox(-4F, 10F, -2F, 8F, 3F, 4F, new CubeDeformation(0.05F)),
-                PartPose.offset(0F, -2.5F, 0F));
+                .texOffs(0, 32).addBox(-4F, 10F, -2F, 8F, 3F, 4F, new CubeDeformation(0F)),
+                PartPose.offset(0F, -3.5F, 0F));
         p_body.addOrReplaceChild("breast_cube", CubeListBuilder.create()
-                .texOffs(36, 45).addBox(-3.5F, -5F, -1F, 7F, 5F, 1F, new CubeDeformation(-0.00001F)),
-                PartPose.offsetAndRotation(0F, 5F, -2F, -0.1974F, 0F, 0F));
+                .texOffs(34, 43).addBox(-3.5F, -0.11069F, 0.00428F, 7F, 4F, 3F, new CubeDeformation(-0.00001F)),
+                PartPose.offsetAndRotation(-0.001F, 0.15F, -2.1F, -0.63373F, 0F, 0F));
         PartDefinition p_right_arm = root.addOrReplaceChild("right_arm", CubeListBuilder.create(),
-                PartPose.offset(-4.5F, -1.5F, 0F));
+                PartPose.offset(-4.5F, -2.5F, 0F));
         p_right_arm.addOrReplaceChild("right_arm_cube", CubeListBuilder.create()
                 .texOffs(34, 29).addBox(-2F, 0F, -1F, 2F, 12F, 2F, new CubeDeformation(0F)),
                 PartPose.offsetAndRotation(1F, -1F, 0F, 0F, 0F, 0.08727F));
         PartDefinition p_left_arm = root.addOrReplaceChild("left_arm", CubeListBuilder.create(),
-                PartPose.offset(4.5F, -1.5F, 0F));
+                PartPose.offset(4.5F, -2.5F, 0F));
         p_left_arm.addOrReplaceChild("left_arm_cube", CubeListBuilder.create()
                 .texOffs(42, 29).addBox(0F, 0F, -1F, 2F, 12F, 2F, new CubeDeformation(0F)),
                 PartPose.offsetAndRotation(-1F, -1F, 0F, 0F, 0F, -0.08727F));
-        PartDefinition p_right_leg = root.addOrReplaceChild("right_leg", CubeListBuilder.create()
-                // right_leg
-                .texOffs(0, 39).addBox(-2F, 0F, -2F, 4F, 14F, 4F, new CubeDeformation(-0.00001F)),
-                PartPose.offset(-2F, 10F, 0F));
-        PartDefinition p_left_leg = root.addOrReplaceChild("left_leg", CubeListBuilder.create()
-                // left_leg
-                .texOffs(16, 39).addBox(-2F, 0F, -2F, 4F, 14F, 4F, new CubeDeformation(-0.00001F)),
-                PartPose.offset(2F, 10F, 0F));
-        root.addOrReplaceChild("hat", CubeListBuilder.create(), PartPose.offset(0F, -3.5F, 0F));
+        PartDefinition p_right_leg = root.addOrReplaceChild("right_leg", CubeListBuilder.create(),
+                PartPose.offset(-2F, 9F, 0F));
+        p_right_leg.addOrReplaceChild("right_leg_cube", CubeListBuilder.create()
+                .texOffs(1, 40).addBox(-2F, 0F, -2F, 3F, 15F, 3F, new CubeDeformation(-0.00001F)),
+                PartPose.offsetAndRotation(0F, 0F, 0.5F, 0F, 0F, -0.06981F));
+        PartDefinition p_left_leg = root.addOrReplaceChild("left_leg", CubeListBuilder.create(),
+                PartPose.offset(2F, 9F, 0F));
+        p_left_leg.addOrReplaceChild("left_leg_cube", CubeListBuilder.create()
+                .texOffs(18, 40).addBox(-1F, 0F, -2F, 3F, 15F, 3F, new CubeDeformation(-0.00001F)),
+                PartPose.offsetAndRotation(0F, 0F, 0.5F, 0F, 0F, 0.06981F));
+        root.addOrReplaceChild("hat", CubeListBuilder.create(), PartPose.offset(0F, -4.5F, 0F));
         return LayerDefinition.create(mesh, 64, 64);
     }
 }

@@ -29,6 +29,30 @@ public final class Diplomacy {
         return null;
     }
 
+    /** Where a player stands with a village: a visitor, a citizen, or a leader (married its royal, or saved it). */
+    public enum Rank {
+        NONE("Visitor"), CITIZEN("Citizen"), LEADER("Leader");
+
+        public final String label;
+
+        Rank(String label) {
+            this.label = label;
+        }
+    }
+
+    public static Rank rank(ServerLevel level, VillageRecord v, UUID player) {
+        UUID spouse = Marriages.get(level.getServer()).spouse(player);
+        if (spouse != null && v.isRoyal(spouse) || v.isDefender(player)) return Rank.LEADER;
+        return v.isCitizen(player) ? Rank.CITIZEN : Rank.NONE;
+    }
+
+    /** How well a village knows a player: leaders first, then the longest citizens. 0 for strangers. */
+    public static long reputation(ServerLevel level, VillageRecord v, UUID player) {
+        Rank r = rank(level, v, player);
+        if (r == Rank.NONE) return 0;
+        return (r == Rank.LEADER ? 100_000 : 0) + 1 + Math.max(0, v.citizenDays(player, level.getDayTime() / 24000L));
+    }
+
     /** What a player who may not decide would need. */
     public static String howToEarnIt(ServerLevel level, VillageRecord v, Player p) {
         long days = v.citizenDays(p.getUUID(), level.getDayTime() / 24000L);

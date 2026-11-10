@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class WorldMap {
     /** Blocks per pixel, and pixels across. */
-    public static final int SCALE = 8, PIXELS = 256;
+    public static final int SCALE = 16, PIXELS = 512;
     private static final int SAMPLE_Y = 96;
     private static final Map<String, byte[]> PICTURES = new LinkedHashMap<>(16, 0.75F, true) {
         @Override
@@ -48,10 +48,11 @@ public final class WorldMap {
      */
     public static void send(ServerLevel level, ServerPlayer p, int x, int z, boolean villagesOnly, long viewer) {
         int span = SCALE * PIXELS;
-        final int fx = Math.floorDiv(x - span / 2, 64) * 64, fz = Math.floorDiv(z - span / 2, 64) * 64;
+        final int fx = Math.floorDiv(x - span / 2, 512) * 512, fz = Math.floorDiv(z - span / 2, 512) * 512;
         int x0 = fx, z0 = fz;
         Network network = Network.get(level);
         network.lookAround(level, x0 + span / 2, z0 + span / 2, span / 2 + 200);
+        network.boost(level);
         if (villagesOnly) {
             reply(level, p, fx, fz, null, viewer);
             return;
@@ -86,11 +87,14 @@ public final class WorldMap {
     /** One biome sample per pixel, as palette indices. */
     private static byte[] picture(BiomeSource source, Climate.Sampler sampler, int x0, int z0) {
         byte[] out = new byte[PIXELS * PIXELS];
-        for (int pz = 0; pz < PIXELS; pz++)
+        // rows in parallel (biome lookups are the slow part), each row with its own little biome -> colour memo
+        java.util.stream.IntStream.range(0, PIXELS).parallel().forEach(pz -> {
+            Map<Holder<Biome>, Integer> memo = new HashMap<>();
             for (int px = 0; px < PIXELS; px++) {
                 Holder<Biome> b = source.getNoiseBiome((x0 + px * SCALE) >> 2, SAMPLE_Y >> 2, (z0 + pz * SCALE) >> 2, sampler);
-                out[pz * PIXELS + px] = (byte) colourIndex(b);
+                out[pz * PIXELS + px] = (byte) (int) memo.computeIfAbsent(b, WorldMap::colourIndex);
             }
+        });
         return out;
     }
 

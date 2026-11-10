@@ -130,6 +130,18 @@ public final class Residence {
         return null;
     }
 
+    /** Moves her into a particular bed (a royal into the castle), if it's free. True if she has it now. */
+    public boolean claimBed(ServerLevel level, BlockPos target) {
+        if (target.equals(bed)) return true;
+        PoiManager poi = level.getPoiManager();
+        Optional<BlockPos> got = poi.take(h -> h.is(PoiTypes.HOME), (h, p) -> p.equals(target), target, 2);
+        if (got.isEmpty()) return false;
+        if (bed != null && level.isLoaded(bed)) poi.release(bed);
+        bed = got.get();
+        m.setHome(bed);
+        return true;
+    }
+
     /** She died: her bed and workstation are free for someone else. */
     public void release() {
         if (!(m.level() instanceof ServerLevel level)) return;

@@ -13,12 +13,13 @@ import java.util.List;
 
 /**
  * Roads between maiden villages: each village is joined to its two nearest maiden neighbours, unless either is
- * hostile to the other. A road grows by {@link #PER_DAY} blocks a day from each end, but is only laid where the
+ * hostile to the other. A road grows by {@link #PER_DAY} blocks a day from each end (its ends joined to each
+ * village's streets), but is only laid where the
  * land is loaded (the rest is laid when someone comes by): a 3-wide dirt path over natural ground, plank bridges
  * over water, and a lantern post every 32 blocks. Player-built blocks are never replaced.
  */
 public final class Roads {
-    private static final int PER_DAY = 48, LAID_PER_TICK = 48, LANTERN_EVERY = 32, NEAREST = 2;
+    private static final int PER_DAY = 160, LAID_PER_TICK = 64, LANTERN_EVERY = 32, NEAREST = 2;
 
     private Roads() {}
 
@@ -64,6 +65,11 @@ public final class Roads {
                 if (!level.hasChunkAt(new BlockPos(xz[0], 0, xz[1]))) continue;
                 lay(level, r, xz[0], xz[1], i);
                 r.laid.set(i);
+                // its first and last steps are joined to the village's own streets
+                if (i == 0 || i == len - 1) {
+                    net.maidens.village.VillageRecord v = net.maidens.village.Villages.get(level).byId(i == 0 ? r.a : r.b);
+                    if (v != null) net.maidens.village.Buildings.joinToStreets(level, v, xz[0], xz[1]);
+                }
                 budget--;
                 n.setDirty();
             }

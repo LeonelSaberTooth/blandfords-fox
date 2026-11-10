@@ -230,17 +230,29 @@ public final class Buildings {
     static int groundLevel(ServerLevel level, BoundingBox fp) {
         int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
         long sum = 0;
-        int n = 0;
+        int n = 0, wet = 0, all = 0;
         for (int x = fp.minX(); x <= fp.maxX(); x++)
             for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
+                all++;
                 int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-                if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) return Integer.MIN_VALUE;
+                if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) {
+                    // part of it can stand in shallow water (on a foundation down to the bottom)
+                    wet++;
+                    int depth = 0;
+                    BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, h, z);
+                    while (!level.getFluidState(p).isEmpty() && depth <= 6) {
+                        p.move(0, -1, 0);
+                        depth++;
+                    }
+                    if (depth > 5) return Integer.MIN_VALUE;
+                    continue;
+                }
                 min = Math.min(min, h);
                 max = Math.max(max, h);
                 sum += h;
                 n++;
             }
-        if (n == 0 || max - min > MAX_SLOPE) return Integer.MIN_VALUE;
+        if (n == 0 || wet * 10 > all * 4 || max - min > MAX_SLOPE) return Integer.MIN_VALUE;
         return (int) Math.round((double) sum / n);
     }
 
@@ -372,17 +384,50 @@ public final class Buildings {
         if (goal == null) return null;
         Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
         Set<BlockPos> clear = new HashSet<>();
-        for (long c = cameFrom.get(goal); c != first || blocks.isEmpty(); c = cameFrom.get(c)) {
+        List<Long> path = new ArrayList<>();
+        for (long c = cameFrom.get(goal); ; c = cameFrom.get(c)) {
+            path.add(c);
+            if (c == first) break;
+        }
+        for (long c : path) {
             BlockPos top = new BlockPos(colX(c), height.get(c), colZ(c));
             blocks.put(top, material);
             clear.add(top.above());
             clear.add(top.above(2));
-            if (c == first) break;
+        }
+        // three wide: the ground either side of the path too, where it's open and level enough (not by the house)
+        for (long c : path) {
+            int x = colX(c), z = colZ(c), h = height.get(c);
+            for (Direction d : Direction.Plane.HORIZONTAL) {
+                int nx = x + d.getStepX(), nz = z + d.getStepZ();
+                if (height.containsKey(column(nx, nz)) && path.contains(column(nx, nz))) continue;
+                if (!level.hasChunkAt(new BlockPos(nx, 0, nz))) continue;
+                int nh = surface(level, nx, nz);
+                if (Math.abs(nh - h) > 1) continue;
+                BlockPos side = new BlockPos(nx, nh, nz);
+                if (blocks.containsKey(side) || avoid.isInside(side) || roadAt.containsKey(column(nx, nz)) || !level.getFluidState(side).isEmpty()) continue;
+                if (v.blueprint.expected(side) != null || v.blueprint.expected(side.above()) != null || v.blueprint.isBuildingSite(side.above())) continue;
+                BlockState ground = level.getBlockState(side);
+                if (!ground.is(net.minecraft.tags.BlockTags.DIRT) && !ground.is(net.minecraft.tags.BlockTags.SAND) && !ground.is(Blocks.GRAVEL)) continue;
+                blocks.put(side, material);
+                if (level.getBlockState(side.above()).canBeReplaced()) clear.add(side.above());
+            }
         }
         List<BlockPos> all = new ArrayList<>(blocks.keySet());
         all.addAll(clear);
         BoundingBox box = BoundingBox.encapsulatingPositions(all).orElse(null);
         return box == null ? null : new Plan(house.template(), box, blocks, clear, 0, null);
+    }
+
+    /** A path from a spot (where a road between villages ends) to the village's own streets. True if there is one. */
+    public static boolean joinToStreets(ServerLevel level, VillageRecord v, int x, int z) {
+        if (!level.hasChunkAt(new BlockPos(x, 0, z))) return false;
+        BlockPos at = new BlockPos(x, surface(level, x, z), z);
+        Plan road = road(level, v, new Plan(Castle.ID, new BoundingBox(at), Map.of(), Set.of(), 0, at));
+        if (road == null) return false;
+        v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", true);
+        Villages.get(level).setDirty();
+        return true;
     }
 
     /** The top solid block of a column (what a road replaces). */

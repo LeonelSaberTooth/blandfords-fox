@@ -169,6 +169,7 @@ public final class Employment {
                 lost = near ? 0 : lost + 1;
                 if (lost > 150) {
                     lost = 0;
+                    lastGiveUp = "couldn't get to her spot at " + workPos.toShortString();
                     if (hasDeliverables()) Delivery.start(this, false);
                     stop();
                 }

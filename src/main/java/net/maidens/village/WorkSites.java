@@ -97,7 +97,7 @@ public final class WorkSites {
                 if (level.getBlockState(q.set(x, y, z)).is(BlockTags.LOGS)) squares.merge(net.minecraft.world.level.ChunkPos.asLong(x >> 4, z >> 4), 1, Integer::sum);
             }
         List<java.util.Map.Entry<Long, Integer>> best = new ArrayList<>(squares.entrySet());
-        best.removeIf(e -> e.getValue() < 2);
+        best.removeIf(e -> e.getValue() < 1);
         best.sort((a, c) -> c.getValue() - a.getValue());
         List<Integer> y0 = heights(level, v);
         for (var e : best) {

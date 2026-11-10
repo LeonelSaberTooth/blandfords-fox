@@ -229,6 +229,15 @@ public final class Upkeep {
             if (c.takenBy != null) taken++;
             else if (c.since > ready) later++;
         }
-        return v.chores.size() + " chores (" + taken + " taken, " + later + " waiting)";
+        // which pieces they're for, and of which kind (the biggest few)
+        java.util.Map<String, Integer> where = new java.util.HashMap<>();
+        for (Chore c : v.chores.values()) {
+            String name = "?";
+            for (Blueprint.PieceInfo p : v.blueprint.pieces()) if (p.box().isInside(c.pos)) { name = p.name(); break; }
+            where.merge(c.kind + " " + name + (c.block != null ? " " + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(c.block.getBlock()).getPath() : ""), 1, Integer::sum);
+        }
+        StringBuilder top = new StringBuilder();
+        where.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(4).forEach(e -> top.append(e.getKey()).append('=').append(e.getValue()).append(' '));
+        return v.chores.size() + " chores (" + taken + " taken, " + later + " waiting; " + top.toString().trim() + ")";
     }
 }

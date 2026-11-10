@@ -41,7 +41,7 @@ public final class ClientSelfTest {
 
     private static int tick = -1;
     private static BlockPos spot;
-    private static final List<Maiden> line = new ArrayList<>();
+    private static final List<Maiden> line = new ArrayList<>(), row2 = new ArrayList<>();
     private static double walkX;
 
     private ClientSelfTest() {}
@@ -207,7 +207,17 @@ public final class ClientSelfTest {
             }
         }
         if (t == 1460) shot(mc, "walls_top");
-        if (t == 1470) mc.stop();
+        // the second row up close, from behind it (they turn round): men, the old, children, casual clothes
+        if (t == 1462) server.execute(() -> {
+            for (Maiden m : row2) {
+                m.setYRot(0);
+                m.setYHeadRot(0);
+                m.setYBodyRot(0);
+            }
+            player(server).teleportTo(server.overworld(), spot.getX() + 0.5, spot.getY() + 0.6, spot.getZ() + 12.5, 180, 12);
+        });
+        if (t == 1490) shot(mc, "people");
+        if (t == 1500) mc.stop();
     }
 
     private static void bag(Maiden m, net.minecraft.world.item.Item... items) {
@@ -271,6 +281,7 @@ public final class ClientSelfTest {
                 m.setKind(kinds[i]);
                 if (i == 3 || i == 4) m.makeChild();
                 m.setSkin(i);
+                row2.add(m);
             }
             line.get(4).employment().hireForTest(net.maidens.maiden.work.Job.FARM, null);
             // armor goes in their bags (they wear the best of it); the guard holds her shield

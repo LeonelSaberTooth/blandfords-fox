@@ -114,7 +114,9 @@ public final class Farms {
                     if (!level.getBlockState(b).canBeReplaced()) break;
                     blocks.put(b, Blocks.DIRT.defaultBlockState());
                 }
-                boolean channel = (alongX ? z : x) == mid;
+                // the channel stops a block short of each end, so the water stays in the field
+                boolean end = alongX ? x == fp.minX() || x == fp.maxX() : z == fp.minZ() || z == fp.maxZ();
+                boolean channel = (alongX ? z : x) == mid && !end;
                 if (channel) blocks.put(ground, Blocks.WATER.defaultBlockState());
                 else {
                     blocks.put(ground, Blocks.FARMLAND.defaultBlockState().setValue(net.minecraft.world.level.block.FarmBlock.MOISTURE, 7));

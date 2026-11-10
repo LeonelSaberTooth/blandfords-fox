@@ -171,7 +171,9 @@ public final class ClientSelfTest {
             });
         }
         if (t == 840) shot(mc, "village_screen");
-        if (t == 842 && mc.screen instanceof net.maidens.client.village.VillageScreen s) s.showTab(1);
+        if (t == 842 && mc.screen instanceof net.maidens.client.village.VillageScreen s) s.showTab(3);
+        if (t == 845) shot(mc, "village_store");
+        if (t == 846 && mc.screen instanceof net.maidens.client.village.VillageScreen s) s.showTab(1);
         if (t == 850) shot(mc, "village_diplomacy");
         if (t == 852 && mc.screen instanceof net.maidens.client.village.VillageScreen s) s.openWorldMap();
         if (t == 1000) shot(mc, "world_map");

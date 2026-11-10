@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0
+- Looks are put together from layers: skin tone, clothes, eye colour and hair are chosen separately for each maiden
+  (normal, casual and children's clothes). The model is player height again, with the smaller chest.
+- Arms sway half as much when idle.
+- The village store: farmers bring in their harvest, and villages now give their own people work: woodcutters
+  (logs), miners (stone and ore) and fishers (fish), in work hours, delivered to the store by the bell at the end of
+  the day. The bell screen has a Store tab.
+- Villages eat one meal a day for every two people. Newcomers only move in with food to spare, and when the beds
+  are full the village builds a new house from its own logs and stone (24 of each), so well-fed villages grow (up
+  to 60 people). What citizens order built is still free.
+- Village guards keep their helmets.
+
 ## 0.7.0
 - People: men, old women and men, and children (who grow up in three days) live in maiden villages (placeholder
   looks for now). Half the grown-ups and most of the old marry each other. Some are guards: one at each gate.

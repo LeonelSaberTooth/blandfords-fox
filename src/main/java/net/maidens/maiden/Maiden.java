@@ -495,6 +495,8 @@ public class Maiden extends AbstractVillager {
         if (job == Job.GUARD || raider.active()) clearRestriction();      // guards follow, raiders go where the raid is
         else if (guard && hasVillageDuties() && VillageSocial.villageOf(this) instanceof net.maidens.village.VillageRecord gv)
             restrictTo(guardPost(gv), 6);                                    // a village guard keeps to her post
+        else if (employment.forVillage() && employment.busyNow() && employment.workPos() != null)
+            restrictTo(employment.workPos(), job == Job.MINE ? 96 : 24);     // at work for her village
         else if (hasVillageDuties() && VillageSocial.villageOf(this) instanceof net.maidens.village.VillageRecord v)
             restrictTo(v.centre(), Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 24);
         else if (job.atWorkSpot() && employment.workPos() != null) restrictTo(employment.workPos(), job == Job.MINE ? 96 : 24);

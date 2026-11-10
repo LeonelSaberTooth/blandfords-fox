@@ -250,7 +250,7 @@ public final class ClientSelfTest {
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ());
             spot = new BlockPos(c.getX(), y, c.getZ());
             for (int dx = -10; dx <= 10; dx++)
-                for (int dz = -8; dz <= 8; dz++) {
+                for (int dz = -8; dz <= 14; dz++) {
                     level.setBlock(spot.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
                     for (int dy = 0; dy < 10; dy++) level.setBlock(spot.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
                 }

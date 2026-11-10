@@ -57,9 +57,12 @@ public final class People {
                 default -> {}
             }
         }
-        Job want = wood < Math.max(1, n / 8) ? Job.WOOD : mine < Math.max(1, n / 10) ? Job.MINE : fish < Math.max(1, n / 12) ? Job.FISH : null;
         lastJobs = n + " residents: " + wood + " woodcutters, " + mine + " miners, " + fish + " fishers";
-        if (want == null) return;
+        List<Job> wanted = new ArrayList<>();
+        if (wood < Math.max(1, n / 8)) wanted.add(Job.WOOD);
+        if (mine < Math.max(1, n / 10)) wanted.add(Job.MINE);
+        if (fish < Math.max(1, n / 12)) wanted.add(Job.FISH);
+        if (wanted.isEmpty()) return;
         Maiden pick = null;
         for (Maiden m : residents) {
             if (m.isBaby() || m.isOld() || m.isGuard() || m.isRoyal() || !m.hasVillageDuties() || m.employment().isWorking()) continue;
@@ -70,16 +73,23 @@ public final class People {
         }
         if (pick == null) return;
         RandomSource r = level.getRandom();
-        net.minecraft.core.BlockPos at = switch (want) {
-            case WOOD -> WorkSites.forest(level, v, r);
-            case MINE -> WorkSites.mine(level, v, r);
-            case FISH -> WorkSites.water(level, v, r);
-            default -> null;
-        };
-        if (at == null) {
-            lastJobs += "; no spot for a " + want.button.toLowerCase();
-            return;
+        // the first job there's a place for (no trees nearby: no woodcutter, and so on)
+        Job want = null;
+        net.minecraft.core.BlockPos at = null;
+        for (Job j : wanted) {
+            at = switch (j) {
+                case WOOD -> WorkSites.forest(level, v, r);
+                case MINE -> WorkSites.mine(level, v, r);
+                case FISH -> WorkSites.water(level, v, r);
+                default -> null;
+            };
+            if (at != null) {
+                want = j;
+                break;
+            }
+            lastJobs += "; no spot for a " + j.button.toLowerCase();
         }
+        if (want == null) return;
         net.minecraft.core.Direction dir = WorkSites.away(v, at);
         pick.employment().startForVillage(want, at, dir);
         lastJobs += "; " + pick.name() + " is now a " + want.button.toLowerCase() + " at " + at.toShortString();

@@ -55,32 +55,36 @@ public final class WorkSites {
         return below.above();
     }
 
-    /** The place among the trees around the village with the most trunks within 12 blocks. */
+    /**
+     * The wood with the most trees around the village (within 60 blocks of it): every other column is looked at for
+     * a trunk, counted in 16-block squares, and she works from open ground in the best one (two trees at least).
+     */
     @Nullable
     public static BlockPos forest(ServerLevel level, VillageRecord v, RandomSource r) {
-        List<BlockPos> trunks = new ArrayList<>(), open = new ArrayList<>();
-        for (int i = 0; i < SAMPLES; i++) {
-            int[] p = around(v, r, 56);
-            if (!level.hasChunkAt(new BlockPos(p[0], 0, p[1]))) continue;
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p[0], p[1]) - 1;
-            BlockPos top = new BlockPos(p[0], y, p[1]);
-            if (level.getBlockState(top).is(BlockTags.LOGS)) trunks.add(top);
-            else if (!taken(v, p[0], p[1])) {
-                BlockPos g = ground(level, p[0], p[1]);
-                if (g != null) open.add(g);
+        BoundingBox b = outside(v);
+        int reach = 60;
+        java.util.Map<Long, Integer> squares = new java.util.HashMap<>();
+        BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
+        for (int x = b.minX() - reach; x <= b.maxX() + reach; x += 2)
+            for (int z = b.minZ() - reach; z <= b.maxZ() + reach; z += 2) {
+                if (x >= b.minX() && x <= b.maxX() && z >= b.minZ() && z <= b.maxZ()) continue;
+                if (!level.hasChunkAt(q.set(x, 0, z))) continue;
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+                if (level.getBlockState(q.set(x, y, z)).is(BlockTags.LOGS)) squares.merge(net.minecraft.world.level.ChunkPos.asLong(x >> 4, z >> 4), 1, Integer::sum);
+            }
+        List<java.util.Map.Entry<Long, Integer>> best = new ArrayList<>(squares.entrySet());
+        best.removeIf(e -> e.getValue() < 2);
+        best.sort((a, c) -> c.getValue() - a.getValue());
+        for (var e : best) {
+            int cx = net.minecraft.world.level.ChunkPos.getX(e.getKey()) * 16 + 8, cz = net.minecraft.world.level.ChunkPos.getZ(e.getKey()) * 16 + 8;
+            for (int i = 0; i < 40; i++) {
+                int x = cx + r.nextInt(17) - 8, z = cz + r.nextInt(17) - 8;
+                if (taken(v, x, z)) continue;
+                BlockPos g = ground(level, x, z);
+                if (g != null) return g;
             }
         }
-        BlockPos best = null;
-        int bestN = 2;          // a few trees at least
-        for (BlockPos g : open) {
-            int n = 0;
-            for (BlockPos t : trunks) if (Math.abs(t.getX() - g.getX()) <= 12 && Math.abs(t.getZ() - g.getZ()) <= 12) n++;
-            if (n > bestN) {
-                bestN = n;
-                best = g;
-            }
-        }
-        return best;
+        return null;
     }
 
     /** Dry ground a little way outside the village, by a gate if it has walls (she digs away from the village). */

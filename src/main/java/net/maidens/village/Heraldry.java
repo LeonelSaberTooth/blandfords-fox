@@ -33,7 +33,7 @@ import java.util.Map;
 public final class Heraldry {
     private static final List<ResourceKey<BannerPattern>> PATTERNS = List.of(
             BannerPatterns.STRIPE_CENTER, BannerPatterns.STRIPE_MIDDLE, BannerPatterns.CROSS, BannerPatterns.STRAIGHT_CROSS,
-            BannerPatterns.CHEVRON, BannerPatterns.TRIANGLE_TOP, BannerPatterns.HALF_HORIZONTAL, BannerPatterns.HALF_VERTICAL,
+            BannerPatterns.TRIANGLE_BOTTOM, BannerPatterns.TRIANGLE_TOP, BannerPatterns.HALF_HORIZONTAL, BannerPatterns.HALF_VERTICAL,
             BannerPatterns.DIAGONAL_LEFT, BannerPatterns.CIRCLE_MIDDLE, BannerPatterns.RHOMBUS_MIDDLE, BannerPatterns.BORDER,
             BannerPatterns.STRIPE_TOP, BannerPatterns.STRIPE_BOTTOM, BannerPatterns.SQUARE_TOP_LEFT, BannerPatterns.FLOWER);
 

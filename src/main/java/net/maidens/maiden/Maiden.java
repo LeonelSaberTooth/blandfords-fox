@@ -80,6 +80,8 @@ public class Maiden extends AbstractVillager {
     /** The villager profession whose hat she wears while working ("" for none). */
     private static final EntityDataAccessor<String> HAT = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.STRING);
     public static final int SKINS = 6;
+    /** How many of each part of her looks there are (the layers tools/make_layers.py makes). */
+    public static final int TONES = 5, OUTFITS = 5, EYE_COLOURS = 5, HAIRS = 6;
     /** How long a child takes to grow up (ticks): three days. */
     public static final int CHILDHOOD = 3 * 24000;
 
@@ -182,11 +184,11 @@ public class Maiden extends AbstractVillager {
     }
 
     public int getSkin() {
-        return Math.floorMod(entityData.get(SKIN), SKINS);
+        return Math.floorMod(entityData.get(SKIN), TONES);
     }
 
     public void setSkin(int skin) {
-        entityData.set(SKIN, Math.floorMod(skin, SKINS));
+        entityData.set(SKIN, Math.floorMod(skin, TONES));
     }
 
     public boolean isRoyal() {
@@ -194,23 +196,23 @@ public class Maiden extends AbstractVillager {
     }
 
     public int outfit() {
-        return Math.floorMod(entityData.get(OUTFIT), SKINS);
+        return Math.floorMod(entityData.get(OUTFIT), OUTFITS);
     }
 
     public int eyes() {
-        return Math.floorMod(entityData.get(EYES), SKINS);
+        return Math.floorMod(entityData.get(EYES), EYE_COLOURS);
     }
 
     public int hair() {
-        return Math.floorMod(entityData.get(HAIR), SKINS);
+        return Math.floorMod(entityData.get(HAIR), HAIRS);
     }
 
-    /** Her looks: skin tone, clothes, eyes, hair (each one of the {@link #SKINS} we have). */
+    /** Her looks: skin tone, clothes, eyes, hair (each one of those we have: see tools/make_layers.py). */
     public void setLooks(int tone, int outfit, int eyes, int hair) {
         setSkin(tone);
-        entityData.set(OUTFIT, Math.floorMod(outfit, SKINS));
-        entityData.set(EYES, Math.floorMod(eyes, SKINS));
-        entityData.set(HAIR, Math.floorMod(hair, SKINS));
+        entityData.set(OUTFIT, Math.floorMod(outfit, OUTFITS));
+        entityData.set(EYES, Math.floorMod(eyes, EYE_COLOURS));
+        entityData.set(HAIR, Math.floorMod(hair, HAIRS));
     }
 
     public Kind kind() {
@@ -322,7 +324,7 @@ public class Maiden extends AbstractVillager {
         if (initialised || level().isClientSide) return;
         initialised = true;
         var r = getRandom();
-        setLooks(r.nextInt(SKINS), r.nextInt(SKINS), r.nextInt(SKINS), r.nextInt(SKINS));
+        setLooks(r.nextInt(TONES), r.nextInt(OUTFITS), r.nextInt(EYE_COLOURS), r.nextInt(HAIRS));
         personality = Personality.byId(r.nextInt(Personality.values().length));
         if (!hasCustomName()) setCustomName(Component.literal(randomName(r, isMale())));
         if (home == null) home = blockPosition();

@@ -232,7 +232,7 @@ public final class ClientSelfTest {
                 m.setYBodyRot(180);
                 level.addFreshEntity(m);
                 m.ensureInitialised();
-                m.setLooks(r.nextInt(Maiden.SKINS), r.nextInt(Maiden.SKINS), r.nextInt(Maiden.SKINS), r.nextInt(Maiden.SKINS));
+                m.setLooks(r.nextInt(Maiden.TONES), r.nextInt(Maiden.OUTFITS), r.nextInt(Maiden.EYE_COLOURS), r.nextInt(Maiden.HAIRS));
                 variants.add(m);
             }
             player(server).teleportTo(level, spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 0, 4);

@@ -8,7 +8,8 @@
   layers/eyes_<n>.png         maiden n's eyes (and lids)
   layers/hair_<n>.png         maiden n's hair (her head except the face, and the long hair layer)
 
-The head is laid out the same on both bodies, so eyes and hair fit either.
+The head is laid out the same on both bodies, so eyes and hair fit either. The layers are numbered from 1 in each
+bank; some skins give only some of their parts (HAIR_ONLY: just her hair, without her headband).
 """
 import json, os
 from PIL import Image
@@ -134,21 +135,41 @@ def child_clothes(colour):
                 out.putpixel((x, y), shade(c, k))
     return out
 
+HAIR_ONLY = {2: 9}       # skin 2: only her hair, and her headband (this row of her head) painted over
+
+def without_band(hair, row):
+    out = hair.copy()
+    for x in range(0, 31):
+        c = hair.getpixel((x, row - 1))
+        if c[3] > 0:
+            out.putpixel((x, row), c)
+    return out
+
+for f in os.listdir(OUT):
+    os.remove(os.path.join(OUT, f))
 skins = []
 n = 1
 while os.path.exists(os.path.join(TEX, f'maiden_{n}.png')):
     skins.append(Image.open(os.path.join(TEX, f'maiden_{n}.png')).convert('RGBA'))
     n += 1
 casual = Image.open(os.path.join(TEX, 'casual_1.png')).convert('RGBA')
-tones = [tone_of(s) for s in skins]
-for i, (img, tone) in enumerate(zip(skins, tones), start=1):
-    tone_layer(USUAL, img, tone).save(os.path.join(OUT, f'tone_{i}.png'))
-    tone_layer(CASUAL, img, tone).save(os.path.join(OUT, f'casual_tone_{i}.png'))
-    clothes = clothes_layer(USUAL, img, tone)
-    clothes.save(os.path.join(OUT, f'clothes_{i}.png'))
-    child_clothes(main_colour(clothes)).save(os.path.join(OUT, f'child_clothes_{i}.png'))
-    eyes_layer(img).save(os.path.join(OUT, f'eyes_{i}.png'))
-    hair_layer(img, tone).save(os.path.join(OUT, f'hair_{i}.png'))
-    print('layers', i, 'tone', tone)
+whole = hair = 0
+for n, img in enumerate(skins, start=1):
+    tone = tone_of(img)
+    h = hair_layer(img, tone)
+    if n in HAIR_ONLY:
+        h = without_band(h, HAIR_ONLY[n])
+    else:
+        whole += 1
+        tone_layer(USUAL, img, tone).save(os.path.join(OUT, f'tone_{whole}.png'))
+        tone_layer(CASUAL, img, tone).save(os.path.join(OUT, f'casual_tone_{whole}.png'))
+        clothes = clothes_layer(USUAL, img, tone)
+        clothes.save(os.path.join(OUT, f'clothes_{whole}.png'))
+        child_clothes(main_colour(clothes)).save(os.path.join(OUT, f'child_clothes_{whole}.png'))
+        eyes_layer(img).save(os.path.join(OUT, f'eyes_{whole}.png'))
+    hair += 1
+    h.save(os.path.join(OUT, f'hair_{hair}.png'))
+    print('skin', n, 'tone', tone, 'hair only' if n in HAIR_ONLY else '')
+print(whole, 'skin tones, clothes and eyes;', hair, 'hairstyles')
 clothes_layer(CASUAL, casual, tone_of(casual)).save(os.path.join(OUT, 'casual_clothes.png'))
 print('casual clothes, tone', tone_of(casual))

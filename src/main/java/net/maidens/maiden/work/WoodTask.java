@@ -117,10 +117,19 @@ final class WoodTask extends WorkTask {
             BlockState below = level.getBlockState(p.below());
             if (!below.is(BlockTags.DIRT)) continue;                      // a trunk standing on the ground, not a house beam
             if (!level.getBlockState(p.above()).is(BlockTags.LOGS)) continue;
+            if (built(level, p)) continue;                                // a village's beam or post, not a tree
             double d = p.distSqr(m.blockPosition());
             if (d < bestD) { bestD = d; best = p.immutable(); }
         }
         return best;
+    }
+
+    /** Part of a building: stripped wood (nobody's tree), or a block in a maiden village's blueprint. */
+    private static boolean built(ServerLevel level, BlockPos p) {
+        if (BuiltInRegistries.BLOCK.getKey(level.getBlockState(p).getBlock()).getPath().startsWith("stripped_")) return true;
+        for (net.maidens.village.VillageRecord v : net.maidens.village.Villages.get(level).all())
+            if (v.blueprint.expected(p) != null) return true;
+        return false;
     }
 
     /** Every log joined to the trunk (diagonals too), lowest first, up to a big tree's worth. */
@@ -138,7 +147,7 @@ final class WoodTask extends WorkTask {
                     for (int dz = -1; dz <= 1; dz++) {
                         BlockPos q = p.offset(dx, dy, dz);
                         if (Math.abs(q.getX() - start.getX()) > 6 || Math.abs(q.getZ() - start.getZ()) > 6) continue;
-                        if (seen.add(q) && level.getBlockState(q).is(BlockTags.LOGS)) open.add(q);
+                        if (seen.add(q) && level.getBlockState(q).is(BlockTags.LOGS) && !built(level, q)) open.add(q);
                     }
         }
         tree.sort(Comparator.comparingInt(BlockPos::getY));

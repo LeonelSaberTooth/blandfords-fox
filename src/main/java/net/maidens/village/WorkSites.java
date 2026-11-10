@@ -94,7 +94,9 @@ public final class WorkSites {
                 if (x >= b.minX() && x <= b.maxX() && z >= b.minZ() && z <= b.maxZ()) continue;
                 if (!level.hasChunkAt(q.set(x, 0, z))) continue;
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-                if (level.getBlockState(q.set(x, y, z)).is(BlockTags.LOGS)) squares.merge(net.minecraft.world.level.ChunkPos.asLong(x >> 4, z >> 4), 1, Integer::sum);
+                BlockState top = level.getBlockState(q.set(x, y, z));
+                if (top.is(BlockTags.LOGS) && !net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(top.getBlock()).getPath().startsWith("stripped_")
+                        && v.blueprint.expected(q) == null) squares.merge(net.minecraft.world.level.ChunkPos.asLong(x >> 4, z >> 4), 1, Integer::sum);
             }
         List<java.util.Map.Entry<Long, Integer>> best = new ArrayList<>(squares.entrySet());
         best.removeIf(e -> e.getValue() < 1);

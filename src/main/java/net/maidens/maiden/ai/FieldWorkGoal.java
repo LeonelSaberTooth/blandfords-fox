@@ -54,7 +54,7 @@ final class FieldWorkGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return crop != null && ticks < 1200 && m.hasVillageDuties() && m.isFree() && Schedule.now(m) == Schedule.Activity.WORK;
+        return crop != null && ticks < 1200 && m.hasVillageDuties() && !m.employment().isWorking() && m.isFree() && Schedule.now(m) == Schedule.Activity.WORK;
     }
 
     @Override

@@ -60,6 +60,8 @@ public final class Employment {
     @Nullable BlockPos lastChest;
     /** A job for her own village (given by it, not hired): she works in work hours and brings it all to the village. */
     boolean forVillage;
+    /** How long (in seconds) she's been at work for her village without getting near her spot. */
+    private int lost;
     /** The job is ending (shift over, or she had to give up): a miner first climbs back out. */
     boolean wrappingUp;
     String wrapUpMessage = "";
@@ -82,6 +84,13 @@ public final class Employment {
 
     public boolean isWorking() {
         return job != Job.NONE;
+    }
+
+    /** A miner down her mine (below where she started it, out of the sky, and not far from it). */
+    public boolean inMine() {
+        if (job != Job.MINE || workPos == null || m.getY() >= workPos.getY() - 2) return false;
+        double dx = m.getX() - workPos.getX(), dz = m.getZ() - workPos.getZ();
+        return dx * dx + dz * dz < 240 * 240 && !m.level().canSeeSky(m.blockPosition().above());
     }
 
     /** Hired by a player (not working for her village). */
@@ -154,15 +163,25 @@ public final class Employment {
         if (m.tickCount % 20 == 0) {
             if (job == Job.GUARD && m.getTarget() == null) equip(Job.GUARD);
             if (isHired() || !m.isGuard()) dress();       // (a village guard keeps her own helmet)
+            // a village job she can't get to: given up (the village finds her another spot)
+            if (forVillage && busyNow() && workPos != null && deliverTo == null) {
+                boolean near = job == Job.MINE ? inMine() || m.blockPosition().closerThan(workPos, 12) : m.blockPosition().closerThan(workPos, 32);
+                lost = near ? 0 : lost + 1;
+                if (lost > 150) {
+                    lost = 0;
+                    if (hasDeliverables()) Delivery.start(this, false);
+                    stop();
+                }
+            }
             // her village's work done for the day: what she gathered goes to its store
             if (forVillage && m.tickCount % 100 == 0 && deliverTo == null && !busyNow() && hasDeliverables()
-                    && !(job == Job.MINE && workPos != null && m.getY() < workPos.getY() - 2)) Delivery.start(this, true);
+                    && !inMine()) Delivery.start(this, true);
         }
     }
 
     /** The job is ending: a miner climbs out first; then she takes her bag to the marked chest, or tells you to collect. */
     void finish(String why) {
-        if (job == Job.MINE && m.blockPosition().getY() < (workPos == null ? 0 : workPos.getY()) - 2) {
+        if (inMine()) {
             wrappingUp = true;
             wrapUpMessage = why;
             return;
@@ -260,7 +279,7 @@ public final class Employment {
         if (job == Job.NONE) return "I'm not working right now.";
         if (!p.getUUID().equals(employer) && !m.relationships().isMarriedTo(p)) return "You're not the one who hired me.";
         Job was = job;
-        boolean underground = was == Job.MINE && m.blockPosition().getY() < (workPos == null ? 0 : workPos.getY()) - 2;
+        boolean underground = inMine();
         finish("Alright, I'll stop.");
         return underground ? "Alright, I'll stop. Let me climb back out first." : "Alright, I'll stop.";
     }

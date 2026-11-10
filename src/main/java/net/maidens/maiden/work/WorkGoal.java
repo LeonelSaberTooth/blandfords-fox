@@ -29,7 +29,7 @@ public final class WorkGoal extends Goal {
     public boolean canUse() {
         Employment e = m.employment();
         // her village's work: in work hours (a miner still underground climbs out first)
-        boolean time = !e.forVillage() || e.busyNow() || e.job() == Job.MINE && e.workPos() != null && m.getY() < e.workPos().getY() - 2;
+        boolean time = !e.forVillage() || e.busyNow() || e.inMine();
         return e.job().atWorkSpot() && !e.isDelivering() && m.isFree() && time;
     }
 

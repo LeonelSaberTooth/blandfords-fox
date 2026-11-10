@@ -48,6 +48,11 @@ public final class Employment {
     private final SimpleContainer bag = new SimpleContainer(27);
     /** What her work is doing and why she last gave up, for the self test. */
     String note = "";
+
+    /** What her work was last doing (self test only). */
+    public String note() {
+        return note;
+    }
     private String lastGiveUp = "";
     /** A marked chest she's on her way to; whether she goes back to work afterwards. */
     @Nullable BlockPos deliverTo;

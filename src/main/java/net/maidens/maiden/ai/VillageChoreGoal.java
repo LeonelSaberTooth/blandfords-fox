@@ -46,7 +46,7 @@ final class VillageChoreGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return chore != null && m.hasVillageDuties() && m.isFree() && ticks < GIVE_UP && choreTime(m)
+        return chore != null && m.hasVillageDuties() && !m.employment().busyNow() && m.isFree() && ticks < GIVE_UP && choreTime(m)
                 && Upkeep.stillNeeded(m, chore);
     }
 

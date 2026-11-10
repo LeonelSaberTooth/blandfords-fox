@@ -347,9 +347,10 @@ public class VillageScreen extends Screen {
             Ui.small(g, font, n.distance() + " blocks", x + font.width(n.name()) + 4, y + 2, Ui.TEXT_LIGHT, false, 0.7F);
             y += 10;
             Ui.small(g, font, "we're ", x, y, Ui.TEXT_LIGHT, false, 0.7F);
-            Ui.small(g, font, n.ours().label, x + 20, y, 0xFF000000 | darker(n.ours().color), false, 0.7F);
+            int we = (int) Math.ceil(font.width("we're ") * 0.7F), they = (int) Math.ceil(font.width("they're ") * 0.7F);
+            Ui.small(g, font, n.ours().label, x + we, y, 0xFF000000 | darker(n.ours().color), false, 0.7F);
             Ui.small(g, font, "they're ", x + 70, y, Ui.TEXT_LIGHT, false, 0.7F);
-            Ui.small(g, font, n.theirs().label, x + 95, y, 0xFF000000 | darker(n.theirs().color), false, 0.7F);
+            Ui.small(g, font, n.theirs().label, x + 70 + they, y, 0xFF000000 | darker(n.theirs().color), false, 0.7F);
             y += 8;
             if (!right.isEmpty()) {
                 int bw = (sideW - 14) / 3;

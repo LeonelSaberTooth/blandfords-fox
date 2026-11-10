@@ -76,6 +76,11 @@ final class FishTask extends WorkTask {
             phase = Phase.PAUSE;
             timer = 10;
         }
+        // pushed away from the shore (or called off and back): walk back first
+        if (phase != Phase.FIND && m.distanceToSqr(Vec3.atBottomCenterOf(shore)) > 4 * 4) {
+            stop();
+            return;
+        }
         Vec3 float_ = new Vec3(water.getX() + 0.5, water.getY() + 0.9, water.getZ() + 0.5);
         m.getNavigation().stop();
         m.getLookControl().setLookAt(float_.x, float_.y, float_.z);
@@ -148,11 +153,20 @@ final class FishTask extends WorkTask {
             if (unreachable.contains(p) || !level.getFluidState(p).is(Fluids.WATER) || !level.getFluidState(p).isSource()
                     || !level.getBlockState(p.above()).isAir()) continue;
             double d = p.distSqr(m.blockPosition());
+            if (d >= bestD || !open(level, p)) continue;
             if (d >= bestD || shoreFor(level, p) == null) continue;
             bestD = d;
             best = p.immutable();
         }
         return best;
+    }
+
+    /** Open water, not a farm's water hole or a puddle: most of the 5 x 5 around it is water. */
+    private static boolean open(ServerLevel level, BlockPos p) {
+        int n = 0;
+        for (int dx = -2; dx <= 2; dx++)
+            for (int dz = -2; dz <= 2; dz++) if (level.getFluidState(p.offset(dx, 0, dz)).is(Fluids.WATER)) n++;
+        return n >= 12;
     }
 
     /** Dry ground next to the water where she can stand. */

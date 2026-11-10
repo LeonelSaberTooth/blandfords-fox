@@ -39,14 +39,14 @@ final class VillageChoreGoal extends Goal {
     public boolean canUse() {
         if (--cooldown > 0) return false;
         cooldown = 10;     // (goals are only checked every other tick, so not tickCount % n)
-        if (!m.hasVillageDuties() || m.isRoyal() || !m.isFree() || m.isSleeping() || Schedule.now(m) == Schedule.Activity.SLEEP) return false;
+        if (!m.hasVillageDuties() || m.isRoyal() || !m.isFree() || m.isSleeping() || !choreTime(m)) return false;
         chore = Upkeep.take(m);
         return chore != null;
     }
 
     @Override
     public boolean canContinueToUse() {
-        return chore != null && m.hasVillageDuties() && m.isFree() && ticks < GIVE_UP && Schedule.now(m) != Schedule.Activity.SLEEP
+        return chore != null && m.hasVillageDuties() && m.isFree() && ticks < GIVE_UP && choreTime(m)
                 && Upkeep.stillNeeded(m, chore);
     }
 
@@ -106,5 +106,11 @@ final class VillageChoreGoal extends Goal {
         chore = null;
         m.getNavigation().stop();
         if (!m.employment().isWorking()) m.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+    }
+
+    /** Chores are for the working day and the evening at the bell, not when she should be at home or asleep. */
+    private static boolean choreTime(Maiden m) {
+        Schedule.Activity a = Schedule.now(m);
+        return a == Schedule.Activity.WORK || a == Schedule.Activity.GATHER;
     }
 }

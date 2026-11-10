@@ -227,8 +227,8 @@ final class VillageCheck {
     // ------------------------------------------------------------------ Phase 5: their day, requests, raids
 
     private void night(ServerLevel level) {
-        level.setDayTime(11000);
-        log.accept("schedule: evening (time 11000): home at 11000, bed at 12000");
+        level.setDayTime(12000);
+        log.accept("schedule: evening (time 12000): home until 13000, then bed");
     }
 
     private void bedtime(ServerLevel level) {

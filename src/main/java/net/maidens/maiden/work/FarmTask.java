@@ -19,8 +19,10 @@ import net.minecraft.world.level.block.state.BlockState;
  * with seeds from her bag (wheat seeds of her own if she has none).
  */
 final class FarmTask extends WorkTask {
-    private static final int RANGE = 24;
+    private static final int RANGE = 24, QUEUE = 96;
     private BlockPos target;
+    /** The crops and bare farmland found by the last look around, worked through nearest first (one look, many crops). */
+    private final java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>();
 
     FarmTask(Maiden m) {
         super(m);
@@ -30,6 +32,7 @@ final class FarmTask extends WorkTask {
     public void reset() {
         super.reset();
         target = null;
+        queue.clear();
     }
 
     @Override
@@ -38,48 +41,76 @@ final class FarmTask extends WorkTask {
         if (checkBag()) return;
         if (target == null || stuck > 300) {
             stuck = 0;
-            if (--scan > 0) return;
-            scan = 40;
-            target = find(level);
-            if (target == null) { scan = IDLE_SCAN; idleNear(job().workPos); return; }
-        }
-        BlockState s = level.getBlockState(target);
-        boolean ripe = s.getBlock() instanceof CropBlock c && c.isMaxAge(s);
-        boolean bare = s.isAir() && level.getBlockState(target.below()).getBlock() instanceof FarmBlock;
-        if (!ripe && !bare) { target = null; return; }
-        if (!reach(target, 2.6)) return;
-        if (ripe) harvest(level, target, ItemStack.EMPTY, true);
-        else {
-            ItemStack seed = job().takeFromBag(FarmTask::isSeed);
-            if (seed.isEmpty()) seed = new ItemStack(Items.WHEAT_SEEDS);
-            if (seed.getItem() instanceof BlockItem bi) {
-                level.setBlock(target, bi.getBlock().defaultBlockState(), Block.UPDATE_ALL);
-                m.swing(InteractionHand.MAIN_HAND);
-                level.playSound(null, target, SoundEvents.CROP_PLANTED, SoundSource.NEUTRAL, 1.0F, 1.0F);
+            target = next(level);
+            if (target == null) {
+                if (--scan > 0) return;
+                queue.addAll(find(level));
+                target = next(level);
+                if (target == null) { scan = IDLE_SCAN; idleNear(job().workPos); return; }
             }
         }
+        if (!needsWork(level, target)) { target = null; return; }
+        if (!reach(target, 2.6)) return;
+        // everything in reach gets done while she's here: a whole row goes quickly
+        int done = 0;
+        for (BlockPos p : BlockPos.betweenClosed(target.offset(-1, -1, -1), target.offset(1, 1, 1))) {
+            if (done >= 3 || !needsWork(level, p) || m.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(p)) > 2.6 * 2.6 + 1) continue;
+            work(level, p.immutable());
+            done++;
+        }
         target = null;
-        busy = 10;
+        busy = 4;
+    }
+
+    private static boolean needsWork(ServerLevel level, BlockPos p) {
+        BlockState s = level.getBlockState(p);
+        boolean ripe = s.getBlock() instanceof CropBlock c && c.isMaxAge(s);
+        return ripe || s.isAir() && level.getBlockState(p.below()).getBlock() instanceof FarmBlock;
+    }
+
+    private void work(ServerLevel level, BlockPos p) {
+        BlockState s = level.getBlockState(p);
+        if (s.getBlock() instanceof CropBlock c && c.isMaxAge(s)) {
+            harvest(level, p, ItemStack.EMPTY, true);
+            return;
+        }
+        ItemStack seed = job().takeFromBag(FarmTask::isSeed);
+        if (seed.isEmpty()) seed = new ItemStack(Items.WHEAT_SEEDS);
+        if (seed.getItem() instanceof BlockItem bi) {
+            level.setBlock(p, bi.getBlock().defaultBlockState(), Block.UPDATE_ALL);
+            m.swing(InteractionHand.MAIN_HAND);
+            level.playSound(null, p, SoundEvents.CROP_PLANTED, SoundSource.NEUTRAL, 1.0F, 1.0F);
+        }
+    }
+
+    /** The queued spot nearest to her that still needs work. */
+    private BlockPos next(ServerLevel level) {
+        BlockPos best = null;
+        double bestD = Double.MAX_VALUE;
+        for (java.util.Iterator<BlockPos> it = queue.iterator(); it.hasNext(); ) {
+            BlockPos p = it.next();
+            if (!level.isLoaded(p) || !needsWork(level, p)) { it.remove(); continue; }
+            double d = p.distSqr(m.blockPosition());
+            if (d < bestD) { bestD = d; best = p; }
+        }
+        if (best != null) queue.remove(best);
+        return best;
     }
 
     private static boolean isSeed(ItemStack st) {
         return st.getItem() instanceof BlockItem bi && bi.getBlock() instanceof CropBlock;
     }
 
-    private BlockPos find(ServerLevel level) {
+    private java.util.List<BlockPos> find(ServerLevel level) {
         BlockPos c = centre();
-        if (!loaded(level, c, RANGE)) return null;
-        BlockPos best = null;
-        double bestD = Double.MAX_VALUE;
+        java.util.List<BlockPos> out = new java.util.ArrayList<>();
+        if (!loaded(level, c, RANGE)) return out;
         for (BlockPos p : BlockPos.betweenClosed(c.offset(-RANGE, -4, -RANGE), c.offset(RANGE, 4, RANGE))) {
-            BlockState s = level.getBlockState(p);
-            boolean ripe = s.getBlock() instanceof CropBlock crop && crop.isMaxAge(s);
-            boolean bare = s.isAir() && level.getBlockState(p.below()).getBlock() instanceof FarmBlock;
-            if (!ripe && !bare) continue;
-            double d = p.distSqr(m.blockPosition());
-            if (d < bestD) { bestD = d; best = p.immutable(); }
+            if (!needsWork(level, p)) continue;
+            out.add(p.immutable());
+            if (out.size() >= QUEUE) break;
         }
-        return best;
+        return out;
     }
 
     @Override

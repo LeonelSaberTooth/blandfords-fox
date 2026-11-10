@@ -273,6 +273,13 @@ public class Maiden extends AbstractVillager {
      * plan), she finds her own way: puts her on a free standing spot within 3 blocks of it. Returns false if none.
      */
     public boolean arriveNear(BlockPos target) {
+        // never in front of anyone: popping from place to place looks wrong (she walks, or does something else)
+        if (level().getNearestPlayer(this, 32) != null) return false;
+        return moveNear(target);
+    }
+
+    /** Moves her to a free spot next to target, seen or not (getting out of a wall, out of the way of a new wall). */
+    public boolean moveNear(BlockPos target) {
         for (BlockPos p : BlockPos.withinManhattan(target, 3, 3, 3)) {
             if (p.equals(target) || p.above().equals(target)) continue;     // not in the spot she's about to fill
             if (level().getBlockState(p.below()).isFaceSturdy(level(), p.below(), net.minecraft.core.Direction.UP)
@@ -314,6 +321,8 @@ public class Maiden extends AbstractVillager {
 
     @Override
     public void aiStep() {
+        // villagers don't keep their swing going (monsters and players do): without this her arm never moves
+        updateSwingTime();
         super.aiStep();
         if (level().isClientSide) return;
         ensureInitialised();
@@ -418,6 +427,11 @@ public class Maiden extends AbstractVillager {
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        // stuck in a block (one put down where she stood): she steps out instead of choking
+        if (source.is(net.minecraft.world.damagesource.DamageTypes.IN_WALL)) {
+            if (!level().isClientSide) moveNear(blockPosition());
+            return false;
+        }
         // whoever hired her as a guard can't hurt her by accident
         if (source.getEntity() instanceof Player p && employment.isGuarding() && employment.employerFor(p) == 1) return false;
         if (!level().isClientSide && raider.active()) {
@@ -462,6 +476,15 @@ public class Maiden extends AbstractVillager {
             }
         }
         super.die(source);
+    }
+
+    @Override
+    public void stopSleeping() {
+        super.stopSleeping();
+        // up and facing the way she'll walk (not still turned the way she lay)
+        yBodyRot = yHeadRot = getYRot();
+        yBodyRotO = yHeadRotO = getYRot();
+        setPose(net.minecraft.world.entity.Pose.STANDING);
     }
 
     @Override

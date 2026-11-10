@@ -32,7 +32,7 @@ import java.util.Set;
  */
 final class MineTask extends WorkTask {
     private static final ItemStack PICK = new ItemStack(Items.IRON_PICKAXE);
-    private static final int STAIRS = 80, TUNNEL = 64, FLOOR_Y = 16, TORCH_EVERY = 6, ORE_RANGE = 4, WAYPOINT = 12;
+    private static final int STAIRS = 140, TUNNEL = 64, FLOOR_Y = 16, TORCH_EVERY = 6, ORE_RANGE = 6, WAYPOINT = 12;
 
     /** Blocks to break to get at an ore she spotted, the ore last. */
     private final Deque<BlockPos> dig = new ArrayDeque<>();
@@ -152,7 +152,35 @@ final class MineTask extends WorkTask {
     }
 
     private int stairsDown() {
-        return Math.max(0, Math.min(STAIRS, job().workPos.getY() - FLOOR_Y));
+        return Math.max(0, Math.min(STAIRS, job().workPos.getY() - floorY(job().mineTarget)));
+    }
+
+    /** How deep to tunnel: where what she's looking for is most common. */
+    static int floorY(@org.jetbrains.annotations.Nullable Block target) {
+        if (target == null) return FLOOR_Y;
+        String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(target).getPath();
+        if (id.contains("diamond") || id.contains("redstone")) return -54;
+        if (id.contains("deepslate") || id.contains("tuff")) return -20;
+        if (id.contains("gold") || id.contains("lapis")) return -16;
+        if (id.contains("coal") || id.contains("copper")) return 44;
+        if (id.contains("emerald")) return 16;
+        return FLOOR_Y;
+    }
+
+    /** The block a held item stands for, if it's an ore or a kind of stone; else null (any ore). */
+    @org.jetbrains.annotations.Nullable
+    static Block targetFrom(ItemStack held) {
+        if (!(held.getItem() instanceof BlockItem bi)) return null;
+        BlockState s = bi.getBlock().defaultBlockState();
+        boolean ok = s.is(Tags.Blocks.ORES) || s.is(Tags.Blocks.STONES) || s.is(net.minecraft.tags.BlockTags.BASE_STONE_OVERWORLD)
+                || s.is(net.minecraft.tags.BlockTags.BASE_STONE_NETHER) || s.is(Tags.Blocks.COBBLESTONES) || s.is(Tags.Blocks.SANDSTONE_BLOCKS);
+        return ok ? bi.getBlock() : null;
+    }
+
+    /** What she digs out when she spots it: her target (and any ore) or, with none, any ore. */
+    private boolean wanted(BlockState s) {
+        Block t = job().mineTarget;
+        return t != null && s.is(t) || s.is(Tags.Blocks.ORES);
     }
 
     /** A torch on the wall at head height (or on the floor if there's no wall). */
@@ -181,8 +209,11 @@ final class MineTask extends WorkTask {
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
         for (BlockPos p : BlockPos.betweenClosed(eye.offset(-ORE_RANGE, -ORE_RANGE, -ORE_RANGE), eye.offset(ORE_RANGE, ORE_RANGE, ORE_RANGE))) {
-            if (!level.getBlockState(p).is(Tags.Blocks.ORES) || skipOre.contains(p)) continue;
+            BlockState st = level.getBlockState(p);
+            if (!wanted(st) || skipOre.contains(p)) continue;
             double dist = p.distSqr(eye);
+            // her target comes first: it counts as half as far
+            if (job().mineTarget != null && st.is(job().mineTarget)) dist *= 0.5;
             if (dist < bestD && dist <= ORE_RANGE * ORE_RANGE + 1) {
                 bestD = dist;
                 best = p.immutable();
@@ -217,9 +248,11 @@ final class MineTask extends WorkTask {
         if (depth > 8) return;
         for (Direction d : Direction.values()) {
             BlockPos q = p.relative(d);
-            if (level.getBlockState(q).is(Tags.Blocks.ORES) && !nearFluid(level, q)) {
+            BlockState st = level.getBlockState(q);
+            if (wanted(st) && !nearFluid(level, q)) {
                 harvest(level, q, PICK, false);
-                veins(level, q, depth + 1);
+                // a stone target spreads through everything: only a few blocks of it at a time
+                veins(level, q, depth + (st.is(Tags.Blocks.ORES) ? 1 : 3));
             }
         }
     }

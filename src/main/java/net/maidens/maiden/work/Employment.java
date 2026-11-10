@@ -43,6 +43,8 @@ public final class Employment {
     @Nullable BlockPos workPos;
     Direction workDir = Direction.NORTH;
     int mineStep;
+    /** What a miner digs for (an ore or a kind of stone the player held when hiring her), or null: any ore. */
+    @Nullable net.minecraft.world.level.block.Block mineTarget;
     private final SimpleContainer bag = new SimpleContainer(27);
     /** What her work is doing and why she last gave up, for the self test. */
     String note = "";
@@ -202,11 +204,13 @@ public final class Employment {
         employerName = n;
         lastEmployer = p.getUUID();
         start(newJob, p.getDirection());
+        mineTarget = newJob == Job.MINE ? MineTask.targetFrom(p.getMainHandItem()) : null;
         return switch (newJob) {
             case FARM -> "I'll tend the crops around my house and keep the harvest in my bag.";
             case GUARD -> "I've got your back, " + n + ". Put a sword in my bag and I'll use it.";
             case WOOD -> "I'll chop the trees around here and replant saplings if I have some.";
-            case MINE -> "I'll dig a staircase down, " + workDir.getName() + " from here, then tunnel. Torches in my bag and I'll light it.";
+            case MINE -> "I'll dig a staircase down, " + workDir.getName() + " from here, then tunnel"
+                    + (mineTarget != null ? ", looking for " + mineTarget.getName().getString().toLowerCase(java.util.Locale.ROOT) : " for ore") + ". Torches in my bag and I'll light it.";
             case FISH -> "I'll fish at the nearest water. Wish me luck!";
             case NONE -> "";
         } + (wife ? " For you, it's free, my love." : "");
@@ -348,6 +352,7 @@ public final class Employment {
         if (workPos != null) tag.putLong("WorkPos", workPos.asLong());
         tag.putInt("WorkDir", workDir.get2DDataValue());
         tag.putInt("MineStep", mineStep);
+        if (mineTarget != null) tag.putString("MineTarget", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(mineTarget).toString());
         tag.put("Bag", bag.createTag(m.registryAccess()));
         if (deliverTo != null) tag.putLong("DeliverTo", deliverTo.asLong());
         tag.putBoolean("Resume", resumeAfterDelivery);
@@ -364,6 +369,8 @@ public final class Employment {
         workPos = tag.contains("WorkPos") ? BlockPos.of(tag.getLong("WorkPos")) : null;
         workDir = Direction.from2DDataValue(tag.getInt("WorkDir"));
         mineStep = tag.getInt("MineStep");
+        mineTarget = tag.contains("MineTarget") ? net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(net.minecraft.resources.ResourceLocation.parse(tag.getString("MineTarget"))) : null;
+        if (mineTarget == net.minecraft.world.level.block.Blocks.AIR) mineTarget = null;
         bag.fromTag(tag.getList("Bag", Tag.TAG_COMPOUND), m.registryAccess());
         deliverTo = tag.contains("DeliverTo") ? BlockPos.of(tag.getLong("DeliverTo")) : null;
         resumeAfterDelivery = tag.getBoolean("Resume");

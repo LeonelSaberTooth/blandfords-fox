@@ -263,6 +263,14 @@ public final class Blueprint {
                 if (id > 0) {
                     BlockState want = palette.get(id);
                     if (now != want) {
+                        // anyone standing there steps aside first (others: the block waits for a repair)
+                        if (!want.getCollisionShape(level, p).isEmpty()) {
+                            boolean blocked = false;
+                            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(p))) {
+                                if (!(e instanceof net.maidens.maiden.Maiden mm) || !mm.moveNear(p)) blocked = true;
+                            }
+                            if (blocked) continue;
+                        }
                         level.setBlock(p, want, Block.UPDATE_CLIENTS);
                         set++;
                     }

@@ -97,7 +97,7 @@ public class MaidenScreen extends Screen {
                     "Harvests and replants the crops around her house. Seeds in her bag go on bare farmland.",
                     "Follows you and fights monsters (not creepers). Uses a sword or axe from her bag.",
                     "Cuts down the trees around where she is now. Replants saplings from her bag.",
-                    "Digs a staircase down from here, the way you're facing, then a tunnel. Lights it with torches from her bag.",
+                    "Digs a staircase down from here, the way you're facing, then a tunnel, digging out every ore she spots. Hold an ore or a stone block when you hire her and she'll go looking for that instead. Lights it with torches from her bag.",
                     "Fishes at the nearest water around where she is now."};
             for (int i = 0; i < jobs.length; i++) {
                 Job j = jobs[i];

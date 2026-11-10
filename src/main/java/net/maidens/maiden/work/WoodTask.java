@@ -44,6 +44,12 @@ final class WoodTask extends WorkTask {
     }
 
     @Override
+    public void stop() {
+        // called away mid-tree: the stump still gets its sapling
+        if (base != null && m.level() instanceof ServerLevel level && !level.getBlockState(base).is(BlockTags.LOGS)) replant(level, base);
+    }
+
+    @Override
     public void reset() {
         super.reset();
         tree.clear();
@@ -69,7 +75,7 @@ final class WoodTask extends WorkTask {
             if (base != null) replant(level, base);
             base = null;
             if (--scan > 0) return;
-            scan = 40;
+            scan = 20;
             BlockPos found = find(level);
             if (found == null) { scan = IDLE_SCAN; idleNear(job().workPos); return; }
             base = found;
@@ -79,6 +85,7 @@ final class WoodTask extends WorkTask {
         }
         if (stuck > 400) {                       // can't get there: try another tree
             unreachable.add(base);
+            if (!level.getBlockState(base).is(BlockTags.LOGS)) replant(level, base);
             tree.clear();
             leaves.clear();
             base = null;

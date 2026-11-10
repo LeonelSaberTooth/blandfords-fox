@@ -167,8 +167,9 @@ public final class Upkeep {
             return true;
         }
         // a maiden standing in the gap (often the builder herself) steps aside; anyone else is waited for
+        // (never on top of anyone: a stubborn chore waits too, or she'd be walled in)
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c.pos))) {
-            if ((!(e instanceof Maiden other) || !other.arriveNear(c.pos)) && !c.stubborn()) return false;
+            if (!(e instanceof Maiden other) || !other.arriveNear(c.pos)) return false;
         }
         place(level, c.pos, c.block);
         v.chores.remove(c.pos.asLong());
@@ -176,7 +177,8 @@ public final class Upkeep {
         for (Direction d : Direction.values()) {
             BlockPos n = c.pos.relative(d);
             BlockState e = v.blueprint.expected(n);
-            if (e != null && e.is(c.block.getBlock()) && missing(level.getBlockState(n), e)) {
+            if (e != null && e.is(c.block.getBlock()) && missing(level.getBlockState(n), e)
+                    && level.getEntitiesOfClass(LivingEntity.class, new AABB(n)).isEmpty()) {
                 place(level, n, e);
                 v.chores.remove(n.asLong());
             }

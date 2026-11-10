@@ -51,14 +51,31 @@ public abstract class WorkTask {
         return "stuck " + stuck + " busy " + busy;
     }
 
+    /** What she's walking to, and for how long: after {@link #PATIENCE} ticks she gives it up (stuck goes high). */
+    private BlockPos reachTarget;
+    private int reachTicks;
+    protected static final int PATIENCE = 600, GIVE_UP = 1000;
+
     /** Walks towards a block until within reach; true once there (then she looks at it). */
     protected boolean reach(BlockPos p, double reach) {
         Vec3 c = Vec3.atCenterOf(p);
+        if (!p.equals(reachTarget)) {
+            reachTarget = p.immutable();
+            reachTicks = 0;
+        }
         if (m.distanceToSqr(c) <= reach * reach) {
             m.getNavigation().stop();
             m.getLookControl().setLookAt(c.x, c.y, c.z);
             stuck = 0;
+            reachTicks = 0;
             return true;
+        }
+        // walking for half a minute without getting there (going round in circles, a path that never ends): give up
+        if (++reachTicks > PATIENCE) {
+            stuck = GIVE_UP;
+            reachTicks = 0;
+            m.getNavigation().stop();
+            return false;
         }
         if (--repath <= 0) {
             repath = 20;
@@ -70,8 +87,6 @@ public abstract class WorkTask {
                 return true;
             }
             if (!moving || m.getNavigation().isStuck()) stuck += 20;
-            // stuck for 10 s a way off (a cliff, a river...): she finds her own way there
-            if (stuck >= 200 && m.distanceToSqr(c) > (reach + 1) * (reach + 1) && m.arriveNear(p)) stuck = 0;
         }
         return false;
     }

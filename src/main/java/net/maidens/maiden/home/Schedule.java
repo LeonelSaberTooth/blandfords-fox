@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class Schedule {
     public enum Activity {
-        MORNING(0), WORK(4), GATHER(6), HOME(3), SLEEP(1);
+        MORNING(4), WORK(4), GATHER(6), HOME(4), SLEEP(1);
 
         /** How close to the activity's place counts as "there". */
         public final int near;
@@ -26,12 +26,16 @@ public final class Schedule {
 
     private Schedule() {}
 
+    /**
+     * The day: up at dawn and at home for a while (23000-1500), work until mid afternoon, the bell until early
+     * evening, then home again, awake, until night falls (10500-13000), and asleep until dawn.
+     */
     public static Activity now(Maiden m) {
         long t = m.level().getDayTime() % 24000L;
-        if (t < 2000) return Activity.MORNING;
+        if (t >= 23000 || t < 1500) return Activity.MORNING;
         if (t < 9000) return Activity.WORK;
-        if (t < 11000) return Activity.GATHER;
-        if (t < 12000) return Activity.HOME;
+        if (t < 10500) return Activity.GATHER;
+        if (t < 13000) return Activity.HOME;
         return Activity.SLEEP;
     }
 
@@ -40,7 +44,7 @@ public final class Schedule {
     public static BlockPos place(Maiden m, Activity a) {
         Residence r = m.residence();
         return switch (a) {
-            case MORNING -> null;
+            case MORNING -> r.bed();
             case WORK -> r.jobSite();
             case GATHER -> {
                 VillageRecord v = VillageSocial.villageOf(m);

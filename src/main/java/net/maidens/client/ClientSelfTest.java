@@ -219,6 +219,7 @@ public final class ClientSelfTest {
             player(server).teleportTo(server.overworld(), spot.getX() + 0.5, spot.getY() + 0.6, spot.getZ() + 12.5, 180, 12);
         });
         if (t == 1490) shot(mc, "people");
+        if (t == 1491) dumpVillagers(mc);
         // ten maidens put together from random parts (skin tone, clothes, eyes, hair): at home in casual clothes
         // (under the roof), out in their usual clothes, and at work (with their job's hat and tool)
         if (t == 1492) server.execute(() -> {
@@ -264,6 +265,36 @@ public final class ClientSelfTest {
 
     private static ServerPlayer player(MinecraftServer server) {
         return server.getPlayerList().getPlayers().get(0);
+    }
+
+    /** The vanilla villager textures put together (body, type robe, trade), for the model viewer. */
+    private static void dumpVillagers(Minecraft mc) {
+        String[] types = {"plains", "desert", "savanna", "taiga", "snow", "jungle", "swamp"};
+        String[] trades = {"none", "farmer", "fisherman", "fletcher", "toolsmith", "armorer", "butcher", "cartographer", "cleric",
+                "leatherworker", "librarian", "mason", "shepherd", "weaponsmith"};
+        java.io.File dir = new java.io.File(mc.gameDirectory, "screenshots");
+        dir.mkdirs();
+        for (String type : types)
+            for (String trade : trades) {
+                try (com.mojang.blaze3d.platform.NativeImage out = new com.mojang.blaze3d.platform.NativeImage(64, 64, true)) {
+                    for (String path : new String[]{"villager/villager", "villager/type/" + type, trade.equals("none") ? null : "villager/profession/" + trade}) {
+                        if (path == null) continue;
+                        var loc = net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/entity/" + path + ".png");
+                        try (var in = mc.getResourceManager().getResource(loc).orElseThrow().open();
+                             var img = com.mojang.blaze3d.platform.NativeImage.read(in)) {
+                            for (int y = 0; y < 64; y++)
+                                for (int x = 0; x < 64; x++) {
+                                    int c = img.getPixelRGBA(x, y);
+                                    if (c >>> 24 > 0) out.setPixelRGBA(x, y, c);
+                                }
+                        }
+                    }
+                    out.writeToFile(new java.io.File(dir, "villager_" + type + "_" + trade + ".png"));
+                } catch (Exception e) {
+                    LOG.warn("[clienttest] villager texture {} {}: {}", type, trade, e.toString());
+                }
+            }
+        LOG.info("[clienttest] villager textures written");
     }
 
     private static void shot(Minecraft mc, String name) {

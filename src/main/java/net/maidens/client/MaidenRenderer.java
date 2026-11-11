@@ -18,22 +18,25 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
 
 
-    /** Her usual body, and her body at home in casual clothes. */
+    /** Her usual body, and her body at home in casual clothes (men, the old and children); a grown woman's body. */
     private final MaidenModel usual, casual;
+    private final WomanModel woman;
 
     public MaidenRenderer(EntityRendererProvider.Context context) {
         super(context, new MaidenModel(context.bakeLayer(MaidenModel.LAYER)), 0.45F);
         usual = model;
         casual = new MaidenModel(context.bakeLayer(MaidenModel.CASUAL));
+        woman = new WomanModel(context.bakeLayer(WomanModel.LAYER));
         addLayer(new HumanoidArmorLayer<>(this, new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.INNER)),
                 new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.OUTER)), context.getModelManager()));
         addLayer(new CrownLayer(this, context.getModelSet()));
         addLayer(new JobHatLayer(this, context.getModelSet()));
+        addLayer(new WomanLegsLayer(this));
     }
 
     @Override
     public void render(Maiden maiden, float yaw, float partialTick, PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light) {
-        model = maiden.isCasual() && !maiden.isBaby() ? casual : usual;
+        model = maiden.isWoman() ? woman : maiden.isCasual() && !maiden.isBaby() ? casual : usual;
         super.render(maiden, yaw, partialTick, pose, buffers, light);
     }
 
@@ -45,6 +48,11 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
     @Override
     public ResourceLocation getTextureLocation(Maiden maiden) {
+        if (maiden.isWoman()) {
+            String job = maiden.isCasual() ? "" : maiden.hat();
+            return WomanSkin.body(maiden.getSkin(), maiden.hair(), maiden.eyes(), maiden.outfit(), wear(maiden), job,
+                    maiden.hasFreckles(), maiden.isBlushing(), maiden.isSmiling());
+        }
         LayeredSkin.Body body = maiden.isBaby() ? LayeredSkin.Body.CHILD : maiden.isCasual() ? LayeredSkin.Body.CASUAL : LayeredSkin.Body.USUAL;
         String job = body == LayeredSkin.Body.USUAL ? maiden.hat() : "";
         String type = "plains";
@@ -54,6 +62,12 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
             type = net.minecraft.core.registries.BuiltInRegistries.VILLAGER_TYPE.getKey(t).getPath();
         }
         return LayeredSkin.get(body, maiden.getSkin(), maiden.outfit(), maiden.eyes(), maiden.hair(), job, type);
+    }
+
+    /** A grown woman wears swimwear at home, her dress outside, and the dress with her trade's things at work. */
+    static WomanSkin.Wear wear(Maiden maiden) {
+        if (maiden.isCasual()) return WomanSkin.Wear.SWIM;
+        return maiden.hat().isEmpty() ? WomanSkin.Wear.DRESS : WomanSkin.Wear.WORK;
     }
 
     @Override

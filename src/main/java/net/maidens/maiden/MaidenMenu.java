@@ -18,7 +18,12 @@ public final class MaidenMenu {
 
     public static void open(Maiden m, ServerPlayer p) {
         m.startTalking(p);
-        send(m, p, m.relationships().greeting(p));
+        String hello = m.relationships().greeting(p);
+        if (m.relationships().introduce(p)) {
+            hello = "Hi, I'm " + m.name() + "! " + hello;
+            m.smile();
+        }
+        send(m, p, hello);
     }
 
     /** A button from her menu (see {@link ActionPayload}). */

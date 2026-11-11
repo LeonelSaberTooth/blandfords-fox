@@ -34,6 +34,10 @@ public final class LayeredSkin {
      */
     public static ResourceLocation get(Body body, int tone, int outfit, int eyes, int hair, String job, String type) {
         if (body != Body.USUAL) job = "";
+        // men and children have the first banks (5 outfits, 5 eyes, 6 hairs); grown women have their own (WomanSkin)
+        outfit = Math.floorMod(outfit, 5);
+        eyes = Math.floorMod(eyes, 5);
+        hair = Math.floorMod(hair, 6);
         String key = body.ordinal() + "_" + tone + "_" + outfit + "_" + eyes + "_" + hair + (job.isEmpty() ? "" : "_" + job + "_" + type);
         String j = job;
         return MADE.computeIfAbsent(key, k -> make(k, body, tone, outfit, eyes, hair, j, type));
@@ -83,7 +87,7 @@ public final class LayeredSkin {
         return out;
     }
 
-    private static NativeImage vanilla(String path) {
+    static NativeImage vanilla(String path) {
         return LAYERS.computeIfAbsent("vanilla:" + path, n -> {
             ResourceLocation loc = ResourceLocation.withDefaultNamespace("textures/entity/" + path + ".png");
             try (InputStream in = Minecraft.getInstance().getResourceManager().getResource(loc).orElseThrow().open()) {
@@ -107,7 +111,7 @@ public final class LayeredSkin {
     }
 
     /** Draws src over dst (both ABGR), blending by src's alpha. */
-    private static void over(NativeImage dst, NativeImage src) {
+    static void over(NativeImage dst, NativeImage src) {
         int w = Math.min(dst.getWidth(), src.getWidth()), h = Math.min(dst.getHeight(), src.getHeight());
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++) {

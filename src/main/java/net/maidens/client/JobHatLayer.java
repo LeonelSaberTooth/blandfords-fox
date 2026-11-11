@@ -36,10 +36,21 @@ public class JobHatLayer extends RenderLayer<Maiden, MaidenModel> {
                        float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
         String hat = maiden.hat();
         if (hat.isEmpty() || maiden.isInvisible() || !maiden.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) return;
-        ResourceLocation tex = textures.computeIfAbsent(hat, h -> ResourceLocation.withDefaultNamespace("textures/entity/villager/profession/" + h + ".png"));
+        boolean woman = maiden.isWoman();
+        if (woman && maiden.isCasual()) return;
+        // a grown woman's: only the trade's own pixels (glasses and the like a pixel higher, on her eyes), and the
+        // head a little bigger than hers, so the trade's things show over her hair
+        ResourceLocation tex = woman ? WomanSkin.hat(hat)
+                : textures.computeIfAbsent(hat, h -> ResourceLocation.withDefaultNamespace("textures/entity/villager/profession/" + h + ".png"));
         poseStack.pushPose();
         getParentModel().head.translateAndRotate(poseStack);
         poseStack.translate(0.0F, 2.0F / 16.0F, 0.0F);
+        if (woman) {
+            float s = 8.3F / 8.0F;                          // 0.15 out on each side, past her hair (0.1)
+            poseStack.translate(0.0F, -5.0F / 16.0F, 0.0F);
+            poseStack.scale(s, s, s);
+            poseStack.translate(0.0F, 5.0F / 16.0F, 0.0F);
+        }
         head.xRot = head.yRot = head.zRot = 0.0F;
         head.render(poseStack, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, OverlayTexture.NO_OVERLAY);
         poseStack.popPose();

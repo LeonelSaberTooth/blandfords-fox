@@ -101,6 +101,14 @@ public final class Relationships {
 
     // ------------------------------------------------------------------ talking
 
+    /** The first time she talks with this player, she introduces herself (and smiles): true once. */
+    public boolean introduce(Player p) {
+        Bond b = bond(p.getUUID());
+        if (b.met) return false;
+        b.met = true;
+        return true;
+    }
+
     public String greeting(Player p) {
         String n = p.getName().getString();
         if (isMarriedTo(p)) return "Welcome home, my love.";
@@ -122,6 +130,7 @@ public final class Relationships {
         RandomSource r = m.getRandom();
         if (isMarriedTo(p)) {
             b.add(1);
+            m.blush();
             m.burst(ParticleTypes.HEART, 3);
             return Dialogue.pick(Dialogue.SPOUSE, r, n);
         }

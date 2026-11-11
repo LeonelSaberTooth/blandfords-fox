@@ -44,6 +44,7 @@ import net.minecraft.world.entity.npc.VillagerTrades;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
@@ -79,9 +80,15 @@ public class Maiden extends AbstractVillager {
     private static final EntityDataAccessor<Boolean> CASUAL = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.BOOLEAN);
     /** The villager profession whose hat she wears while working ("" for none). */
     private static final EntityDataAccessor<String> HAT = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.STRING);
+    /** Freckles (some grown women have them). */
+    private static final EntityDataAccessor<Boolean> FRECKLES = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.BOOLEAN);
+    /** Named with a "model" name tag: the proportions saved in the model viewer, and the runway walk. */
+    private static final EntityDataAccessor<Boolean> MODEL_POSE = SynchedEntityData.defineId(Maiden.class, EntityDataSerializers.BOOLEAN);
+    /** Entity events: she blushes (her hearts went up), she smiles (introducing herself). */
+    public static final byte EVENT_BLUSH = 80, EVENT_SMILE = 81;
     public static final int SKINS = 6;
     /** How many of each part of her looks there are (the layers tools/make_layers.py makes). */
-    public static final int TONES = 5, OUTFITS = 5, EYE_COLOURS = 5, HAIRS = 6;
+    public static final int TONES = 5, OUTFITS = 21, EYE_COLOURS = 8, HAIRS = 21;
     /** How long a child takes to grow up (ticks): three days. */
     public static final int CHILDHOOD = 3 * 24000;
 
@@ -181,6 +188,8 @@ public class Maiden extends AbstractVillager {
         builder.define(HAIR, 0);
         builder.define(CASUAL, false);
         builder.define(HAT, "");
+        builder.define(FRECKLES, false);
+        builder.define(MODEL_POSE, false);
     }
 
     public int getSkin() {
@@ -246,6 +255,57 @@ public class Maiden extends AbstractVillager {
 
     public boolean isCasual() {
         return entityData.get(CASUAL);
+    }
+
+    /** A grown woman (the base model and her own looks; men, the old and children are drawn as before). */
+    public boolean isWoman() {
+        return kind() == Kind.WOMAN && !isBaby();
+    }
+
+    public boolean hasFreckles() {
+        return entityData.get(FRECKLES);
+    }
+
+    /** For the tests. */
+    public void setModelPose(boolean on) {
+        entityData.set(MODEL_POSE, on);
+    }
+
+    public void setFreckles(boolean on) {
+        entityData.set(FRECKLES, on);
+    }
+
+    public boolean isModelPose() {
+        return entityData.get(MODEL_POSE) && isWoman();
+    }
+
+    // ------------------------------------------------------------------ her face for a moment (client side)
+
+    private int blushUntil = -1, smileUntil = -1;
+
+    /** She blushes for 3 seconds: her hearts for someone just went up. */
+    public void blush() {
+        if (!level().isClientSide) level().broadcastEntityEvent(this, EVENT_BLUSH);
+    }
+
+    /** She smiles for a second: she's introducing herself. */
+    public void smile() {
+        if (!level().isClientSide) level().broadcastEntityEvent(this, EVENT_SMILE);
+    }
+
+    public boolean isBlushing() {
+        return tickCount < blushUntil;
+    }
+
+    public boolean isSmiling() {
+        return tickCount < smileUntil;
+    }
+
+    @Override
+    public void handleEntityEvent(byte id) {
+        if (id == EVENT_BLUSH) blushUntil = tickCount + 60;
+        else if (id == EVENT_SMILE) smileUntil = tickCount + 20;
+        else super.handleEntityEvent(id);
     }
 
     public String hat() {
@@ -325,6 +385,7 @@ public class Maiden extends AbstractVillager {
         initialised = true;
         var r = getRandom();
         setLooks(r.nextInt(TONES), r.nextInt(OUTFITS), r.nextInt(EYE_COLOURS), r.nextInt(HAIRS));
+        entityData.set(FRECKLES, r.nextFloat() < 0.25F);
         personality = Personality.byId(r.nextInt(Personality.values().length));
         if (!hasCustomName()) setCustomName(Component.literal(randomName(r, isMale())));
         if (home == null) home = blockPosition();
@@ -388,6 +449,7 @@ public class Maiden extends AbstractVillager {
 
     /** A player changed how she feels about them: her village hears about it. */
     public void onAffectionChanged(Player player, int amount) {
+        if (amount > 0) blush();
         VillageSocial.onAffectionChanged(this, player, amount);
     }
 
@@ -509,6 +571,17 @@ public class Maiden extends AbstractVillager {
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack held = player.getItemInHand(hand);
+        // a name tag that says "model": she takes the proportions saved in the model viewer and walks the runway walk
+        // (again: back as she was); she keeps her own name, and the tag is used up
+        if (held.is(Items.NAME_TAG) && isWoman() && isAlive() && "model".equalsIgnoreCase(held.getHoverName().getString().trim())
+                && held.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME)) {
+            if (!level().isClientSide) {
+                entityData.set(MODEL_POSE, !entityData.get(MODEL_POSE));
+                if (!player.getAbilities().instabuild) held.shrink(1);
+                burst(ParticleTypes.HAPPY_VILLAGER, 6);
+            }
+            return InteractionResult.sidedSuccess(level().isClientSide);
+        }
         if (held.is(Items.NAME_TAG) || held.getItem() instanceof SpawnEggItem || !isAlive() || isTrading()) {
             return super.mobInteract(player, hand);
         }
@@ -707,6 +780,8 @@ public class Maiden extends AbstractVillager {
         tag.putInt("Outfit", outfit());
         tag.putInt("Eyes", eyes());
         tag.putInt("Hair", hair());
+        tag.putBoolean("Freckles", hasFreckles());
+        tag.putBoolean("ModelPose", entityData.get(MODEL_POSE));
         tag.putInt("Personality", personality.ordinal());
         if (home != null) tag.putLong("Home", home.asLong());
         relationships.save(tag);
@@ -731,6 +806,9 @@ public class Maiden extends AbstractVillager {
         // from before her looks were picked separately: all of them from her one skin
         int skin = getSkin();
         setLooks(skin, tag.contains("Outfit") ? tag.getInt("Outfit") : skin, tag.contains("Eyes") ? tag.getInt("Eyes") : skin, tag.contains("Hair") ? tag.getInt("Hair") : skin);
+        // freckles: from before they were picked, a quarter of the women by their id (so it's always the same ones)
+        entityData.set(FRECKLES, tag.contains("Freckles") ? tag.getBoolean("Freckles") : Math.floorMod(getUUID().hashCode(), 4) == 0);
+        entityData.set(MODEL_POSE, tag.getBoolean("ModelPose"));
         personality = Personality.byId(tag.getInt("Personality"));
         home = tag.contains("Home") ? BlockPos.of(tag.getLong("Home")) : null;
         relationships.load(tag);

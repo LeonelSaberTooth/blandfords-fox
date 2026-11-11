@@ -39,6 +39,7 @@ public final class ClientSetup {
     public static void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(MaidenModel.LAYER, MaidenGeometry::create);
         event.registerLayerDefinition(MaidenModel.CASUAL, MaidenCasualGeometry::create);
+        event.registerLayerDefinition(WomanModel.LAYER, WomanModel::create);
         event.registerLayerDefinition(MaidenArmorGeometry.INNER, MaidenArmorGeometry::inner);
         event.registerLayerDefinition(MaidenArmorGeometry.OUTER, MaidenArmorGeometry::outer);
         event.registerLayerDefinition(CrownLayer.LAYER, CrownLayer::create);

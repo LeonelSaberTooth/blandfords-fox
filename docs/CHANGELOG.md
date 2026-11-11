@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0
+- Grown women have the new body (the base model from the model viewer): the angled chest piece, the long hair cube,
+  and straight legs under a dress. Their looks come from bigger banks: 5 skin tones, 21 hairs (with the shadow the
+  hair casts on the forehead), 8 eye colours and 21 dresses. Some have freckles.
+- What they wear: swimwear at home, a dress outside, and at work the dress with only their trade's own things over
+  it (apron, gloves, tools; glasses and the like on the eyes) and the trade's hat, which shows over the hair.
+- A woman blushes for a few seconds when her hearts for you go up, and the first time she talks to you she
+  introduces herself ("Hi, I'm ...!") with a smile.
+- A name tag that says "model" gives a woman the proportions saved in the model viewer (taller, fuller chest,
+  hourglass waist, wider and deeper hips) and the runway walk. She keeps her name; the tag is used up. Another
+  "model" tag puts her back.
+- Men, the old and children look as before.
+
 ## 0.8.0
 - Looks are put together from layers: skin tone, clothes, eye colour and hair are chosen separately for each maiden
   (normal, casual and children's clothes). The model is player height again, with the smaller chest.

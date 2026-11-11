@@ -13,6 +13,8 @@ public final class Bond {
     public static final int MAX = 100;
 
     public int affection;
+    /** She's introduced herself to this player. */
+    public boolean met;
     long day = -1;
     int chats, jokes, compliments, flirts, gifts, tradeHearts;
     /** Affection lost today to broken village blocks (capped by config). */
@@ -34,6 +36,7 @@ public final class Bond {
     CompoundTag save() {
         CompoundTag t = new CompoundTag();
         t.putInt("Affection", affection);
+        t.putBoolean("Met", met);
         t.putLong("Day", day);
         t.putInt("Chats", chats);
         t.putInt("Jokes", jokes);
@@ -51,6 +54,7 @@ public final class Bond {
     static Bond load(CompoundTag t) {
         Bond b = new Bond();
         b.affection = t.getInt("Affection");
+        b.met = !t.contains("Met") || t.getBoolean("Met");      // players she knew before introductions: already met
         b.day = t.getLong("Day");
         b.chats = t.getInt("Chats");
         b.jokes = t.getInt("Jokes");

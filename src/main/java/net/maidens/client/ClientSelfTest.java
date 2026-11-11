@@ -256,34 +256,47 @@ public final class ClientSelfTest {
             for (int i = 0; i < variants.size(); i++) variants.get(i).employment().hireForTest(jobs[i % jobs.length], null);
         });
         if (t == 1590) shot(mc, "variants_work");
-        // the "model" maiden (the viewer's saved proportions) walking the runway walk across the stage, from the side
-        // and the front; then faces up close: freckles, blushing, smiling
+        // the "model" maiden (the viewer's saved proportions) walking the runway walk across an empty stage, from the
+        // side and from the front; then three faces up close: freckles, blushing, smiling
         if (t == 1592) server.execute(() -> {
-            Maiden m = variants.get(0);
-            m.setModelPose(true);
+            for (Maiden m : variants) m.discard();
+            variants.clear();
+            ServerLevel level = server.overworld();
+            for (int i = 0; i < 4; i++) {
+                Maiden m = ModEntities.MAIDEN.get().create(level);
+                m.moveTo(spot.getX() - 1.0 + (i - 1) * 1.0, spot.getY(), spot.getZ() + 1.4, 180, 0);
+                m.setNoAi(true);
+                m.setYHeadRot(180);
+                m.setYBodyRot(180);
+                level.addFreshEntity(m);
+                m.ensureInitialised();
+                m.setLooks(i, 2 + i * 5, i + 2, 3 + i * 4);
+                m.setFreckles(i == 1);
+                variants.add(m);
+            }
+            variants.get(0).setModelPose(true);
             walkX = 0;
-            player(server).teleportTo(server.overworld(), spot.getX() + 0.5, spot.getY() + 0.3, spot.getZ() - 6.5, 0, 6);
+            player(server).teleportTo(level, spot.getX() + 0.5, spot.getY() + 0.4, spot.getZ() - 7.5, 0, 4);
         });
         if (t > 1600 && t < 1700) server.execute(() -> {
             walkX += 0.11;
             Maiden m = variants.get(0);
-            m.moveTo(spot.getX() - 5 + walkX, spot.getY(), spot.getZ() + 1, -90, 0);
-            m.setYHeadRot(-90);
-            m.setYBodyRot(-90);
+            boolean across = t < 1650;
+            if (t == 1650) walkX = 0;
+            // across the stage, then towards the camera
+            if (across) m.moveTo(spot.getX() - 4.5 + walkX, spot.getY(), spot.getZ() - 2, -90, 0);
+            else m.moveTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 3 - walkX, 180, 0);
+            float yaw = across ? -90 : 180;
+            m.setYHeadRot(yaw);
+            m.setYBodyRot(yaw);
         });
         if (t == 1630 || t == 1634 || t == 1638 || t == 1642) shot(mc, "model_walk_" + t);
-        if (t == 1644) server.execute(() -> player(server).teleportTo(server.overworld(), spot.getX() + 6.5, spot.getY() + 0.3, spot.getZ() + 1.5, 90, 6));
-        if (t == 1660 || t == 1664 || t == 1668) shot(mc, "model_walk_front_" + t);
+        if (t == 1666 || t == 1670 || t == 1674) shot(mc, "model_walk_front_" + t);
         if (t == 1700) server.execute(() -> {
-            for (int i = 1; i < 4; i++) {
-                Maiden m = variants.get(i);
-                m.setFreckles(i == 1);
-                m.moveTo(spot.getX() - 1.5 + (i - 1) * 1.5, spot.getY(), spot.getZ() + 3, 180, 0);
-                m.setYHeadRot(180);
-                m.setYBodyRot(180);
-                m.setXRot(0);
-            }
-            player(server).teleportTo(server.overworld(), spot.getX() + 0.5, spot.getY() + 0.9, spot.getZ() + 0.6, 0, 8);
+            variants.get(0).moveTo(spot.getX() - 2.0, spot.getY(), spot.getZ() + 1.4, 180, 0);
+            variants.get(0).setYBodyRot(180);
+            variants.get(0).setYHeadRot(180);
+            player(server).teleportTo(server.overworld(), spot.getX(), spot.getY() + 0.2, spot.getZ() - 0.6, 0, 0);
         });
         if (t == 1720) {
             for (int i = 2; i < 4; i++) {

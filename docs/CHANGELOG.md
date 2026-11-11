@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1
+- Fix: a "model" name tag renamed the woman "model" instead of giving her the model's looks and walk (the game
+  names a mob with a tag before she sees the click). A woman already named "model" that way gets a new name and the
+  model's looks when the world loads.
+
 ## 0.9.0
 - Grown women have the new body (the base model from the model viewer): the angled chest piece, the long hair cube,
   and straight legs under a dress. Their looks come from bigger banks: 5 skin tones, 21 hairs (with the shadow the

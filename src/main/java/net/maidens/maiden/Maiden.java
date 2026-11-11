@@ -568,20 +568,28 @@ public class Maiden extends AbstractVillager {
 
     // ------------------------------------------------------------------ vanilla hooks
 
+    /**
+     * A name tag that says "model" (the game names her with it before she sees the click): instead of being renamed,
+     * a woman takes the proportions saved in the model viewer and walks the runway walk (again: back as she was). She
+     * keeps her own name; the tag is used up as any name tag is.
+     */
+    @Override
+    public void setCustomName(@Nullable Component name) {
+        if (name != null && !level().isClientSide && hasCustomName() && isWoman() && isModelTag(name)) {
+            entityData.set(MODEL_POSE, !entityData.get(MODEL_POSE));
+            burst(ParticleTypes.HAPPY_VILLAGER, 6);
+            return;
+        }
+        super.setCustomName(name);
+    }
+
+    private static boolean isModelTag(Component name) {
+        return "model".equalsIgnoreCase(name.getString().trim());
+    }
+
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         ItemStack held = player.getItemInHand(hand);
-        // a name tag that says "model": she takes the proportions saved in the model viewer and walks the runway walk
-        // (again: back as she was); she keeps her own name, and the tag is used up
-        if (held.is(Items.NAME_TAG) && isWoman() && isAlive() && "model".equalsIgnoreCase(held.getHoverName().getString().trim())
-                && held.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME)) {
-            if (!level().isClientSide) {
-                entityData.set(MODEL_POSE, !entityData.get(MODEL_POSE));
-                if (!player.getAbilities().instabuild) held.shrink(1);
-                burst(ParticleTypes.HAPPY_VILLAGER, 6);
-            }
-            return InteractionResult.sidedSuccess(level().isClientSide);
-        }
         if (held.is(Items.NAME_TAG) || held.getItem() instanceof SpawnEggItem || !isAlive() || isTrading()) {
             return super.mobInteract(player, hand);
         }
@@ -809,6 +817,11 @@ public class Maiden extends AbstractVillager {
         // freckles: from before they were picked, a quarter of the women by their id (so it's always the same ones)
         entityData.set(FRECKLES, tag.contains("Freckles") ? tag.getBoolean("Freckles") : Math.floorMod(getUUID().hashCode(), 4) == 0);
         entityData.set(MODEL_POSE, tag.getBoolean("ModelPose"));
+        // named "model" by a name tag before that worked: she gets a name again and the model's looks and walk
+        if (isWoman() && getCustomName() != null && isModelTag(getCustomName())) {
+            super.setCustomName(Component.literal(randomName(getRandom(), false)));
+            entityData.set(MODEL_POSE, true);
+        }
         personality = Personality.byId(tag.getInt("Personality"));
         home = tag.contains("Home") ? BlockPos.of(tag.getLong("Home")) : null;
         relationships.load(tag);

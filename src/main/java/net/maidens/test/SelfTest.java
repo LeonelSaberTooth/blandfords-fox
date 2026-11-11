@@ -159,6 +159,21 @@ public final class SelfTest {
                 MaidenMenu.handle(maiden, tester, ActionPayload.GIFT, 0);
                 log("  gift " + it + ": " + before + " -> " + maiden.relationships().affection(tester) + (tester.getMainHandItem().isEmpty() ? " (taken)" : " (kept)"));
             }
+            // a "model" name tag, used the way the game uses it (on a woman: she keeps her name, the tag is used up)
+            {
+                net.maidens.maiden.Maiden.Kind was = maiden.kind();
+                maiden.setKind(net.maidens.maiden.Maiden.Kind.WOMAN);
+                String name = maiden.name();
+                for (int i = 0; i < 2; i++) {
+                    ItemStack tag = new ItemStack(Items.NAME_TAG);
+                    tag.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Model"));
+                    tester.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, tag);
+                    var r = maiden.interact(tester, net.minecraft.world.InteractionHand.MAIN_HAND);
+                    log("model name tag " + (i + 1) + ": " + r + ", model " + maiden.isModelPose() + ", name " + maiden.name() + " (was " + name + "), tag left "
+                            + tester.getMainHandItem().getCount());
+                }
+                maiden.setKind(was);
+            }
             var proposal = maiden.getPersonality().proposal;
             maiden.relationships().setAffection(tester, 99);
             tester.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(proposal));

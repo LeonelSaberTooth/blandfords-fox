@@ -3,8 +3,8 @@
   layers/tone_<n>.png         her skin, all over (from maiden n's skin colour, with her face's own shading)
   layers/casual_tone_<n>.png  the same on the casual body (thinner legs: different texture spots)
   layers/clothes_<n>.png      maiden n's clothes (everything on her body that isn't skin)
-  layers/casual_clothes.png   her clothes at home (from art/skincomp.png, the casual texture: everything on it that
-                              isn't skin), on the casual body, over her own skin tone
+  layers/casual_clothes.png   empty: her casual_tone_<n> base is the casual texture itself (art/skincomp.png), with
+                              its skin turned to her tone
   layers/job_map.png          where each spot of the usual body takes its colour from a vanilla villager's texture
                               (red = x, green = y, opaque where mapped): her work clothes are the villager clothes of
                               her trade, put on her body by LayeredSkin
@@ -160,10 +160,45 @@ def child_clothes(colour):
                 out.putpixel((x, y), shade(c, k))
     return out
 
-def casual_layer():
-    """The casual texture's clothes (everything on it that isn't skin) on the casual body."""
-    img = Image.open(os.path.join(ROOT, 'art', 'skincomp.png')).convert('RGBA')
-    return clothes_layer(CASUAL, img, tone_of(img))
+LATEST = json.load(open(os.path.join(ROOT, 'art', 'alt_player_2.bbmodel')))
+
+def face_map(src_model, dst_model, names):
+    """For each texture spot of dst_model's parts: the same spot (by share of the face) on src_model's."""
+    src = {e['name']: e['faces'] for e in src_model['elements']}
+    out = {}
+    for e in dst_model['elements']:
+        if e['name'] not in names or e['name'] not in src:
+            continue
+        for side, f in e['faces'].items():
+            su = src[e['name']].get(side)
+            if not su:
+                continue
+            u0, v0, u1, v1 = f['uv']
+            x0, x1, y0, y1 = int(min(u0, u1)), int(max(u0, u1)), int(min(v0, v1)), int(max(v0, v1))
+            W, H = x1 - x0, y1 - y0
+            for i in range(W):
+                for j in range(H):
+                    fx = ((i + .5) if u0 <= u1 else (W - i - .5)) / W
+                    fy = ((j + .5) if v0 <= v1 else (H - j - .5)) / H
+                    sx = int(su['uv'][0] + fx * (su['uv'][2] - su['uv'][0]) - (1e-6 if su['uv'][2] < su['uv'][0] else 0))
+                    sy = int(su['uv'][1] + fy * (su['uv'][3] - su['uv'][1]) - (1e-6 if su['uv'][3] < su['uv'][1] else 0))
+                    out[(x0 + i, y0 + j)] = (sx, sy)
+    return out
+
+def casual_base(img, tone):
+    """Her body at home: the casual texture itself (art/skincomp.png, drawn for alt_player_2), its skin turned
+    to her tone (its shading kept), on the casual body; her head as usual."""
+    out = tone_layer(CASUAL, img, tone)
+    comp = Image.open(os.path.join(ROOT, 'art', 'skincomp.png')).convert('RGBA')
+    src = tone_of(comp)
+    for (x, y), (sx, sy) in face_map(LATEST, CASUAL, BODY).items():
+        c = comp.getpixel((sx, sy))
+        if c[3] == 0:
+            continue
+        if is_skin(c, src, 48):
+            c = tuple(min(255, round(c[k] * tone[k] / max(1, src[k]))) for k in range(3)) + (255,)
+        out.putpixel((x, y), c)
+    return out
 
 # ------------------------------------------------------------------ work clothes: a villager's, on her body
 
@@ -254,7 +289,7 @@ for n, img in enumerate(skins, start=1):
     else:
         whole += 1
         tone_layer(USUAL, img, tone).save(os.path.join(OUT, f'tone_{whole}.png'))
-        tone_layer(CASUAL, img, tone).save(os.path.join(OUT, f'casual_tone_{whole}.png'))
+        casual_base(img, tone).save(os.path.join(OUT, f'casual_tone_{whole}.png'))
         clothes = clothes_layer(USUAL, img, tone)
         clothes.save(os.path.join(OUT, f'clothes_{whole}.png'))
         child_clothes(main_colour(clothes)).save(os.path.join(OUT, f'child_clothes_{whole}.png'))
@@ -262,6 +297,6 @@ for n, img in enumerate(skins, start=1):
     hair += 1
     h.save(os.path.join(OUT, f'hair_{hair}.png'))
     print('skin', n, 'tone', tone, 'hair only' if n in HAIR_ONLY else '')
-casual_layer().save(os.path.join(OUT, 'casual_clothes.png'))
+Image.new('RGBA', (64, 64), (0, 0, 0, 0)).save(os.path.join(OUT, 'casual_clothes.png'))     # (all in the base now)
 job_map().save(os.path.join(OUT, 'job_map.png'))
 print(whole, 'skin tones, clothes and eyes;', hair, 'hairstyles')

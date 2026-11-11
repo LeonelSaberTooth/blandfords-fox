@@ -40,7 +40,8 @@ public final class LayeredSkin {
         hair = Math.floorMod(hair, 6);
         String key = body.ordinal() + "_" + tone + "_" + outfit + "_" + eyes + "_" + hair + (job.isEmpty() ? "" : "_" + job + "_" + type);
         String j = job;
-        return MADE.computeIfAbsent(key, k -> make(k, body, tone, outfit, eyes, hair, j, type));
+        int o = outfit, e = eyes, h = hair;
+        return MADE.computeIfAbsent(key, k -> make(k, body, tone, o, e, h, j, type));
     }
 
     private static ResourceLocation make(String key, Body body, int tone, int outfit, int eyes, int hair, String job, String type) {

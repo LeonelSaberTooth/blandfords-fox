@@ -36,10 +36,12 @@ public final class Housing {
             if (!level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r)) continue;
             List<Maiden> residents = VillageSocial.residents(level, v);
             if (residents.isEmpty()) continue;
-            v.population = residents.size();
+            // (and those out at work)
+            List<Maiden> everyone = VillageSocial.everyone(level, v);
+            v.population = everyone.size();
             Royals.tick(level, v, residents);
-            People.tick(level, v, residents);
-            Economy.tick(level, v, residents);
+            People.tick(level, v, everyone);
+            Economy.tick(level, v, everyone);
             // its neighbours, looked up from the seed a few at a time
             Network network = Network.get(level);
             network.know(level, v);

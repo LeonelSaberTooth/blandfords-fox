@@ -708,7 +708,7 @@ final class VillageCheck {
     private void economyStart(ServerLevel level) {
         VillageRecord v = record;
         level.setDayTime(level.getDayTime() / 24000 * 24000 + 24000 + 2600);
-        List<Maiden> rs = VillageSocial.residents(level, v);
+        List<Maiden> rs = VillageSocial.everyone(level, v);
         for (int i = 0; i < 6; i++) {
             net.maidens.village.People.jobs(level, v, rs);
             log.accept("economy: jobs " + net.maidens.village.People.lastJobs);
@@ -735,7 +735,7 @@ final class VillageCheck {
 
     private void economyWorkers(ServerLevel level, String when) {
         VillageRecord v = record;
-        for (Maiden m : VillageSocial.residents(level, v)) {
+        for (Maiden m : VillageSocial.everyone(level, v)) {
             var w = m.villageWork();
             if (w.job() == net.maidens.maiden.work.Job.NONE) continue;
             BlockPos at = w.place(v);
@@ -753,7 +753,7 @@ final class VillageCheck {
         BlockPos bell = v.bell() != null ? v.bell() : v.centre();
         java.util.Map<String, Integer> what = new java.util.TreeMap<>();
         int nearBell = 0, adults = 0, casual = 0, hats = 0, asleep = 0, home = 0;
-        for (Maiden m : VillageSocial.residents(level, v)) {
+        for (Maiden m : VillageSocial.everyone(level, v)) {
             var a = net.maidens.maiden.home.Schedule.activity(m);
             what.merge(String.valueOf(a), 1, Integer::sum);
             if (m.blockPosition().closerThan(bell, 12)) nearBell++;
@@ -767,7 +767,7 @@ final class VillageCheck {
         log.accept("day " + when + ": doing " + what + "; " + nearBell + " by the bell, " + home + " at home, " + asleep + " asleep; of "
                 + adults + " grown-ups " + casual + " in casual clothes, " + hats + " in work clothes");
         // trading: only at the market
-        for (Maiden m : VillageSocial.residents(level, v)) {
+        for (Maiden m : VillageSocial.everyone(level, v)) {
             if (net.maidens.maiden.home.Schedule.activity(m) == null || m.isBaby()) continue;
             String closed = m.trading().closed(tester);
             log.accept("  trade with " + m.name() + ": " + (closed == null ? "open" : "\"" + closed + "\""));
@@ -778,7 +778,7 @@ final class VillageCheck {
     private void economyCheck(ServerLevel level) {
         VillageRecord v = record;
         // the day's harvest
-        net.maidens.village.Economy.produce(level, v, VillageSocial.residents(level, v));
+        net.maidens.village.Economy.produce(level, v, VillageSocial.everyone(level, v));
         log.accept("economy: a day's work brought in " + net.maidens.village.Economy.lastHarvest);
         int[] crops = net.maidens.village.Farms.crops(level, v);
         log.accept("  fields now: " + crops[0] + " crops, " + crops[1] + " fully grown");
@@ -790,7 +790,7 @@ final class VillageCheck {
         log.accept("economy: store changed by " + gained + "; food " + net.maidens.village.Economy.food(v) + ", logs " + v.count(net.maidens.village.Economy.LOGS)
                 + ", stone " + v.count(net.maidens.village.Economy.STONE));
         // hiring and following take hearts; married couples show in the menu
-        List<Maiden> rs = VillageSocial.residents(level, v);
+        List<Maiden> rs = VillageSocial.everyone(level, v);
         Maiden w = null, wed = null;
         for (Maiden m : rs) {
             if (w == null && net.maidens.village.People.worker(m) && !m.employment().isHired()) w = m;

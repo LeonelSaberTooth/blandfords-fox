@@ -86,6 +86,7 @@ jobs:
           cp run-selftest/selftest/house.txt $D/ 2>/dev/null || true
           cp run-selftest/selftest/village.txt $D/ 2>/dev/null || true
           cp run-selftest/selftest/castle.txt $D/ 2>/dev/null || true
+          cp run-selftest/selftest/fields.txt $D/ 2>/dev/null || true
           printf 'onboardAccessibility:false\ntutorialStep:none\npauseOnLostFocus:false\nrenderDistance:10\nsimulationDistance:5\nfov:0.0\nguiScale:2\nsoundCategory_master:0.0\njoinedFirstServer:true\nskipMultiplayerWarning:true\n' > $D/options.txt
           export LIBGL_ALWAYS_SOFTWARE=1
           timeout 1500 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClienttest --stacktrace > clienttest.log 2>&1 || true

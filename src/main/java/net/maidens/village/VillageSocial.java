@@ -43,6 +43,12 @@ public final class VillageSocial {
         return level.getEntitiesOfClass(Maiden.class, AABB.of(v.box).inflate(16), m -> m.residence().village() == v.id && m.isAlive());
     }
 
+    /** Everyone who lives there, out at work too (in the woods, at the shore, in the fields round it). */
+    public static List<Maiden> everyone(ServerLevel level, VillageRecord v) {
+        return level.getEntitiesOfClass(Maiden.class, AABB.of(v.wallBox != null ? v.wallBox : v.box).inflate(128, 48, 128),
+                m -> m.residence().village() == v.id && m.isAlive());
+    }
+
     // ------------------------------------------------------------------ from the maiden
 
     /** A player made one maiden like them more or less: each other resident has a chance to hear about it. */

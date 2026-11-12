@@ -328,10 +328,18 @@ public final class TaigaFeatures {
                 for (int dz = 0; dz < 16; dz++) {
                     int x = x0 + dx, z = z0 + dz;
                     int top = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
-                    if (!chunk.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(top), QuartPos.fromBlock(z)).is(Biomes.DESERT)) continue;
+                    // the biome as the player sees it (the game blurs biome borders a little), at the water and above it
+                    if (!level.getBiome(pos.set(x, top + 1, z)).is(Biomes.DESERT) && !level.getBiome(pos.set(x, top, z)).is(Biomes.DESERT)
+                            && !chunk.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(top), QuartPos.fromBlock(z)).is(Biomes.DESERT)) continue;
                     for (int y = top; y > top - 40; y--) {
                         pos.set(x, y, z);
                         BlockState st = level.getBlockState(pos);
+                        if (st.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED)
+                                && st.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED)) {
+                            level.setBlock(pos, st.setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED, false), 2);
+                            any = true;
+                            continue;
+                        }
                         if (st.is(Blocks.WATER) || st.is(Blocks.ICE) || st.is(Blocks.SEAGRASS) || st.is(Blocks.TALL_SEAGRASS)
                                 || st.is(Blocks.KELP) || st.is(Blocks.KELP_PLANT)) {
                             level.setBlock(pos, Blocks.SAND.defaultBlockState(), 2);

@@ -83,6 +83,11 @@ public class MaidenModel extends HumanoidModel<Maiden> {
         leftArm.xRot += -v * limbSwingAmount + c * ARM * k;
     }
 
+    /** The vanilla humanoid's pose as it is (for a body moving as the player's does). */
+    protected final void humanoidSetupAnim(Maiden maiden, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
+        super.setupAnim(maiden, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+    }
+
     private static void put(ModelPart part, float[] pivot) {
         part.x = pivot[0];
         part.y = pivot[1];

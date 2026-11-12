@@ -18,17 +18,33 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
 
 
-    /** Her usual body, and her body at home in casual clothes (men, the old and children); a grown woman's body. */
+    /** Her usual body, and her body at home in casual clothes (old women and girls); a grown woman's body. */
     private final MaidenModel usual, casual;
     private final WomanModel woman;
+    /** Men, old men and boys: the vanilla player's body. */
+    private final ManModel man;
 
     public MaidenRenderer(EntityRendererProvider.Context context) {
         super(context, new MaidenModel(context.bakeLayer(MaidenModel.LAYER)), 0.45F);
         usual = model;
         casual = new MaidenModel(context.bakeLayer(MaidenModel.CASUAL));
         woman = new WomanModel(context.bakeLayer(WomanModel.LAYER));
+        man = new ManModel(context.bakeLayer(ManModel.LAYER));
+        // armour made for her body, and the player's armour for his
         addLayer(new HumanoidArmorLayer<>(this, new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.INNER)),
-                new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.OUTER)), context.getModelManager()));
+                new HumanoidModel<>(context.bakeLayer(MaidenArmorGeometry.OUTER)), context.getModelManager()) {
+            @Override
+            public void render(PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light, Maiden m, float a, float b, float c, float d, float e, float f) {
+                if (!m.isMale()) super.render(pose, buffers, light, m, a, b, c, d, e, f);
+            }
+        });
+        addLayer(new HumanoidArmorLayer<>(this, new HumanoidModel<>(context.bakeLayer(net.minecraft.client.model.geom.ModelLayers.PLAYER_INNER_ARMOR)),
+                new HumanoidModel<>(context.bakeLayer(net.minecraft.client.model.geom.ModelLayers.PLAYER_OUTER_ARMOR)), context.getModelManager()) {
+            @Override
+            public void render(PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light, Maiden m, float a, float b, float c, float d, float e, float f) {
+                if (m.isMale()) super.render(pose, buffers, light, m, a, b, c, d, e, f);
+            }
+        });
         addLayer(new CrownLayer(this, context.getModelSet()));
         addLayer(new JobHatLayer(this, context.getModelSet()));
         addLayer(new WomanLegsLayer(this));
@@ -36,7 +52,7 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
     @Override
     public void render(Maiden maiden, float yaw, float partialTick, PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers, int light) {
-        model = maiden.isWoman() ? woman : maiden.isCasual() && !maiden.isBaby() ? casual : usual;
+        model = maiden.isMale() ? man : maiden.isWoman() ? woman : maiden.isCasual() && !maiden.isBaby() ? casual : usual;
         super.render(maiden, yaw, partialTick, pose, buffers, light);
     }
 
@@ -48,6 +64,7 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
     @Override
     public ResourceLocation getTextureLocation(Maiden maiden) {
+        if (maiden.isMale()) return ManModel.skin(maiden);
         if (maiden.isWoman()) {
             String job = maiden.isCasual() ? "" : maiden.hat();
             return WomanSkin.body(maiden.getSkin(), maiden.hair(), maiden.eyes(), maiden.outfit(), wear(maiden), job,
@@ -72,7 +89,7 @@ public class MaidenRenderer extends HumanoidMobRenderer<Maiden, MaidenModel> {
 
     @Override
     protected void scale(Maiden maiden, PoseStack poseStack, float partialTick) {
-        float s = maiden.isBaby() ? SCALE * CHILD : SCALE;
+        float s = (maiden.isMale() ? ManModel.SCALE : SCALE) * (maiden.isBaby() ? CHILD : 1.0F);
         poseStack.scale(s, s, s);
     }
 }

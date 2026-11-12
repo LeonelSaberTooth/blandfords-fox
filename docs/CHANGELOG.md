@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1
+- Men, old men and boys have the vanilla player's body (wide arms, the skin's outer layer) and move as a player does,
+  each in one of the vanilla player skins (Steve, Alex, Ari, Efe, Kai, Makena, Noor, Sunny, Zuri), and wear the
+  player's armour. Their job's hat goes on top as before.
+
 ## 0.10.0
 - A village's day. Grown men and women: at home 6-8 in casual clothes, at work 8-15 in work clothes, at the market
   round the bell 15-19 (a woman in her dress), home again 19-21 in casual clothes, asleep 21-6. Children are home,

@@ -8,11 +8,13 @@
   fences, walls and stairs join up with what's round them as they're placed (the castle's windows).
 - Two or three fields per village, laid out sooner (once the land by the gates is loaded), each kept clear of the
   others; their edge by the walls winds instead of running straight; the path to a field crosses water on a bridge.
-- A road from the castle's gate to the village's roads (tried again until it's joined).
+- A road from the castle's gate to the village's roads: a walkable way if there is one, else straight there (a ramp
+  up a hill, a causeway over a dip).
 - Roads between villages are off for now.
-- Building anywhere there's room: only another structure is in the way. Trees there are felled, a foundation goes
-  under it (through shallow water too), and higher ground is dug away. A building whose door can't be joined to a
-  road still goes up.
+- Building anywhere there's room: only another structure is in the way. The spot is got ready at once (trees felled,
+  a foundation under it, through water too, and higher ground dug away); the maidens build the building itself. A
+  building whose door can't be joined to a road still goes up. Up to a third of the village builds at once (new
+  houses went up far too slowly since 0.10.0), and new houses go near the height people live at.
 - Villages are lived in: every free bed gets someone (a married couple in a house with two free beds), and after
   that a newcomer arrives every couple of minutes while a bed is free.
 - Married couples move in together (a free bed in one's house, or a swap with someone single).

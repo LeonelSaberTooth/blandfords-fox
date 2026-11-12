@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.12.0
+- Trees taken out (inside villages, on fields, where something's built) leave nothing behind: their leaves go as
+  they would decay, with the snow on them, the vines and cocoa on them and the bee nests; nothing drops. Trees whose
+  tops are under snow are found too, and trees growing inside a village's own pieces count as trees.
+- Structures go in without seeds and flowers dropping: plants that lose their footing just go. Glass panes, bars,
+  fences, walls and stairs join up with what's round them as they're placed (the castle's windows).
+- Two or three fields per village, laid out sooner (once the land by the gates is loaded), each kept clear of the
+  others; their edge by the walls winds instead of running straight; the path to a field crosses water on a bridge.
+- A road from the castle's gate to the village's roads (tried again until it's joined).
+- Roads between villages are off for now.
+- Building anywhere there's room: only another structure is in the way. Trees there are felled, a foundation goes
+  under it (through shallow water too), and higher ground is dug away. A building whose door can't be joined to a
+  road still goes up.
+- Villages are lived in: every free bed gets someone (a married couple in a house with two free beds), and after
+  that a newcomer arrives every couple of minutes while a bed is free.
+- Married couples move in together (a free bed in one's house, or a swap with someone single).
+- Children aren't crowned. The royal and their husband or wife sleep in the castle (others move out of its beds) and
+  spend the day in the throne room.
+- Maidens asleep aren't pushed off their beds, and get up if they're moved off one.
+- Casual clothes only at home time, near her bed, under a roof.
+- A sword left in a maiden's hand after a raid is put away (not a guard's).
+- Structure villagers in maiden villages never come into the world (no more villagers you can see but not touch).
+- No iron golems in maiden villages (one a player builds is fine).
+- Raiders make for the nearest gate, go through it, and get out of places they're stuck.
+- Names are no longer written on the village map (they're in each building's tooltip).
+
 ## 0.11.0
 - Fields made anew. A village's field is the land itself turned to wheat: a stretch of open ground outside the walls,
   by a gate, following the lie of the land (no levelling), with a natural ragged outline that stops at water, cliffs,

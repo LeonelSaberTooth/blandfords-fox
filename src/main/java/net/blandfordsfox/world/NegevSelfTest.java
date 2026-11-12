@@ -152,19 +152,38 @@ public final class NegevSelfTest {
      */
     private static void duneTest(ServerLevel level, NegevColumns columns, BlockPos near, Path out, StringBuilder report) {
         try {
+            // what the desert around here is made of (sampled every 32 blocks)
+            int hotN = 0, duneN = 0, highN = 0, wadiN = 0, riverN = 0;
+            java.util.Map<NegevShape.Kind, Integer> kinds = new java.util.EnumMap<>(NegevShape.Kind.class);
+            for (int x = near.getX() - 3000; x <= near.getX() + 3000; x += 32)
+                for (int z = near.getZ() - 3000; z <= near.getZ() + 3000; z += 32) {
+                    NegevShape.Column c = columns.get(x, z);
+                    if (c.hot < 0.9) continue;
+                    hotN++;
+                    if (c.dune > 0.9) duneN++;
+                    if (c.high > 0.5) highN++;
+                    if (c.wadi > 0.5) wadiN++;
+                    if (c.river > 0.1) riverN++;
+                    kinds.merge(c.kind, 1, Integer::sum);
+                }
+            report.append(String.format(java.util.Locale.ROOT, "desert make-up (within 3000, every 32): %d desert samples, dunes %d, highland %d, wadi %d, river %d, kinds %s%n",
+                    hotN, duneN, highN, wadiN, riverN, kinds));
             BlockPos found = null;
+            for (int box = 96; box >= 32 && found == null; box -= 32) {
+            final int b = box;
             search:
             for (int r = 0; r <= 4000; r += 32)
                 for (int dx = -r; dx <= r; dx += 32) for (int dz = -r; dz <= r; dz += 32) {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
                     int x = near.getX() + dx, z = near.getZ() + dz;
                     boolean ok = true;
-                    for (int ox = -96; ox <= 96 && ok; ox += 48) for (int oz = -96; oz <= 96 && ok; oz += 48) {
+                    for (int ox = -b; ox <= b && ok; ox += b / 2) for (int oz = -b; oz <= b && ok; oz += b / 2) {
                         NegevShape.Column c = columns.get(x + ox, z + oz);
                         ok = c.dune > 0.98 && c.kind == NegevShape.Kind.VANILLA;
                     }
-                    if (ok) { found = new BlockPos(x, 0, z); break search; }
+                    if (ok) { found = new BlockPos(x, 0, z); report.append("dunes: open field of half-width ").append(b).append('\n'); break search; }
                 }
+            }
             if (found == null) { report.append("dunes: no open dune field found\n"); return; }
             int size = 256, x0 = found.getX() - size / 2, z0 = found.getZ() - size / 2;
             for (int cx = (x0 >> 4) - 1; cx <= ((x0 + size) >> 4) + 1; cx++)

@@ -332,6 +332,9 @@ public final class NegevShape {
         // dry rivers and lakes (rivers are their own biome, so they count separately)
         double dryArea = smooth(0.3, 0.8, c.dryShare(x, z));
         if (dryArea > 0) col.dry = dryArea;   // every desert river and lake dries up: no water in the desert
+        // ...and right out to the desert's edge (and a little past it), where the shaping below
+        // doesn't reach: vanilla's sea-level water there is lifted out too
+        col.dry = Math.max(col.dry, smooth(0.05, 0.3, c.desertShare(x, z)));
         // A dried desert river becomes a valley like the others: a narrow river bed down the
         // middle of vanilla's river, banks of layered rock climbing out of it, and the top of
         // the banks meeting the dunes where vanilla's river band ends.

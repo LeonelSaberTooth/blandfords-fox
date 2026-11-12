@@ -45,7 +45,7 @@ public final class VillageSocial {
 
     /** Everyone who lives there, out at work too (in the woods, at the shore, in the fields round it). */
     public static List<Maiden> everyone(ServerLevel level, VillageRecord v) {
-        return level.getEntitiesOfClass(Maiden.class, AABB.of(v.wallBox != null ? v.wallBox : v.box).inflate(128, 48, 128),
+        return level.getEntitiesOfClass(Maiden.class, AABB.of(v.wallBox != null ? v.wallBox : v.box).inflate(128, 128, 128),
                 m -> m.residence().village() == v.id && m.isAlive());
     }
 

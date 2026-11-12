@@ -3,6 +3,8 @@
   "biomes": [
     "minecraft:taiga",
     "minecraft:snowy_plains",
+    "minecraft:snowy_taiga",
+    "minecraft:ice_spikes",
     "minecraft:river",
     "minecraft:frozen_river",
     "minecraft:beach",

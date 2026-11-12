@@ -34,7 +34,8 @@ public final class ClientSelfTest {
 
     private static final org.slf4j.Logger LOG = com.mojang.logging.LogUtils.getLogger();
     private static final boolean ON = System.getProperty("blandfordsfox.clienttest") != null;
-    private static final List<ResourceKey<Biome>> SCENES = List.of(Biomes.DESERT, Biomes.SNOWY_PLAINS, Biomes.PLAINS);
+    /** Landscapes to photograph: a biome, or "dunes" (an open dune field in the desert). */
+    private static final List<String> SCENES = List.of("dunes", "dunes2", "taiga", "snowy_taiga", "ice_spikes", "snowy_plains", "savanna");
 
     private static int tick = -1, scene = 0, sceneStart;
     private static BlockPos spot;
@@ -68,20 +69,8 @@ public final class ClientSelfTest {
             return;
         }
         int t = tick - sceneStart;
-        // move the runners along a line, 4 blocks a second, so they animate
-        if (!runners.isEmpty() && t > 200) {
-            server.execute(() -> {
-                runX += 0.2;
-                if (runX > 8) runX = -8;
-                for (int i = 0; i < runners.size(); i++) {
-                    Rabbit r = runners.get(i);
-                    r.moveTo(spot.getX() + runX, r.getY(), spot.getZ() + 2 + 2 * i, -90, 0);
-                }
-            });
-        }
-        String name = SCENES.get(scene).location().getPath();
-        if (t == 300 || t == 302 || t == 304 || t == 306) shot(mc, name + "_" + t);
-        if (t == 310) {
+        if (t == 280) shot(mc, SCENES.get(scene));
+        if (t == 290) {
             scene++;
             sceneStart = tick;
             if (scene < SCENES.size()) build(server, SCENES.get(scene));
@@ -92,48 +81,43 @@ public final class ClientSelfTest {
         Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), msg -> LOG.info("[clienttest] {}", msg.getString()));
     }
 
-    private static void build(net.minecraft.server.MinecraftServer server, ResourceKey<Biome> biome) {
-        if (biome == null) return;
+    private static void build(net.minecraft.server.MinecraftServer server, String what) {
         server.execute(() -> {
             ServerLevel level = server.overworld();
             ServerPlayer p = server.getPlayerList().getPlayers().get(0);
-            var found = level.findClosestBiome3d(h -> h.is(biome), p.blockPosition().atY(64), 12000, 32, 64);
-            BlockPos c = found != null ? found.getFirst() : p.blockPosition();
-            for (int cx = (c.getX() >> 4) - 2; cx <= (c.getX() >> 4) + 2; cx++)
-                for (int cz = (c.getZ() >> 4) - 2; cz <= (c.getZ() >> 4) + 2; cz++) level.getChunk(cx, cz);
+            BlockPos c = null;
+            if (what.startsWith("dunes")) {
+                var columns = net.blandfordsfox.world.NegevFeatures.columnsFor(level);
+                var desert = level.findClosestBiome3d(h -> h.is(Biomes.DESERT), p.blockPosition().atY(64), 12000, 32, 64);
+                if (columns != null && desert != null) {
+                    BlockPos d = desert.getFirst();
+                    int skip = what.equals("dunes2") ? 3 : 0;
+                    search:
+                    for (int r = 0; r <= 4000; r += 48)
+                        for (int dx = -r; dx <= r; dx += 48) for (int dz = -r; dz <= r; dz += 48) {
+                            if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
+                            boolean ok = true;
+                            for (int ox = -64; ox <= 64 && ok; ox += 32) for (int oz = -64; oz <= 64 && ok; oz += 32) {
+                                var col = columns.get(d.getX() + dx + ox, d.getZ() + dz + oz);
+                                ok = col.dune > 0.98 && col.kind == net.blandfordsfox.world.NegevShape.Kind.VANILLA;
+                            }
+                            if (ok && skip-- <= 0) { c = new BlockPos(d.getX() + dx, 0, d.getZ() + dz); break search; }
+                        }
+                }
+            } else {
+                ResourceKey<Biome> key = ResourceKey.create(net.minecraft.core.registries.Registries.BIOME,
+                        net.minecraft.resources.ResourceLocation.withDefaultNamespace(what));
+                var found = level.findClosestBiome3d(h -> h.is(key), p.blockPosition().atY(64), 12000, 32, 64);
+                if (found != null) c = found.getFirst();
+            }
+            if (c == null) { LOG.info("[clienttest] {} not found", what); c = p.blockPosition(); }
+            for (int cx = (c.getX() >> 4) - 3; cx <= (c.getX() >> 4) + 3; cx++)
+                for (int cz = (c.getZ() >> 4) - 3; cz <= (c.getZ() >> 4) + 3; cz++) level.getChunk(cx, cz);
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, c.getX(), c.getZ());
             spot = new BlockPos(c.getX(), y, c.getZ());
-            // a flat stage, cleared above
-            for (int dx = -10; dx <= 10; dx++)
-                for (int dz = -4; dz <= 10; dz++) {
-                    level.setBlock(spot.offset(dx, -1, dz), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
-                    for (int dy = 0; dy < 8; dy++) level.setBlock(spot.offset(dx, dy, dz), Blocks.AIR.defaultBlockState(), 3);
-                }
-            // birch log columns (the slid bark)
-            for (int i = 0; i < 4; i++)
-                for (int dy = 0; dy < 6; dy++) level.setBlock(spot.offset(-6 + i, dy, 8), Blocks.BIRCH_LOG.defaultBlockState(), 3);
-            runners.forEach(r -> r.discard());
-            runners.clear();
-            runX = -8;
-            // standing rabbits, side on and facing the camera, and two runners
-            float[] yaws = {-90, 180};
-            for (int i = 0; i < 2; i++) {
-                Rabbit r = EntityType.RABBIT.create(level);
-                r.moveTo(spot.getX() - 1.5 + 3 * i + 0.5, y, spot.getZ() + 0.5, yaws[i], 0);
-                r.setNoAi(true);
-                r.setYHeadRot(yaws[i]);
-                r.setYBodyRot(yaws[i]);
-                level.addFreshEntity(r);
-            }
-            for (int i = 0; i < 2; i++) {
-                Rabbit r = EntityType.RABBIT.create(level);
-                r.moveTo(spot.getX() - 8, y, spot.getZ() + 2 + 2 * i, -90, 0);
-                r.setNoAi(true);
-                level.addFreshEntity(r);
-                runners.add(r);
-            }
-            p.teleportTo(level, spot.getX() + 0.5, y + 1.6, spot.getZ() - 4.5, 0, 12);
-            LOG.info("[clienttest] scene {} at {}", biome.location(), spot);
+            // stand back and up, looking over the landscape
+            p.teleportTo(level, c.getX() + 0.5, y + 14, c.getZ() - 30.5, 0, 22);
+            LOG.info("[clienttest] scene {} at {}", what, spot);
         });
     }
 }

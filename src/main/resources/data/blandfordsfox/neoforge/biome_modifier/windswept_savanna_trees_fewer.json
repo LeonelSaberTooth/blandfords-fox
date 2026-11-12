@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "minecraft:windswept_savanna",
+  "features": "blandfordsfox:trees_windswept_savanna",
+  "step": "vegetal_decoration"
+}

@@ -108,6 +108,58 @@ public final class NegevShape {
     /** Distance into the highlands (blocks) over which plateaus grow to full height. */
     public static double GROW_DISTANCE = 110;
 
+    /** Dunes: how much the sand floor swells up and down (blocks), and the ridge field's numbers. */
+    public static double DUNE_SWELL = 3, DUNE_RIDGE_H = 9, DUNE_CROSS_H = 5.5, DUNE_SPACING = 30, DUNE_CROSS_SPACING = 23;
+
+    private static final double[][] DOFF = {{4021.5, -9917.25}, {-12011.75, 3301.5}, {8807.25, 15511.75}, {-21313.5, -6203.25},
+            {27191.75, -19019.5}, {-3889.5, 24611.25}};
+
+    private static double dn(Noise n, int k, double mult, double x, double z) {
+        return n.at(x * mult + DOFF[k][0], z * mult + DOFF[k][1]);
+    }
+
+    private static double frac(double v) { return v - Math.floor(v); }
+
+    /** One dune across a period (p 0..1): a long windward rise, then a steeper slip face. */
+    private static double slip(double p, double lee) {
+        return p < 1 - lee ? p / (1 - lee) : (1 - p) / lee;
+    }
+
+    /** Smooth maximum: ridges blend where they meet instead of crossing with a seam. */
+    private static double smax(double a, double b, double k) {
+        double m = Math.max(a, b);
+        return m + k * Math.log(Math.exp((a - m) / k) + Math.exp((b - m) / k));
+    }
+
+    /**
+     * Dune height above the sand floor, blocks (about 0-11). Long wavy ridges whose direction
+     * bends slowly across the desert (a broad warp, so they curve together and never close into
+     * rings), spacing drifting between ~24 and ~36 blocks, two ridge sets taking turns so ridges
+     * merge and split; crescent cross-ridges between them in some areas (honeycomb) and not in
+     * others (open corridors); heights varying by area, along each crest and ridge by ridge.
+     */
+    double duneHeight(double x, double z) {
+        double t0 = Math.toRadians(100), c = Math.cos(t0), s = Math.sin(t0);
+        double bend = 45 * dn(big, 0, 2.4, x, z) + 18 * dn(big, 1, 4.9, x, z);
+        double u = x * c + z * s + bend;
+        double v = -x * s + z * c + 0.6 * bend;
+        double period = DUNE_SPACING + 6 * dn(big, 2, 2.9, x, z);
+        double warp = 10 * dn(mid, 0, 1.83, x, z);
+        double r1 = Math.pow(slip(frac((u + warp) / period), 0.45), 1.6);
+        double r2 = Math.pow(slip(frac((u + warp * 1.2 + 11) / (period * 1.35)), 0.45), 1.6);
+        double ridgeId = Math.floor((u + warp) / period);
+        double perRidge = 0.8 + 0.25 * Math.sin(ridgeId * 12.9898) * Math.cos(ridgeId * 4.1414);
+        double hand = smooth(-0.25, 0.25, dn(mid, 1, 1.6, x, z));
+        double ridges = smax(r1 * perRidge * (1 - 0.75 * hand), r2 * (0.25 + 0.75 * hand), 0.12);
+        double cross = Math.pow(slip(frac((v + 9 * dn(small, 0, 1.07, x, z)) / DUNE_CROSS_SPACING), 0.3), 1.3);
+        cross *= smooth(-0.5, 0.2, dn(mid, 2, 1.16, x, z))                       // honeycomb here, corridors there
+                * smooth(-0.35, 0.3, dn(small, 1, 1.9, x, z))                    // crescents come in pieces
+                * (0.35 + 0.65 * Math.sqrt(Math.max(0, Math.min(1, 1 - ridges * 1.3))));
+        double broad = 0.7 + 0.3 * dn(mid, 3, 1.42, x, z);
+        double along = 0.78 + 0.22 * dn(small, 2, 1.7, x, z);
+        return Math.max(0, broad * along * smax(DUNE_RIDGE_H * ridges, DUNE_CROSS_H * cross, 0.9) - 0.6);
+    }
+
     // -- one column ----------------------------------------------------------------------
     public enum Kind { VANILLA, FLOOR, SLOPE, TOP, WADI_FLOOR, WADI_SLOPE, RIVER_FLOOR, RIVER_SLOPE, RIVER_SAND }
 
@@ -187,6 +239,9 @@ public final class NegevShape {
         public double riverSurface;
         /** Height of the river valley's banks above its bed (where they meet the dunes). */
         public double riverBankH;
+        /** Sandy desert: 0..1 how much the dune field replaces vanilla's ground, and its surface (first air block). */
+        public double dune;
+        public double duneSurface;
         /** Kind of ground, for painting (highland or wadi; VANILLA elsewhere). */
         public Kind kind = Kind.VANILLA;
     }
@@ -248,7 +303,7 @@ public final class NegevShape {
         col.hot = smooth(0.55, 0.95, c.desertShare(x, z));
         // dry rivers and lakes (rivers are their own biome, so they count separately)
         double dryArea = smooth(0.3, 0.8, c.dryShare(x, z));
-        if (dryArea > 0) col.dry = dryArea * smooth(DRY_GATE, DRY_GATE + 0.12, dryGate(x, z));
+        if (dryArea > 0) col.dry = dryArea;   // every desert river and lake dries up: no water in the desert
         // A dried desert river becomes a valley like the others: a narrow river bed down the
         // middle of vanilla's river, banks of layered rock climbing out of it, and the top of
         // the banks meeting the dunes where vanilla's river band ends.
@@ -348,6 +403,14 @@ public final class NegevShape {
                 col.kind = ex <= 0 || col.hangingFloor > 0 ? Kind.FLOOR : ex >= col.plateau ? Kind.TOP : Kind.SLOPE;
             }
             if (highW < 0.97) col.hangingFloor = 0;
+        }
+
+        // ---- dunes on the sandy desert (everywhere the highlands and dried rivers aren't)
+        double duneW = col.hot * (1 - highW) * (1 - col.river);
+        if (duneW > 0) {
+            col.dune = smooth(0.0, 0.5, duneW);
+            double base = Math.max(MIN_FLOOR + 1, vanillaSurface) + DUNE_SWELL * ch(mid, 4, 1.0, x, z);
+            col.duneSurface = Math.max(MIN_FLOOR + 1, base + duneW * duneHeight(x, z));
         }
 
         // ---- single wadis through the dunes
@@ -520,6 +583,9 @@ public final class NegevShape {
         if (col.river > 0) {
             v = lerp(col.river, v, (col.riverSurface - 0.5 - y) * K_COARSE);
         }
+        if (col.dune > 0) {
+            v = lerp(col.dune, v, (col.duneSurface - 0.5 - y) * K_COARSE);
+        }
         if (col.high > 0) {
             v = lerp(col.high, v, (col.surfSmooth - 0.5 - y) * K_COARSE);
         }
@@ -538,6 +604,13 @@ public final class NegevShape {
             if (yi >= col.floor - 1 && yi <= col.walls.capAbs) return col.walls.solid(yi) ? K_DETAIL : -K_DETAIL;
             if (yi < col.floor - 1 && yi >= col.floor - 1 - SEALED) return Math.max(v, K_DETAIL);
             return v;
+        }
+        if (col.dune > 0) {
+            // exact dune surface, block by block (crests and slip faces stay sharp), caves sealed under it
+            int surf = (int) Math.round(col.duneSurface);
+            double lo = surf - 5, hi = surf + 5;
+            if (y >= lo && y <= hi) v = lerp(col.dune, v, (surf - 0.5 - y) * K_DETAIL);
+            else if (y < lo && y >= lo - SEALED) v = lerp(col.dune, v, Math.max(v, (surf - 0.5 - y) * K_DETAIL));
         }
         if (col.high > 0) {
             double lo = Math.min(col.surfSmooth, col.surfExact) - 2, hi = Math.max(col.surfSmooth, col.surfExact) + 2;

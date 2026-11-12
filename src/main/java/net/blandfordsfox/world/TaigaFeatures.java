@@ -25,7 +25,15 @@ public final class TaigaFeatures {
     private TaigaFeatures() {}
 
     /** Which ground rules a column follows. */
-    enum Rule { TAIGA, SNOWY_PLAINS }
+    /**
+     * Which ground rules a column follows: taiga; snowy plains; or snowy rock (snowy taiga and
+     * ice spikes: snow straight on deepslate, no soil or plants that need it).
+     */
+    enum Rule { TAIGA, SNOWY_PLAINS, SNOWY_ROCK }
+
+    /** Taiga ground patches: coarse dirt now and then (like old growth taiga), rarer, smaller grass patches. */
+    static final double COARSE_SCALE = 11, COARSE_LEVEL = 0.64, GRASS_SCALE = 6, GRASS_LEVEL = 0.8;
+    static final float GRASS_ON_PATCH = 0.45F, TALL_GRASS_ON_PATCH = 0.12F;
 
     /**
      * Runs last (top layer step), after trees, plants and snowfall, in taiga, snowy plains and
@@ -66,14 +74,16 @@ public final class TaigaFeatures {
                         int cell = (dx >> 2) * 4 + (dz >> 2);
                         if (!riverDone[cell]) { riverRule[cell] = around(level, x, z); riverDone[cell] = true; }
                         rule = riverRule[cell];
-                    } else rule = here.is(Biomes.TAIGA) ? Rule.TAIGA : here.is(Biomes.SNOWY_PLAINS) ? Rule.SNOWY_PLAINS : null;
-                    if (rule != null) any |= column(level, pos, x, z, top, rule, river);
+                    } else rule = here.is(Biomes.TAIGA) ? Rule.TAIGA : here.is(Biomes.SNOWY_PLAINS) ? Rule.SNOWY_PLAINS
+                            : here.is(Biomes.SNOWY_TAIGA) || here.is(Biomes.ICE_SPIKES) ? Rule.SNOWY_ROCK : null;
+                    if (rule != null) any |= column(level, chunk, pos, x, z, top, rule, river, ctx.random());
                 }
             return any;
         }
 
-        private static boolean column(WorldGenLevel level, BlockPos.MutableBlockPos pos, int x, int z, int top, Rule rule, boolean river) {
-            boolean snowLayer = false, underWater = false, changed = false;
+        private static boolean column(WorldGenLevel level, ChunkAccess chunk, BlockPos.MutableBlockPos pos, int x, int z, int top,
+                                      Rule rule, boolean river, net.minecraft.util.RandomSource random) {
+            boolean snowLayer = false, underWater = false, pond = false, changed = false;
             int y = top;
             for (; y > top - 40 && y > level.getMinBuildHeight(); y--) {
                 pos.set(x, y, z);
@@ -91,10 +101,16 @@ public final class TaigaFeatures {
                     changed = true;
                     continue;
                 }
+                // snowy rock: nothing that needs soil (it would stand on snow)
+                if (rule == Rule.SNOWY_ROCK && (s.is(Blocks.FERN) || s.is(Blocks.LARGE_FERN) || s.is(Blocks.SWEET_BERRY_BUSH)
+                        || s.is(BlockTags.FLOWERS) || s.is(Blocks.DEAD_BUSH))) {
+                    level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2);
+                    changed = true;
+                    continue;
+                }
                 if (s.is(Blocks.SNOW)) { snowLayer = true; continue; }
                 if (!s.getFluidState().isEmpty() || s.is(BlockTags.ICE)) {
-                    if (!river) return changed;     // a pond or lake: leave its bed alone
-                    underWater = true;
+                    if (river) underWater = true; else pond = true;   // a pond or lake: leave its bed alone
                     continue;
                 }
                 if (s.isAir() || s.is(BlockTags.LEAVES) || s.is(BlockTags.LOGS) || s.canBeReplaced() || isPlant(s)) continue;
@@ -103,26 +119,116 @@ public final class TaigaFeatures {
             int ground = y;
             // river edges can fall in the land biome's columns: sand by a river is gravel too
             boolean riverSand = river || level.getBlockState(pos.set(x, ground, z)).is(Blocks.SAND) && nearRiver(level, x, z);
-            if (riverSand) {   // no sand: gravel, bed and banks, a few blocks down
+            if (riverSand && rule != Rule.SNOWY_ROCK) {   // no sand: gravel, bed and banks, a few blocks down
                 for (int k = 0; k < 6; k++) {
                     pos.set(x, ground - k, z);
                     if (level.getBlockState(pos).is(Blocks.SAND)) { level.setBlock(pos, Blocks.GRAVEL.defaultBlockState(), 2); changed = true; }
                 }
             }
-            if (underWater) return changed;
+            if (rule == Rule.TAIGA || rule == Rule.SNOWY_ROCK) changed |= deepslate(chunk, pos, x, z, ground, rule == Rule.SNOWY_ROCK && !underWater && !pond);
+            if (underWater || pond) return changed;
             pos.set(x, ground, z);
             BlockState s = level.getBlockState(pos);
-            if (!s.is(Blocks.GRASS_BLOCK) && !s.is(Blocks.DIRT) && !s.is(Blocks.PODZOL)) return changed;
-            if (rule == Rule.SNOWY_PLAINS && snowLayer) {
-                level.setBlock(pos, Blocks.SNOW_BLOCK.defaultBlockState(), 2);
-                pos.set(x, ground - 1, z);
-                BlockState under = level.getBlockState(pos);
-                if (under.is(Blocks.DIRT) || under.is(Blocks.GRASS_BLOCK)) level.setBlock(pos, podzol(true), 2);
-            } else {
-                BlockState above = level.getBlockState(pos.above());
-                level.setBlock(pos, podzol(above.is(BlockTags.SNOW)), 2);
+            boolean soil = s.is(Blocks.GRASS_BLOCK) || s.is(Blocks.DIRT) || s.is(Blocks.PODZOL) || s.is(Blocks.COARSE_DIRT);
+            switch (rule) {
+                case SNOWY_ROCK -> {
+                    // snow straight on the rock: the top block is snow (the soil under it is deepslate now)
+                    if (!soil && !s.is(Blocks.DEEPSLATE) && !s.is(Blocks.STONE)) return changed;
+                    level.setBlock(pos, Blocks.SNOW_BLOCK.defaultBlockState(), 2);
+                    return true;
+                }
+                case SNOWY_PLAINS -> {
+                    if (!soil) return changed;
+                    if (snowLayer) {
+                        level.setBlock(pos, Blocks.SNOW_BLOCK.defaultBlockState(), 2);
+                        pos.set(x, ground - 1, z);
+                        BlockState under = level.getBlockState(pos);
+                        if (under.is(Blocks.DIRT) || under.is(Blocks.GRASS_BLOCK)) level.setBlock(pos, podzol(true), 2);
+                    } else {
+                        level.setBlock(pos, podzol(level.getBlockState(pos.above()).is(BlockTags.SNOW)), 2);
+                    }
+                    return true;
+                }
+                default -> {   // TAIGA
+                    if (!soil) return changed;
+                    boolean snowy = level.getBlockState(pos.above()).is(BlockTags.SNOW);
+                    long seed = level.getSeed();
+                    if (patch(seed + 7, x, z, GRASS_SCALE) > GRASS_LEVEL) {
+                        // a small grass patch, with short and tall grass on it
+                        level.setBlock(pos, Blocks.GRASS_BLOCK.defaultBlockState().setValue(SnowyDirtBlock.SNOWY, snowy), 2);
+                        BlockPos up = pos.above(), up2 = up.above();
+                        BlockState on = level.getBlockState(up);
+                        if (on.isAir() || on.is(Blocks.FERN)) {
+                            float r = random.nextFloat();
+                            if (r < TALL_GRASS_ON_PATCH && level.getBlockState(up2).isAir()) {
+                                level.setBlock(up, Blocks.TALL_GRASS.defaultBlockState().setValue(DoublePlantBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER), 2);
+                                level.setBlock(up2, Blocks.TALL_GRASS.defaultBlockState().setValue(DoublePlantBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), 2);
+                            } else if (r < TALL_GRASS_ON_PATCH + GRASS_ON_PATCH) {
+                                level.setBlock(up, Blocks.SHORT_GRASS.defaultBlockState(), 2);
+                            } else if (on.is(Blocks.FERN)) {
+                                level.setBlock(up, Blocks.AIR.defaultBlockState(), 2);
+                            }
+                        }
+                    } else if (patch(seed + 3, x, z, COARSE_SCALE) > COARSE_LEVEL) {
+                        level.setBlock(pos, Blocks.COARSE_DIRT.defaultBlockState(), 2);
+                    } else {
+                        level.setBlock(pos, podzol(snowy), 2);
+                    }
+                    return true;
+                }
             }
-            return true;
+        }
+
+        /**
+         * Stone becomes deepslate (ores their deepslate kind) from the ground down; with soilToo,
+         * the soil under the top block as well (snowy rock: snow straight on deepslate).
+         */
+        private static boolean deepslate(ChunkAccess chunk, BlockPos.MutableBlockPos pos, int x, int z, int ground, boolean soilToo) {
+            boolean changed = false;
+            boolean soil = soilToo;
+            for (int y = ground - (soilToo ? 1 : 0); y >= Math.max(chunk.getMinBuildHeight(), -8); y--) {
+                pos.set(x, y, z);
+                BlockState s = chunk.getBlockState(pos);
+                BlockState to = DEEPSLATE.get(s.getBlock());
+                if (to == null && soil && (s.is(Blocks.DIRT) || s.is(Blocks.GRASS_BLOCK) || s.is(Blocks.PODZOL) || s.is(Blocks.COARSE_DIRT)))
+                    to = Blocks.DEEPSLATE.defaultBlockState();
+                else if (!s.is(Blocks.DIRT)) soil = false;    // only the soil layer right under the top
+                if (to != null) { chunk.setBlockState(pos, to, false); changed = true; }
+            }
+            return changed;
+        }
+
+        private static final java.util.Map<net.minecraft.world.level.block.Block, BlockState> DEEPSLATE = java.util.Map.ofEntries(
+                java.util.Map.entry(Blocks.STONE, Blocks.DEEPSLATE.defaultBlockState()),
+                java.util.Map.entry(Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.GOLD_ORE, Blocks.DEEPSLATE_GOLD_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.EMERALD_ORE, Blocks.DEEPSLATE_EMERALD_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.LAPIS_ORE, Blocks.DEEPSLATE_LAPIS_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE.defaultBlockState()),
+                java.util.Map.entry(Blocks.INFESTED_STONE, Blocks.INFESTED_DEEPSLATE.defaultBlockState()));
+
+        /** Smooth 0..1 value noise for ground patches (two octaves). */
+        static double patch(long seed, int x, int z, double scale) {
+            return 0.7 * value(seed, x / scale, z / scale) + 0.3 * value(seed + 1, x / (scale * 0.5), z / (scale * 0.5));
+        }
+
+        private static double value(long seed, double x, double z) {
+            int ix = (int) Math.floor(x), iz = (int) Math.floor(z);
+            double fx = x - ix, fz = z - iz;
+            fx = fx * fx * (3 - 2 * fx);
+            fz = fz * fz * (3 - 2 * fz);
+            double a = hash(seed, ix, iz), b = hash(seed, ix + 1, iz), c = hash(seed, ix, iz + 1), d = hash(seed, ix + 1, iz + 1);
+            return (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fz;
+        }
+
+        private static double hash(long seed, int x, int z) {
+            long h = seed * 0x9E3779B97F4A7C15L + x * 0xC2B2AE3D27D4EB4FL + z * 0x165667B19E3779F9L;
+            h = (h ^ (h >>> 31)) * 0xBF58476D1CE4E5B9L;
+            h ^= h >>> 29;
+            return (h >>> 11) * 0x1.0p-53;
         }
 
         /** A river within 8 blocks (from the climate, so no chunks are needed). */

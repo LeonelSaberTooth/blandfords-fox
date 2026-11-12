@@ -115,7 +115,7 @@ jobs:
             curl -sL -o $D/mods/$p.jar "$url"
           done
           cp -r resourcepack/MiddleEast $D/resourcepacks/MiddleEast
-          printf 'resourcePacks:["vanilla","mod_resources","file/MiddleEast"]\nonboardAccessibility:false\ntutorialStep:none\npauseOnLostFocus:false\nrenderDistance:5\nsimulationDistance:5\nfov:0.0\nsoundCategory_master:0.0\njoinedFirstServer:true\nskipMultiplayerWarning:true\n' > $D/options.txt
+          printf 'resourcePacks:["vanilla","mod_resources","file/MiddleEast"]\nonboardAccessibility:false\ntutorialStep:none\npauseOnLostFocus:false\nrenderDistance:8\nsimulationDistance:5\nfov:0.0\nsoundCategory_master:0.0\njoinedFirstServer:true\nskipMultiplayerWarning:true\n' > $D/options.txt
           export LIBGL_ALWAYS_SOFTWARE=1
           timeout 1800 xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClienttest --stacktrace > clienttest.log 2>&1 || true
           cp $D/screenshots/*.png clientshots/ 2>/dev/null || true

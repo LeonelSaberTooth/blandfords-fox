@@ -30,7 +30,7 @@ public final class NegevFeatures {
     private NegevFeatures() {}
 
     @Nullable
-    static NegevColumns columnsFor(WorldGenLevel level) {
+    public static NegevColumns columnsFor(WorldGenLevel level) {
         if (!(level.getLevel().getChunkSource() instanceof ServerChunkCache cache)) return null;
         RandomState rs = cache.randomState();
         if (rs.router().finalDensity() instanceof NegevDensity.Detail d) return d.columns();
@@ -174,6 +174,8 @@ public final class NegevFeatures {
         static final float EDGE_BOULDER = 0.03F, SLOPE_BOULDER = 0.003F;
         // per plateau-top column
         static final float TOP_DEAD_BUSH = 0.0015F;
+        /** Dead bushes on the dunes, per column. */
+        static final float DUNE_DEAD_BUSH = 0.003F;
         // per chunk with valley walls
         static final float CAVE = 0.08F;
 
@@ -193,7 +195,16 @@ public final class NegevFeatures {
             for (int dx = 0; dx < 16; dx++) for (int dz = 0; dz < 16; dz++) {
                 int x = x0 + dx, z = z0 + dz;
                 NegevShape.Column col = columns.get(x, z);
-                if (col.kind == NegevShape.Kind.VANILLA) continue;
+                if (col.kind == NegevShape.Kind.VANILLA) {
+                    // the dunes: an occasional dead bush on the sand
+                    if (col.dune > 0.9 && rnd.nextFloat() < DUNE_DEAD_BUSH) {
+                        int sy = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
+                        pos.set(x, sy, z);
+                        if (level.getBlockState(pos).is(Blocks.SAND) && level.isEmptyBlock(pos.above()) && desertHere(level, pos, col))
+                            level.setBlock(pos.above(), Blocks.DEAD_BUSH.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    }
+                    continue;
+                }
                 int topY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
                 pos.set(x, topY, z);
                 NegevShape.Kind kind = groundKind(col, topY);

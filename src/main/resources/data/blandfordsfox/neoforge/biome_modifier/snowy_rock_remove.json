@@ -1,0 +1,16 @@
+{
+  "type": "neoforge:remove_features",
+  "biomes": [
+    "minecraft:snowy_taiga",
+    "minecraft:ice_spikes"
+  ],
+  "features": [
+    "minecraft:patch_large_fern",
+    "minecraft:flower_default",
+    "minecraft:patch_grass_taiga_2",
+    "minecraft:patch_grass_badlands",
+    "minecraft:patch_sugar_cane",
+    "minecraft:patch_berry_rare"
+  ],
+  "steps": "vegetal_decoration"
+}

@@ -72,6 +72,7 @@ public final class NegevSelfTest {
         n += dump(level, columns, d, c -> c.high > 0.2 && c.high < 0.8, "highland_edge", out, report);
         n += dump(level, columns, d, c -> c.kind == NegevShape.Kind.RIVER_FLOOR, "dry_river", out, report);
         report.append("areas written: ").append(n).append('\n');
+        duneTest(level, columns, d, out, report);
         // animals spawned with the generated chunks, around the desert
         net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(d).inflate(1500, 200, 1500);
         hyenaTest(level, d, report);
@@ -143,6 +144,79 @@ public final class NegevSelfTest {
                 .append(", desert columns ").append(deserts).append(", shaped columns ").append(painted)
                 .append(", ground where expected ").append(verified).append('/').append(shapedHere).append('\n');
         return 1;
+    }
+
+    /**
+     * The dunes: generated surface against the planned one, heights, dead bushes, and any water
+     * in desert columns; writes dunes.png (shaded height map) to compare with the preview.
+     */
+    private static void duneTest(ServerLevel level, NegevColumns columns, BlockPos near, Path out, StringBuilder report) {
+        try {
+            BlockPos found = null;
+            search:
+            for (int r = 0; r <= 4000; r += 32)
+                for (int dx = -r; dx <= r; dx += 32) for (int dz = -r; dz <= r; dz += 32) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
+                    int x = near.getX() + dx, z = near.getZ() + dz;
+                    boolean ok = true;
+                    for (int ox = -96; ox <= 96 && ok; ox += 48) for (int oz = -96; oz <= 96 && ok; oz += 48) {
+                        NegevShape.Column c = columns.get(x + ox, z + oz);
+                        ok = c.dune > 0.98 && c.kind == NegevShape.Kind.VANILLA;
+                    }
+                    if (ok) { found = new BlockPos(x, 0, z); break search; }
+                }
+            if (found == null) { report.append("dunes: no open dune field found\n"); return; }
+            int size = 256, x0 = found.getX() - size / 2, z0 = found.getZ() - size / 2;
+            for (int cx = (x0 >> 4) - 1; cx <= ((x0 + size) >> 4) + 1; cx++)
+                for (int cz = (z0 >> 4) - 1; cz <= ((z0 + size) >> 4) + 1; cz++) level.getChunk(cx, cz);
+            int[][] h = new int[size][size];
+            int exact = 0, near1 = 0, planned = 0, water = 0, bushes = 0, sandTop = 0, min = 999, max = -999;
+            BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+            for (int z = 0; z < size; z++) for (int x = 0; x < size; x++) {
+                int wx = x0 + x, wz = z0 + z;
+                int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, wx, wz);   // first free block
+                h[z][x] = top;
+                min = Math.min(min, top); max = Math.max(max, top);
+                NegevShape.Column c = columns.get(wx, wz);
+                if (c.dune > 0.98 && c.kind == NegevShape.Kind.VANILLA) {
+                    planned++;
+                    int plan = (int) Math.round(c.duneSurface);
+                    if (top == plan) exact++;
+                    if (Math.abs(top - plan) <= 1) near1++;
+                }
+                BlockState t = level.getBlockState(p.set(wx, top - 1, wz));
+                if (!t.getFluidState().isEmpty()) water++;
+                if (t.is(net.minecraft.world.level.block.Blocks.SAND)) sandTop++;
+                if (level.getBlockState(p.set(wx, top, wz)).is(net.minecraft.world.level.block.Blocks.DEAD_BUSH)) bushes++;
+            }
+            report.append(String.format(java.util.Locale.ROOT,
+                    "dunes: centre %d %d, %d planned columns: surface exactly as planned %d, within 1 block %d; heights %d-%d; sand on top %d/%d; dead bushes %d; water columns %d%n",
+                    found.getX(), found.getZ(), planned, exact, near1, min, max, sandTop, size * size, bushes, water));
+            // shaded height map, like the preview's map
+            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            for (int z = 0; z < size; z++) for (int x = 0; x < size; x++) {
+                int gx = h[z][Math.min(size - 1, x + 1)] - h[z][Math.max(0, x - 1)];
+                int gz = h[Math.min(size - 1, z + 1)][x] - h[Math.max(0, z - 1)][x];
+                double shade = Math.max(0.45, Math.min(1.25, 0.9 - 0.18 * (gx + gz)));
+                double hn = (h[z][x] - min) / (double) Math.max(1, max - min);
+                double f = (0.78 + 0.3 * hn) * shade;
+                int r = (int) Math.min(255, 219 * f), g = (int) Math.min(255, 206 * f), b = (int) Math.min(255, 160 * f);
+                img.setRGB(x, z, (r << 16) | (g << 8) | b);
+            }
+            javax.imageio.ImageIO.write(img, "png", out.resolve("dunes.png").toFile());
+            // the desert, wider: any water at the surface of desert columns?
+            int dWater = 0, dCols = 0;
+            for (int x = near.getX() - 256; x < near.getX() + 256; x += 2)
+                for (int z = near.getZ() - 256; z < near.getZ() + 256; z += 2) {
+                    int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
+                    if (!level.getBiome(p.set(x, top, z)).is(Biomes.DESERT)) continue;
+                    dCols++;
+                    if (!level.getBlockState(p.set(x, top - 1, z)).getFluidState().isEmpty()) dWater++;
+                }
+            report.append("desert surface water: ").append(dWater).append(" of ").append(dCols).append(" desert columns sampled\n");
+        } catch (Throwable t) {
+            report.append("dune test failed: ").append(t).append('\n');
+        }
     }
 
     /** Feeds a hyena bones and rotten flesh as a player would, and checks the results. */
@@ -357,7 +431,7 @@ public final class NegevSelfTest {
 
     /** Taiga ground, plants and trees; birch trunk bases; stripping birch with an axe. */
     private static void taigaTest(ServerLevel level, BlockPos near, StringBuilder report) {
-        for (var biome : java.util.List.of(Biomes.TAIGA, Biomes.SNOWY_PLAINS, Biomes.SNOWY_TAIGA, Biomes.GROVE, Biomes.OLD_GROWTH_SPRUCE_TAIGA, Biomes.BIRCH_FOREST)) {
+        for (var biome : java.util.List.of(Biomes.TAIGA, Biomes.SNOWY_PLAINS, Biomes.SNOWY_TAIGA, Biomes.ICE_SPIKES, Biomes.SAVANNA, Biomes.GROVE)) {
             try {
                 Pair<BlockPos, Holder<Biome>> found = level.findClosestBiome3d(h -> h.is(biome), near.atY(64), 12000, 32, 64);
                 if (found == null) { report.append(biome.location().getPath()).append(": none found\n"); continue; }
@@ -366,7 +440,7 @@ public final class NegevSelfTest {
                     for (int cz = (c.getZ() >> 4) - 6; cz <= (c.getZ() >> 4) + 6; cz++) level.getChunk(cx, cz);
                 java.util.Map<String, Integer> ground = new java.util.TreeMap<>(), plants = new java.util.TreeMap<>();
                 java.util.Map<String, Integer> riverGround = new java.util.TreeMap<>(), riverPlants = new java.util.TreeMap<>();
-                int riverColumns = 0, podzolUnderSnow = 0, podzolUnderSnowNotSnowy = 0;
+                int riverColumns = 0, podzolUnderSnow = 0, podzolUnderSnowNotSnowy = 0, stoneUnder = 0, deepslateUnder = 0, dirtUnder = 0;
                 java.util.Map<String, int[]> trees = new java.util.TreeMap<>();   // bottom log -> {count, total height}
                 int columns = 0;
                 BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
@@ -414,6 +488,12 @@ public final class NegevSelfTest {
                                 id += "(around " + rule + ", chunk biome " + noise.unwrapKey().map(k -> k.location().getPath()).orElse("?") + ")";
                             }
                             groundMap.merge(id, 1, Integer::sum);
+                            if (!riverCol) for (int k = 1; k <= 30; k++) {
+                                BlockState u = level.getBlockState(p.set(x, y - k, z));
+                                if (u.is(net.minecraft.world.level.block.Blocks.STONE)) stoneUnder++;
+                                else if (u.is(net.minecraft.world.level.block.Blocks.DEEPSLATE)) deepslateUnder++;
+                                else if (u.is(net.minecraft.world.level.block.Blocks.DIRT)) dirtUnder++;
+                            }
                             break;
                         }
                     }
@@ -421,6 +501,7 @@ public final class NegevSelfTest {
                 trees.forEach((k, v) -> t.append(k).append(' ').append(v[0]).append(String.format(java.util.Locale.ROOT, " (trunk %.1f)", v[1] / (double) v[0])).append(", "));
                 report.append(biome.location().getPath()).append(" near ").append(c.toShortString()).append(": ").append(columns).append(" columns; ground ")
                         .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t)
+                        .append("; under the ground (30 blocks): stone ").append(stoneUnder).append(", deepslate ").append(deepslateUnder).append(", dirt ").append(dirtUnder)
                         .append("; podzol under snow ").append(podzolUnderSnow).append(" (not snowy ").append(podzolUnderSnowNotSnowy).append(")")
                         .append("; river columns ").append(riverColumns).append(" ground ").append(riverGround).append(" plants ").append(riverPlants)
                         .append("; lynxes ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Lynx.class,

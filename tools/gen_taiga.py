@@ -86,8 +86,8 @@ def main():
     bm('taiga_add', {'type': 'neoforge:add_features', 'biomes': TAIGA,
                      'features': [f'{NS}:taiga_trees', f'{NS}:taiga_ferns'], 'step': 'vegetal_decoration'})
     bm('cold_ground', {'type': 'neoforge:add_features',
-                       'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:river', 'minecraft:frozen_river',
-                                  'minecraft:beach', 'minecraft:snowy_beach'],
+                       'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:snowy_taiga', 'minecraft:ice_spikes',
+                                  'minecraft:river', 'minecraft:frozen_river', 'minecraft:beach', 'minecraft:snowy_beach'],
                        'features': f'{NS}:cold_ground', 'step': 'top_layer_modification'})
     # underwater sand patches: gravel in the cold biomes and their rivers (cold_disk decides)
     disk = vanilla('configured_feature', 'disk_sand')
@@ -101,6 +101,25 @@ def main():
                             'steps': 'underground_ores'})
     bm('disk_sand_or_gravel', {'type': 'neoforge:add_features', 'biomes': cold, 'features': f'{NS}:disk_sand_or_gravel',
                                'step': 'underground_ores'})
+    # snowy taiga and ice spikes: snow on deepslate, so nothing that needs soil
+    bm('snowy_rock_remove', {'type': 'neoforge:remove_features', 'biomes': ['minecraft:snowy_taiga', 'minecraft:ice_spikes'],
+                             'features': ['minecraft:patch_large_fern', 'minecraft:flower_default', 'minecraft:patch_grass_taiga_2',
+                                          'minecraft:patch_grass_badlands', 'minecraft:patch_sugar_cane', 'minecraft:patch_berry_rare'],
+                             'steps': 'vegetal_decoration'})
+    # savannas: three quarters of the trees (vanilla averages 1.1 a chunk, windswept 2.1)
+    for name, dist in (('trees_savanna', [(0, 11), (1, 25), (2, 4)]), ('trees_windswept_savanna', [(1, 17), (2, 23)])):
+        placed = vanilla('placed_feature', name)
+        placed['placement'][0]['count']['distribution'] = [{'data': d, 'weight': w} for d, w in dist]
+        ours('placed_feature', name, placed)
+    bm('savanna_trees', {'type': 'neoforge:remove_features', 'biomes': ['minecraft:savanna', 'minecraft:savanna_plateau', 'minecraft:windswept_savanna'],
+                         'features': ['minecraft:trees_savanna', 'minecraft:trees_windswept_savanna'], 'steps': 'vegetal_decoration'})
+    bm('savanna_trees_fewer', {'type': 'neoforge:add_features', 'biomes': ['minecraft:savanna', 'minecraft:savanna_plateau'],
+                               'features': f'{NS}:trees_savanna', 'step': 'vegetal_decoration'})
+    bm('windswept_savanna_trees_fewer', {'type': 'neoforge:add_features', 'biomes': 'minecraft:windswept_savanna',
+                                         'features': f'{NS}:trees_windswept_savanna', 'step': 'vegetal_decoration'})
+    # desert: no water at all (no springs, no sugar cane by water)
+    bm('desert_no_water', {'type': 'neoforge:remove_features', 'biomes': 'minecraft:desert',
+                           'features': ['minecraft:spring_water', 'minecraft:patch_sugar_cane_desert']})
     # snowy plains: no short grass or sugar cane
     bm('snowy_plains_remove', {'type': 'neoforge:remove_features', 'biomes': 'minecraft:snowy_plains',
                                'features': ['minecraft:patch_grass_badlands', 'minecraft:patch_sugar_cane'],

@@ -248,6 +248,14 @@ public final class Farms {
         }
     }
 
+    /** For the self test: a field laid out from a spot, growing east. Returns how many plots it has. */
+    public static int fieldAt(ServerLevel level, VillageRecord v, int x, int z) {
+        RandomSource r = RandomSource.create(v.id ^ x);
+        List<Plot> f = field(level, v, r, x, z, 1, 0, v.wallBox != null ? v.wallBox : v.box, new ArrayList<>());
+        if (f.size() >= MIN_PLOTS) add(level, v, f);
+        return f.size();
+    }
+
     /** Somewhere for a farmer to work: on the path at the edge of one of the plots, or null if there are no fields. */
     @Nullable
     public static BlockPos spot(ServerLevel level, VillageRecord v, RandomSource r) {

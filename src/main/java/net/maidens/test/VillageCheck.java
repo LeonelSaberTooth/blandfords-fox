@@ -663,6 +663,30 @@ final class VillageCheck {
                 all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
             }
         log.accept("  fields: " + net.maidens.village.Farms.lastSearch + "; " + plots + " plots, " + crops[0] + " crops (" + crops[1] + " fully grown), spread over " + all);
+        if (plots == 0) {
+            // the land round the test village is all sea and mountain: a field on flat ground made for it, off to one
+            // side up in the air (so the fields and a farmer can be seen)
+            int ix = v.centre().getX() + 260, iz = v.centre().getZ(), iy = 199;
+            for (int cx = (ix - 4) >> 4; cx <= (ix + 110) >> 4; cx++)
+                for (int cz = (iz - 60) >> 4; cz <= (iz + 60) >> 4; cz++) {
+                    level.setChunkForced(cx, cz, true);
+                    level.getChunk(cx, cz);
+                }
+            for (int x = ix - 2; x <= ix + 106; x++)
+                for (int z = iz - 56; z <= iz + 56; z++) {
+                    level.setBlock(new BlockPos(x, iy - 2, z), Blocks.STONE.defaultBlockState(), 2);
+                    level.setBlock(new BlockPos(x, iy - 1, z), Blocks.DIRT.defaultBlockState(), 2);
+                    level.setBlock(new BlockPos(x, iy, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+                    for (int y = iy + 1; y <= iy + 12; y++) if (!level.getBlockState(new BlockPos(x, y, z)).isAir()) level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                }
+            int made = net.maidens.village.Farms.fieldAt(level, v, ix + 2, iz);
+            for (var p : v.blueprint.pieces())
+                if (p.name().equals(net.maidens.village.Farms.NAME)) {
+                    plots++;
+                    all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
+                }
+            log.accept("  (test) a field on flat ground at " + ix + ", " + iy + ", " + iz + ": " + made + " plots, spread over " + all);
+        }
         if (!v.treesCleared) net.maidens.village.Trees.clear(level, v);
         log.accept("  trees: " + net.maidens.village.Trees.lastClearing);
         if (all != null) {
@@ -756,6 +780,8 @@ final class VillageCheck {
         // the day's harvest
         net.maidens.village.Economy.produce(level, v, VillageSocial.residents(level, v));
         log.accept("economy: a day's work brought in " + net.maidens.village.Economy.lastHarvest);
+        int[] crops = net.maidens.village.Farms.crops(level, v);
+        log.accept("  fields now: " + crops[0] + " crops, " + crops[1] + " fully grown");
         java.util.Map<String, Integer> gained = new java.util.TreeMap<>();
         v.store.forEach((k, n) -> {
             int d = n - storeBefore.getOrDefault(k, 0);

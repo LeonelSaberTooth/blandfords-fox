@@ -77,8 +77,7 @@ public final class RaidGoals {
                     return;
                 }
             }
-            Vec3 step = m.distanceToSqr(c) > 30 * 30 ? LandRandomPos.getPosTowards(m, 20, 7, c) : LandRandomPos.getPosTowards(m, 8, 4, c);
-            if (step != null) m.getNavigation().moveTo(step.x, step.y, step.z, 0.7);
+            go(BlockPos.containing(c));
         }
 
         /** Outside the walls: the spot to make for (outside the nearest gate, then inside it); null once she's inside. */

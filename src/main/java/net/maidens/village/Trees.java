@@ -68,6 +68,19 @@ public final class Trees {
         return new int[]{found, felled};
     }
 
+    /** For the self test: how many natural trees stand in a village now. */
+    public static int count(ServerLevel level, VillageRecord v) {
+        BoundingBox b = area(v);
+        Set<BlockPos> seen = new HashSet<>();
+        int n = 0;
+        for (int x = b.minX(); x <= b.maxX(); x++)
+            for (int z = b.minZ(); z <= b.maxZ(); z++) {
+                BlockPos top = treeTop(level, x, z);
+                if (top != null && !seen.contains(top) && trunk(level, top, seen) != null) n++;
+            }
+        return n;
+    }
+
     /** The highest log in a column, under any leaves, snow and vines on top of it; null if there's none. */
     @org.jetbrains.annotations.Nullable
     static BlockPos treeTop(ServerLevel level, int x, int z) {

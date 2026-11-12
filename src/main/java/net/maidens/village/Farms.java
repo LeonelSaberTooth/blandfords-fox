@@ -327,11 +327,25 @@ public final class Farms {
         }
         // only water that stays where it's put: every side held in at its level
         f.water.removeIf(k -> !holds(level, f, k));
-        // the path: from inside the gate, out through it, to the field, and through it the long way
-        if (f.gate != null) {
-            VillageRecord.Gate g = f.gate;
-            int dx = Integer.signum(g.dx), dz = Integer.signum(g.dz);
-            int[] inside = {g.pos.getX() - dx * 6, g.pos.getZ() - dz * 6}, out = {g.pos.getX() + dx * 3, g.pos.getZ() + dz * 3};
+        // the path: from inside the gate, out through it, to the field, and through it the long way (with no walls,
+        // from just inside the edge of the village nearest the field)
+        {
+            int ex, ez, dx, dz;
+            if (f.gate != null) {
+                VillageRecord.Gate g = f.gate;
+                ex = g.pos.getX();
+                ez = g.pos.getZ();
+                dx = Integer.signum(g.dx);
+                dz = Integer.signum(g.dz);
+            } else {
+                BoundingBox b = v.wallBox != null ? v.wallBox : v.box;
+                ex = Math.max(b.minX(), Math.min(b.maxX(), (int) Math.round(cx)));
+                ez = Math.max(b.minZ(), Math.min(b.maxZ(), (int) Math.round(cz)));
+                double ox = cx - ex, oz = cz - ez;
+                dx = Math.abs(ox) >= Math.abs(oz) ? (int) Math.signum(ox) : 0;
+                dz = dx == 0 ? (int) Math.signum(oz) : 0;
+            }
+            int[] inside = {ex - dx * 6, ez - dz * 6}, out = {ex + dx * 3, ez + dz * 3};
             long entry = nearest(f, out[0], out[1]);
             // the far end: the field's furthest point the long way from where the path comes in
             double eu = (x(entry) - cx) * cos + (z(entry) - cz) * sin;
@@ -475,10 +489,11 @@ public final class Farms {
 
     // ------------------------------------------------------------------ for the farmers
 
-    /** Somewhere for a farmer to work: on the path through the field (or the edge of an old field), or null. */
+    /** Somewhere for a farmer to work: on the path through a field (or in one, or at the edge of an old field), or null. */
     @Nullable
     public static BlockPos spot(ServerLevel level, VillageRecord v, RandomSource r) {
         if (v.fieldPath.length > 0) return BlockPos.of(v.fieldPath[r.nextInt(v.fieldPath.length)]).above();
+        if (v.fieldCells.length > 0) return BlockPos.of(v.fieldCells[r.nextInt(v.fieldCells.length)]).above();
         List<BoundingBox> plots = new ArrayList<>();
         for (Blueprint.PieceInfo p : v.blueprint.pieces()) if (p.name().equals(NAME)) plots.add(p.box());
         if (plots.isEmpty()) return null;

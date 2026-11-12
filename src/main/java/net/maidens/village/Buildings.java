@@ -225,8 +225,8 @@ public final class Buildings {
             if (v.blueprint.overlaps(fp.inflatedBy(2))) { overlap++; continue; }
             int base = groundLevel(level, fp);
             if (base == Integer.MIN_VALUE) { ground++; continue; }
-            // nearer is better, and flatter and drier (less to dig, fill and build up)
-            double d = Math.sqrt(near.distSqr(fp.getCenter())) + 4 * roughness(level, fp);
+            // nearer is better (up or down a hill counts three times), and flatter and drier (less to dig and fill)
+            double d = Math.sqrt(near.distSqr(fp.getCenter())) + 3 * Math.abs(base - near.getY()) + 4 * roughness(level, fp);
             sites.add(new Site(new BlockPos(x, base, z), rot, d));
         }
         lastSearch = shortName(template) + ": " + sites.size() + " good spots of " + TRIES + " tried (" + overlap + " on other buildings, " + ground

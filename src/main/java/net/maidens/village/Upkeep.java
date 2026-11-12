@@ -111,7 +111,7 @@ public final class Upkeep {
 
     // ------------------------------------------------------------------ for the maidens
 
-    /** At most one in six of a village's people (one at least) are on chores at once; the rest keep to their work. */
+    /** At most one in three of a village's people (two at least) are on chores at once; the rest keep to their work. */
 
     /** Enough of her village's people are on chores already. */
     public static boolean busy(Maiden m) {
@@ -119,7 +119,7 @@ public final class Upkeep {
         if (v == null) return true;
         int taken = 0;
         for (Chore c : v.chores.values()) if (c.takenBy != null) taken++;
-        return taken >= Math.max(1, v.population / 6);
+        return taken >= Math.max(2, v.population / 3);
     }
 
     /** Gives this maiden the nearest chore of her village that's been waiting long enough, or null. */

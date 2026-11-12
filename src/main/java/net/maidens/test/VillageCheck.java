@@ -726,7 +726,7 @@ final class VillageCheck {
                         if (st.is(net.minecraft.tags.BlockTags.LOGS) && level.getBlockState(p.below()).is(net.minecraft.tags.BlockTags.DIRT)) trees++;
                     }
                 }
-            log.accept("  inside the village now: " + trees + " trunks on the ground, " + floating + " leaves with no log within 5, " + loose + " snow or vines hanging in the air");
+            log.accept("  inside the village now: " + net.maidens.village.Trees.count(level, v) + " natural trees, " + trees + " logs standing on dirt, " + floating + " leaves with no log within 5, " + loose + " snow or vines hanging in the air");
             // the castle: its road, its glass joined up, who sleeps there
             if (v.castle != null) {
                 int panes = 0, joined = 0;
@@ -739,6 +739,7 @@ final class VillageCheck {
                 }
                 log.accept("  castle: road to its gate " + v.castleRoad + "; " + panes + " glass panes, " + joined + " joined to the walls");
             }
+            net.maidens.village.Royals.tick(level, v, VillageSocial.residents(level, v));      // (the castle's just been built)
             List<Maiden> all = VillageSocial.everyone(level, v);
             int couples = 0, together = 0, royalChildren = 0;
             String royal = "-";

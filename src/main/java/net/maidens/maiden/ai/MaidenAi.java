@@ -38,7 +38,7 @@ public final class MaidenAi {
         goals.addGoal(4, new WorkGoal(m));
         goals.addGoal(4, new RaidGoals.Advance(m));         // a raider pushing into the village
         goals.addGoal(4, new net.maidens.maiden.work.VillageWorkGoal(m));   // her village job, at her spot
-        goals.addGoal(5, new ScheduleGoal(m));              // a resident's day
+        goals.addGoal(4, new ScheduleGoal(m));              // a resident's day (before keeping within bounds: she's on her way)
         goals.addGoal(5, new MoveTowardsRestrictionGoal(m, 0.6));
         goals.addGoal(6, new OpenDoorGoal(m, true));
         goals.addGoal(7, new WanderGoal(m));

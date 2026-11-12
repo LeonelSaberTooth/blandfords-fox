@@ -168,11 +168,16 @@ final class VillageCheck {
             }
             case 9 -> {
                 // a day: at work, at the market, at home; then the day's harvest comes in
-                if (st == 1200) economyWorkers(level, "at work");
-                if (st == 1210) level.setDayTime(level.getDayTime() / 24000 * 24000 + 9300);
-                if (st == 1800) day(level, "at the market");
-                if (st == 1810) level.setDayTime(level.getDayTime() / 24000 * 24000 + 13300);
-                if (st == 2400) day(level, "at home");
+                if (st == 1200) {
+                    economyWorkers(level, "at work");
+                    day(level, "at work");
+                    level.setDayTime(level.getDayTime() / 24000 * 24000 + 9300);
+                }
+                if (st == 1600) {
+                    day(level, "at the market");
+                    level.setDayTime(level.getDayTime() / 24000 * 24000 + 13300);
+                }
+                if (st == 2000) day(level, "at home");
                 if (st < 2800) return false;
                 economyCheck(level);
                 raidLead(level);
@@ -240,23 +245,23 @@ final class VillageCheck {
     // ------------------------------------------------------------------ Phase 5: their day, requests, raids
 
     private void night(ServerLevel level) {
-        level.setDayTime(12000);
-        log.accept("schedule: evening (time 12000): home until 13000, then bed");
+        level.setDayTime(14000);
+        log.accept("schedule: evening (time 14000, 20:00): home until 15000, then bed");
     }
 
     private void bedtime(ServerLevel level) {
         List<Maiden> rs = VillageSocial.residents(level, record);
         int free = 0, withBed = 0, asleep = 0;
         for (Maiden m : rs) {
-            if (!m.hasVillageDuties()) continue;
+            if (!net.maidens.maiden.home.Schedule.keeps(m)) continue;
             free++;
             if (m.residence().bed() != null) withBed++;
             if (m.isSleeping()) asleep++;
         }
-        log.accept("  at time 12600: " + asleep + " asleep of " + free + " free residents (" + withBed + " with a bed)");
+        log.accept("  at time " + level.getDayTime() % 24000 + ": " + asleep + " asleep of " + free + " free residents (" + withBed + " with a bed)");
         int shown = 0;
         for (Maiden m : rs) {
-            if (!m.hasVillageDuties() || m.isSleeping() || m.residence().bed() == null || shown++ >= 4) continue;
+            if (!net.maidens.maiden.home.Schedule.keeps(m) || m.isSleeping() || m.residence().bed() == null || shown++ >= 4) continue;
             BlockPos b = m.residence().bed();
             log.accept("    " + m.name() + " at " + m.blockPosition().toShortString() + ", bed " + b.toShortString() + " ("
                     + Math.round(Math.sqrt(m.distanceToSqr(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5))) + " away), bed block "

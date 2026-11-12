@@ -36,6 +36,7 @@ public final class Housing {
             if (!level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r)) continue;
             List<Maiden> residents = VillageSocial.residents(level, v);
             if (residents.isEmpty()) continue;
+            v.population = residents.size();
             Royals.tick(level, v, residents);
             People.tick(level, v, residents);
             Economy.tick(level, v, residents);

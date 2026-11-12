@@ -357,10 +357,26 @@ public final class ClientSelfTest {
             if (t == at) server.execute(() -> {
                 if (n >= workers.size()) return;
                 Maiden m = workers.get(n);
-                double a = Math.toRadians(m.getYRot() + 140);
-                double cx = m.getX() - Math.sin(a) * 4.5, cz = m.getZ() + Math.cos(a) * 4.5, cy = m.getY() + 2.2;
-                float yaw = (float) Math.toDegrees(Math.atan2(-(m.getX() - cx), m.getZ() - cz));
-                player(server).teleportTo(server.overworld(), cx, cy, cz, yaw, 18);
+                ServerLevel level = server.overworld();
+                // a spot a few blocks off with a clear view of her (in front of her if there's one)
+                double cx = m.getX() + 3, cy = m.getY() + 0.6, cz = m.getZ() + 3;
+                for (int i = 0; i < 16; i++) {
+                    double a = Math.toRadians(m.getYRot() + 140 + i * 45 % 360), d = i < 8 ? 4.5 : 3.0;
+                    double x = m.getX() - Math.sin(a) * d, z = m.getZ() + Math.cos(a) * d, y = m.getY() + (i < 8 ? 0.6 : 0.1);
+                    var eye = new net.minecraft.world.phys.Vec3(x, y + 1.62, z);
+                    var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, m.getEyePosition(), net.minecraft.world.level.ClipContext.Block.VISUAL,
+                            net.minecraft.world.level.ClipContext.Fluid.NONE, m));
+                    if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS && level.getBlockState(BlockPos.containing(eye)).isAir()) {
+                        cx = x;
+                        cy = y;
+                        cz = z;
+                        break;
+                    }
+                }
+                double dx = m.getX() - cx, dz = m.getZ() - cz;
+                float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+                float pitch = (float) Math.toDegrees(Math.atan2(cy + 1.62 - m.getY() - 1.0, Math.sqrt(dx * dx + dz * dz)));
+                player(server).teleportTo(level, cx, cy, cz, yaw, pitch);
             });
             if (t == at + 100 && n < workers.size()) shot(mc, "work_" + workers.get(n).villageWork().job().name().toLowerCase());
         }

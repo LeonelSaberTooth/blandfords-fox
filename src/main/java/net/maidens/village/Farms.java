@@ -30,7 +30,9 @@ import java.util.Set;
  */
 public final class Farms {
     public static final String NAME = "field";
-    private static final int TRIES = 80, MIN_PLOTS = 4;
+    private static final int TRIES = 160, MIN_PLOTS = 3, ROUGH = 6;
+    /** Why plots were left out in the last search: not loaded, taken, wet, rough (for the self test). */
+    private static final int[] why = new int[4];
     /** How the last search went (for the self test). */
     public static String lastSearch = "";
 
@@ -64,6 +66,7 @@ public final class Farms {
         // fields already laid out (and the village's other pieces) are kept clear of
         List<BoundingBox> taken = new ArrayList<>();
         int made = 0, plots = 0, small = 0;
+        java.util.Arrays.fill(why, 0);
         for (int i = 0; i < TRIES && made < areas; i++) {
             // the near edge of the field: out from a gate if there are walls (so the farmers get there), else round the edge
             double x, z, ox, oz;
@@ -72,11 +75,11 @@ public final class Farms {
                 double len = Math.max(1, Math.sqrt(g[2] * g[2] + g[3] * g[3]));
                 ox = g[2] / len;
                 oz = g[3] / len;
-                double out = 8 + r.nextInt(16), side = r.nextInt(61) - 30;
+                double out = 8 + r.nextInt(32), side = r.nextInt(81) - 40;
                 x = g[0] + ox * out - oz * side;
                 z = g[1] + oz * out + ox * side;
             } else {
-                double a = r.nextDouble() * Math.PI * 2, d = half + 6 + r.nextInt(16);
+                double a = r.nextDouble() * Math.PI * 2, d = half + 6 + r.nextInt(32);
                 ox = Math.cos(a);
                 oz = Math.sin(a);
                 x = c.getX() + ox * d;
@@ -92,7 +95,8 @@ public final class Farms {
             made++;
             plots += field.size();
         }
-        lastSearch = made + " fields, " + plots + " plots (" + small + " spots too small or rough)";
+        lastSearch = made + " fields, " + plots + " plots (" + small + " spots too small; plots left out: " + why[0] + " not loaded, "
+                + why[1] + " taken, " + why[2] + " wet, " + why[3] + " rough)";
         Villages.get(level).setDirty();
         return plots;
     }
@@ -128,14 +132,14 @@ public final class Farms {
                 // a ragged edge: corners and sides are often left out
                 boolean edgeX = i == 0 || i == nx - 1, edgeZ = j == 0 || j == nz - 1;
                 if (r.nextFloat() < (edgeX && edgeZ ? 0.4F : edgeX || edgeZ ? 0.2F : 0.04F)) continue;
-                if (!level.hasChunksAt(b.minX() - 1, b.minZ() - 1, b.maxX() + 1, b.maxZ() + 1)) continue;
+                if (!level.hasChunksAt(b.minX() - 1, b.minZ() - 1, b.maxX() + 1, b.maxZ() + 1)) { why[0]++; continue; }
                 BoundingBox column = new BoundingBox(b.minX(), -64, b.minZ(), b.maxX(), 320, b.maxZ());
-                if (v.blueprint.overlaps(column.inflatedBy(2)) || column.intersects(village.inflatedBy(2))) continue;
-                boolean clash = false;
+                boolean clash = v.blueprint.overlaps(column.inflatedBy(2)) || column.intersects(village.inflatedBy(2));
                 for (BoundingBox t : taken) clash |= t.intersects(b.minX() - 1, b.minZ() - 1, b.maxX() + 1, b.maxZ() + 1);
-                if (clash) continue;
+                if (clash) { why[1]++; continue; }
                 int[] lie = lie(level, b);
-                if (lie == null || lie[1] > 4) continue;
+                if (lie == null) { why[2]++; continue; }
+                if (lie[1] > ROUGH) { why[3]++; continue; }
                 float roll = r.nextFloat();
                 Block crop = roll < 0.7F ? Blocks.WHEAT : roll < 0.8F ? Blocks.CARROTS : roll < 0.9F ? Blocks.POTATOES : Blocks.BEETROOTS;
                 out.add(new Plot(b, lie[0], alongX, crop));

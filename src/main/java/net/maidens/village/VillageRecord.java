@@ -54,6 +54,8 @@ public final class VillageRecord {
     public boolean bannerUp, farmsPlanned;
     /** Most of the trees inside the village (its walls) have been taken out. */
     public boolean treesCleared;
+    /** How many live there (counted once a minute while it's loaded; not saved). */
+    public int population;
     /** What the village has gathered (item id, count): food from its fields and boats, logs, stone. */
     public final Map<String, Integer> store = new java.util.TreeMap<>();
     /** Whether it's been given its first stock, and the last day its people ate. */

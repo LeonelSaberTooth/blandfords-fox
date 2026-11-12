@@ -52,6 +52,7 @@ public final class Fortify {
                 BlockPos door = Castle.door(v.castleCorner, rot);
                 if (level.hasChunksAt(door.getX() - 48, door.getZ() - 48, door.getX() + 48, door.getZ() + 48)) {
                     Buildings.Plan road = Buildings.road(level, v, new Buildings.Plan(Castle.ID, v.castle, java.util.Map.of(), java.util.Set.of(), 0, door), 40000);
+                    if (road == null) road = Buildings.straightRoad(level, v, door, v.castle);
                     if (road != null) {
                         v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", true);
                         v.castleRoad = true;
@@ -123,6 +124,7 @@ public final class Fortify {
         v.castleCorner = corner;
         v.castleTurn = rot.ordinal();
         Buildings.Plan road = Buildings.road(level, v, plan, 40000);
+        if (road == null && plan.door() != null) road = Buildings.straightRoad(level, v, plan.door(), plan.box());
         Buildings.prepare(level, v, plan);
         v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), Castle.NAME, instant);
         if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", instant);

@@ -276,7 +276,7 @@ public final class Blueprint {
                         set++;
                     }
                 } else if (!now.isAir() && expected(p) == null) {
-                    Place.remove(level, p.immutable(), q -> expected(q) != null);
+                    Place.remove(level, p.immutable(), q -> expected(q) != null, true);
                     set++;
                 }
             }

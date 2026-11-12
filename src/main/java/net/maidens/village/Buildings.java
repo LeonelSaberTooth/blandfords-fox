@@ -491,6 +491,59 @@ public final class Buildings {
         return box == null ? null : new Plan(house.template(), box, blocks, clear, 0, null);
     }
 
+    /**
+     * A road straight from a door to the village's nearest road block, when no walkable way can be found: it rises
+     * or falls at most a block at a time, built up on cobblestone where the ground falls away and cut into it where
+     * the ground rises (a ramp up a hill, a causeway over a dip). Null if the village has no roads.
+     */
+    @Nullable
+    static Plan straightRoad(ServerLevel level, VillageRecord v, BlockPos door, BoundingBox avoid) {
+        BlockPos[] nearest = {null};
+        double[] best = {Double.MAX_VALUE};
+        v.blueprint.forEachBlock((p, s) -> {
+            if (!s.is(Upkeep.ROAD)) return;
+            double d = p.distSqr(door);
+            if (d < best[0]) {
+                best[0] = d;
+                nearest[0] = p.immutable();
+            }
+        });
+        if (nearest[0] == null) return null;
+        BlockPos to = nearest[0];
+        int n = Math.max(Math.abs(to.getX() - door.getX()), Math.abs(to.getZ() - door.getZ()));
+        Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
+        Set<BlockPos> clear = new HashSet<>();
+        int y = surface(level, door.getX(), door.getZ());
+        int px = door.getX(), pz = door.getZ();
+        for (int i = 0; i <= n; i++) {
+            int x = n == 0 ? px : (int) Math.round(door.getX() + (to.getX() - door.getX()) * (double) i / n);
+            int z = n == 0 ? pz : (int) Math.round(door.getZ() + (to.getZ() - door.getZ()) * (double) i / n);
+            List<int[]> cols = new ArrayList<>();
+            if (x != px && z != pz) cols.add(new int[]{x, pz});      // no diagonal steps
+            cols.add(new int[]{x, z});
+            for (int[] c : cols) {
+                if (!level.hasChunkAt(new BlockPos(c[0], 0, c[1]))) return null;
+                int t = surface(level, c[0], c[1]);
+                // the last few blocks come down (or up) to the road's own height
+                int remaining = Math.abs(to.getX() - c[0]) + Math.abs(to.getZ() - c[1]);
+                int want = remaining <= Math.abs(y - to.getY()) + 1 ? to.getY() : t;
+                y = Math.max(y - 1, Math.min(y + 1, want));
+                BlockPos top = new BlockPos(c[0], y, c[1]);
+                if (avoid.isInside(top) || v.blueprint.expected(top) != null && !v.blueprint.expected(top).is(Upkeep.ROAD)) continue;
+                blocks.put(top, Blocks.DIRT_PATH.defaultBlockState());
+                for (int d = y - 1; d > t && d >= y - 12; d--) blocks.put(new BlockPos(c[0], d, c[1]), Blocks.COBBLESTONE.defaultBlockState());
+                for (int d = y + 1; d <= Math.max(y + 3, t); d++) clear.add(new BlockPos(c[0], d, c[1]));
+            }
+            px = x;
+            pz = z;
+        }
+        if (blocks.isEmpty()) return null;
+        List<BlockPos> all = new ArrayList<>(blocks.keySet());
+        all.addAll(clear);
+        BoundingBox box = BoundingBox.encapsulatingPositions(all).orElse(null);
+        return box == null ? null : new Plan(Castle.ID, box, blocks, clear, 0, null);
+    }
+
     /** A path from a spot (where a road between villages ends) to the village's own streets. True if there is one. */
     public static boolean joinToStreets(ServerLevel level, VillageRecord v, int x, int z) {
         if (!level.hasChunkAt(new BlockPos(x, 0, z))) return false;

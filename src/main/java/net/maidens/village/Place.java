@@ -39,8 +39,13 @@ public final class Place {
 
     /** Takes a block out (air, or water if it was in water). */
     public static void remove(ServerLevel level, BlockPos pos, @Nullable Predicate<BlockPos> keep) {
+        remove(level, pos, keep, false);
+    }
+
+    /** The same; dry: water goes too (a spot to be kept clear). */
+    public static void remove(ServerLevel level, BlockPos pos, @Nullable Predicate<BlockPos> keep, boolean dry) {
         BlockState was = level.getBlockState(pos);
-        BlockState air = was.getFluidState().isSource() && !was.getFluidState().isEmpty() ? was.getFluidState().createLegacyBlock() : Blocks.AIR.defaultBlockState();
+        BlockState air = !dry && was.getFluidState().isSource() ? was.getFluidState().createLegacyBlock() : Blocks.AIR.defaultBlockState();
         level.setBlock(pos, air, QUIET);
         after(level, pos, air, keep);
     }

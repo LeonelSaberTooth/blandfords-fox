@@ -179,7 +179,7 @@ public final class Upkeep {
             if (was.getFluidState().isEmpty() && !plant) {
                 level.destroyBlock(c.pos, c.drop, m);
                 Place.tidy(level, c.pos, q -> v.blueprint.expected(q) != null);
-            } else Place.remove(level, c.pos, q -> v.blueprint.expected(q) != null);
+            } else Place.remove(level, c.pos, q -> v.blueprint.expected(q) != null, true);
             v.chores.remove(c.pos.asLong());
             return true;
         }

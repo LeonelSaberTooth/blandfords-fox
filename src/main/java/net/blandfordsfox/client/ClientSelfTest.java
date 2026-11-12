@@ -37,7 +37,8 @@ public final class ClientSelfTest {
     /** Landscapes to photograph: a biome, or "dunes" (an open dune field in the desert). */
     private static final List<String> SCENES = List.of("dunes", "dunes2", "taiga", "snowy_taiga", "ice_spikes", "snowy_plains", "savanna");
 
-    private static int tick = -1, scene = 0, sceneStart;
+    private static int tick = -1, scene = 0, sceneStart, readyTick = -1;
+    private static volatile boolean ready;
     private static BlockPos spot;
     private static final List<Rabbit> runners = new ArrayList<>();
     private static double runX;
@@ -68,9 +69,12 @@ public final class ClientSelfTest {
             if (tick >= sceneStart + 10) mc.stop();
             return;
         }
-        int t = tick - sceneStart;
-        if (t == 280) shot(mc, SCENES.get(scene));
-        if (t == 290) {
+        // wait until the server has moved us there, then give the chunks time to load and draw
+        if (ready && readyTick < 0) readyTick = tick;
+        if (readyTick < 0) return;
+        int t = tick - readyTick;
+        if (t == 240) shot(mc, SCENES.get(scene));
+        if (t == 250) {
             scene++;
             sceneStart = tick;
             if (scene < SCENES.size()) build(server, SCENES.get(scene));
@@ -82,6 +86,8 @@ public final class ClientSelfTest {
     }
 
     private static void build(net.minecraft.server.MinecraftServer server, String what) {
+        ready = false;
+        readyTick = -1;
         server.execute(() -> {
             ServerLevel level = server.overworld();
             ServerPlayer p = server.getPlayerList().getPlayers().get(0);
@@ -118,6 +124,7 @@ public final class ClientSelfTest {
             // stand back and up, looking over the landscape
             p.teleportTo(level, c.getX() + 0.5, y + 14, c.getZ() - 30.5, 0, 22);
             LOG.info("[clienttest] scene {} at {}", what, spot);
+            ready = true;
         });
     }
 }

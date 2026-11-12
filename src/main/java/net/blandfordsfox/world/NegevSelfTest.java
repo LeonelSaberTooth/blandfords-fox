@@ -206,14 +206,22 @@ public final class NegevSelfTest {
             javax.imageio.ImageIO.write(img, "png", out.resolve("dunes.png").toFile());
             // the desert, wider: any water at the surface of desert columns?
             int dWater = 0, dCols = 0;
+            java.util.List<String> waterAt = new java.util.ArrayList<>();
             for (int x = near.getX() - 256; x < near.getX() + 256; x += 2)
                 for (int z = near.getZ() - 256; z < near.getZ() + 256; z += 2) {
                     int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
                     if (!level.getBiome(p.set(x, top, z)).is(Biomes.DESERT)) continue;
                     dCols++;
-                    if (!level.getBlockState(p.set(x, top - 1, z)).getFluidState().isEmpty()) dWater++;
+                    if (!level.getBlockState(p.set(x, top - 1, z)).getFluidState().isEmpty()) {
+                        dWater++;
+                        if (waterAt.size() < 10) {
+                            NegevShape.Column c = columns.get(x, z);
+                            waterAt.add(String.format(java.util.Locale.ROOT, "(%d %d top %d: hot %.2f dry %.2f river %.2f dune %.2f high %.2f wadi %.2f kind %s, dune surface %.1f)",
+                                    x, z, top, c.hot, c.dry, c.river, c.dune, c.high, c.wadi, c.kind, c.duneSurface));
+                        }
+                    }
                 }
-            report.append("desert surface water: ").append(dWater).append(" of ").append(dCols).append(" desert columns sampled\n");
+            report.append("desert surface water: ").append(dWater).append(" of ").append(dCols).append(" desert columns sampled; first: ").append(waterAt).append('\n');
         } catch (Throwable t) {
             report.append("dune test failed: ").append(t).append('\n');
         }

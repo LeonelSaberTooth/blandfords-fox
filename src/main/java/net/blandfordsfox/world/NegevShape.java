@@ -48,6 +48,7 @@ public final class NegevShape {
         this.mid = mid;
         this.small = small;
         this.fine = fine;
+        this.duneSeed = Double.doubleToLongBits(big.at(12.5, -7.25)) * 31 + Double.doubleToLongBits(mid.at(-3.75, 9.5));
     }
 
     // -- channels: one noise sampled at different offsets and scales gives independent fields
@@ -108,14 +109,34 @@ public final class NegevShape {
     /** Distance into the highlands (blocks) over which plateaus grow to full height. */
     public static double GROW_DISTANCE = 110;
 
-    /** Dunes: how much the sand floor swells up and down (blocks), and the ridge field's numbers. */
-    public static double DUNE_SWELL = 3, DUNE_RIDGE_H = 9, DUNE_CROSS_H = 5.5, DUNE_SPACING = 30, DUNE_CROSS_SPACING = 23;
+    /** Dunes: ridge and cross-ridge heights (blocks), and their spacing. */
+    public static double DUNE_RIDGE_H = 9, DUNE_CROSS_H = 5.5, DUNE_SPACING = 30, DUNE_CROSS_SPACING = 23;
 
-    private static final double[][] DOFF = {{4021.5, -9917.25}, {-12011.75, 3301.5}, {8807.25, 15511.75}, {-21313.5, -6203.25},
-            {27191.75, -19019.5}, {-3889.5, 24611.25}};
+    /** Seed for the dune noise, from this world's noise (so each world has its own dunes). */
+    private final long duneSeed;
 
-    private static double dn(Noise n, int k, double mult, double x, double z) {
-        return n.at(x * mult + DOFF[k][0], z * mult + DOFF[k][1]);
+    /**
+     * Gradient noise with the same shape and spread as the one the dune previews were made with
+     * (unit gradients on a square lattice, quintic fade, scaled to about -1..1), seeded per world.
+     */
+    private double dnoise(int k, double x, double z, double scale) {
+        long seed = duneSeed + k;
+        x /= scale;
+        z /= scale;
+        int x0 = (int) Math.floor(x), z0 = (int) Math.floor(z);
+        double fx = x - x0, fz = z - z0;
+        double n00 = gradDot(seed, x0, z0, fx, fz), n10 = gradDot(seed, x0 + 1, z0, fx - 1, fz);
+        double n01 = gradDot(seed, x0, z0 + 1, fx, fz - 1), n11 = gradDot(seed, x0 + 1, z0 + 1, fx - 1, fz - 1);
+        double u = fx * fx * fx * (fx * (fx * 6 - 15) + 10), v = fz * fz * fz * (fz * (fz * 6 - 15) + 10);
+        return ((n00 * (1 - u) + n10 * u) * (1 - v) + (n01 * (1 - u) + n11 * u) * v) * 1.6;
+    }
+
+    private static double gradDot(long seed, int ix, int iz, double dx, double dz) {
+        long h = seed * 0x9E3779B97F4A7C15L + ix * 0xC2B2AE3D27D4EB4FL + iz * 0x165667B19E3779F9L;
+        h = (h ^ (h >>> 31)) * 0xBF58476D1CE4E5B9L;
+        h ^= h >>> 29;
+        double a = (h >>> 11) * 0x1.0p-53 * 2 * Math.PI;
+        return Math.cos(a) * dx + Math.sin(a) * dz;
     }
 
     private static double frac(double v) { return v - Math.floor(v); }
@@ -131,33 +152,40 @@ public final class NegevShape {
         return m + k * Math.log(Math.exp((a - m) / k) + Math.exp((b - m) / k));
     }
 
+    /** How much the sand floor under the dunes swells up and down (blocks, about -4..4). */
+    double duneSwell(double x, double z) {
+        return 3 * dnoise(4, x, z, 260) + dnoise(5, x, z, 90);
+    }
+
     /**
-     * Dune height above the sand floor, blocks (about 0-11). Long wavy ridges whose direction
-     * bends slowly across the desert (a broad warp, so they curve together and never close into
-     * rings), spacing drifting between ~24 and ~36 blocks, two ridge sets taking turns so ridges
-     * merge and split; crescent cross-ridges between them in some areas (honeycomb) and not in
-     * others (open corridors); heights varying by area, along each crest and ridge by ridge.
+     * Dune height above the sand floor, blocks (about 0-8). Long wavy ridges whose direction
+     * bends slowly across the desert (a broad warp added to the coordinate, so they curve
+     * together and never close into rings), spacing drifting between ~24 and ~38 blocks (through
+     * a phase offset, which stays well-behaved however far from the world origin), two ridge sets
+     * taking turns so ridges merge and split; crescent cross-ridges between them in some areas
+     * (honeycomb) and not in others (open corridors); heights varying by area, along each crest
+     * and ridge by ridge. The same function as the approved preview (tools/dunes_preview.py).
      */
     double duneHeight(double x, double z) {
         double t0 = Math.toRadians(100), c = Math.cos(t0), s = Math.sin(t0);
-        double bend = 45 * dn(big, 0, 2.4, x, z) + 18 * dn(big, 1, 4.9, x, z);
+        double bend = 55 * dnoise(50, x, z, 430) + 22 * dnoise(53, x, z, 210);
         double u = x * c + z * s + bend;
         double v = -x * s + z * c + 0.6 * bend;
-        double period = DUNE_SPACING + 6 * dn(big, 2, 2.9, x, z);
-        double warp = 10 * dn(mid, 0, 1.83, x, z);
-        double r1 = Math.pow(slip(frac((u + warp) / period), 0.45), 1.6);
-        double r2 = Math.pow(slip(frac((u + warp * 1.2 + 11) / (period * 1.35)), 0.45), 1.6);
-        double ridgeId = Math.floor((u + warp) / period);
-        double perRidge = 0.8 + 0.25 * Math.sin(ridgeId * 12.9898) * Math.cos(ridgeId * 4.1414);
-        double hand = smooth(-0.25, 0.25, dn(mid, 1, 1.6, x, z));
+        double warp = 10 * dnoise(0, x, z, 140) + 3 * dnoise(1, x, z, 45);
+        double ph1 = (u + warp) / DUNE_SPACING + 1.1 * dnoise(51, x, z, 350);
+        double ph2 = (u + warp * 1.2 + 11) / (DUNE_SPACING * 1.35) + 0.8 * dnoise(54, x, z, 350);
+        double r1 = Math.pow(slip(frac(ph1), 0.45), 1.6);
+        double r2 = Math.pow(slip(frac(ph2), 0.45), 1.6);
+        double hand = smooth(-0.25, 0.25, dnoise(52, x, z, 160));
+        double rid = Math.floor(ph1);
+        double perRidge = 0.8 + 0.25 * Math.sin(rid * 12.9898) * Math.cos(rid * 4.1414);
         double ridges = smax(r1 * perRidge * (1 - 0.75 * hand), r2 * (0.25 + 0.75 * hand), 0.12);
-        double cross = Math.pow(slip(frac((v + 9 * dn(small, 0, 1.07, x, z)) / DUNE_CROSS_SPACING), 0.3), 1.3);
-        cross *= smooth(-0.5, 0.2, dn(mid, 2, 1.16, x, z))                       // honeycomb here, corridors there
-                * smooth(-0.35, 0.3, dn(small, 1, 1.9, x, z))                    // crescents come in pieces
+        double cross = Math.pow(slip(frac((v + 9 * dnoise(6, x, z, 60) + 2.5 * dnoise(8, x, z, 20)) / DUNE_CROSS_SPACING), 0.3), 1.3);
+        cross *= smooth(-0.5, 0.2, dnoise(7, x, z, 220))                         // honeycomb here, corridors there
+                * smooth(-0.35, 0.3, dnoise(9, x, z, 34))                        // crescents come in pieces
                 * (0.35 + 0.65 * Math.sqrt(Math.max(0, Math.min(1, 1 - ridges * 1.3))));
-        double broad = 0.7 + 0.3 * dn(mid, 3, 1.42, x, z);
-        double along = 0.78 + 0.22 * dn(small, 2, 1.7, x, z);
-        return Math.max(0, broad * along * smax(DUNE_RIDGE_H * ridges, DUNE_CROSS_H * cross, 0.9) - 0.6);
+        double amp = (0.7 + 0.3 * dnoise(2, x, z, 180)) * (0.78 + 0.22 * dnoise(3, x, z, 38));
+        return Math.max(0, amp * smax(DUNE_RIDGE_H * ridges, DUNE_CROSS_H * cross, 0.9) - 0.6);
     }
 
     // -- one column ----------------------------------------------------------------------
@@ -409,7 +437,7 @@ public final class NegevShape {
         double duneW = col.hot * (1 - highW) * (1 - col.river);
         if (duneW > 0) {
             col.dune = smooth(0.0, 0.5, duneW);
-            double base = Math.max(MIN_FLOOR + 1, vanillaSurface) + DUNE_SWELL * ch(mid, 4, 1.0, x, z);
+            double base = Math.max(MIN_FLOOR + 1, vanillaSurface) + duneSwell(x, z);
             col.duneSurface = Math.max(MIN_FLOOR + 1, base + duneW * duneHeight(x, z));
         }
 

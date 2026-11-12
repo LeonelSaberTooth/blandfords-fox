@@ -32,7 +32,7 @@ public final class TaigaFeatures {
     enum Rule { TAIGA, SNOWY_PLAINS, SNOWY_ROCK }
 
     /** Taiga ground patches: coarse dirt now and then (like old growth taiga), rarer, smaller grass patches. */
-    static final double COARSE_SCALE = 11, COARSE_LEVEL = 0.64, GRASS_SCALE = 6, GRASS_LEVEL = 0.8;
+    static final double COARSE_SCALE = 11, COARSE_LEVEL = 0.71, GRASS_SCALE = 6, GRASS_LEVEL = 0.8;
     static final float GRASS_ON_PATCH = 0.45F, TALL_GRASS_ON_PATCH = 0.12F;
 
     /**
@@ -125,7 +125,7 @@ public final class TaigaFeatures {
                     if (level.getBlockState(pos).is(Blocks.SAND)) { level.setBlock(pos, Blocks.GRAVEL.defaultBlockState(), 2); changed = true; }
                 }
             }
-            if (rule == Rule.TAIGA || rule == Rule.SNOWY_ROCK) changed |= deepslate(chunk, pos, x, z, ground, rule == Rule.SNOWY_ROCK && !underWater && !pond);
+            if (rule == Rule.TAIGA || rule == Rule.SNOWY_ROCK) changed |= deepslate(chunk, pos, x, z, ground, rule == Rule.SNOWY_ROCK && !underWater && !pond, rule == Rule.SNOWY_ROCK);
             if (underWater || pond) return changed;
             pos.set(x, ground, z);
             BlockState s = level.getBlockState(pos);
@@ -133,7 +133,7 @@ public final class TaigaFeatures {
             switch (rule) {
                 case SNOWY_ROCK -> {
                     // snow straight on the rock: the top block is snow (the soil under it is deepslate now)
-                    if (!soil && !s.is(Blocks.DEEPSLATE) && !s.is(Blocks.STONE)) return changed;
+                    if (!soil && !s.is(Blocks.DEEPSLATE) && !s.is(Blocks.GRAVEL) && !s.is(Blocks.SAND)) return changed;
                     level.setBlock(pos, Blocks.SNOW_BLOCK.defaultBlockState(), 2);
                     return true;
                 }
@@ -183,10 +183,10 @@ public final class TaigaFeatures {
          * Stone becomes deepslate (ores their deepslate kind) from the ground down; with soilToo,
          * the soil under the top block as well (snowy rock: snow straight on deepslate).
          */
-        private static boolean deepslate(ChunkAccess chunk, BlockPos.MutableBlockPos pos, int x, int z, int ground, boolean soilToo) {
+        private static boolean deepslate(ChunkAccess chunk, BlockPos.MutableBlockPos pos, int x, int z, int ground, boolean soilToo, boolean topToo) {
             boolean changed = false;
             boolean soil = soilToo;
-            for (int y = ground - (soilToo ? 1 : 0); y >= Math.max(chunk.getMinBuildHeight(), -8); y--) {
+            for (int y = ground - (topToo ? 0 : 1); y >= Math.max(chunk.getMinBuildHeight(), -8); y--) {
                 pos.set(x, y, z);
                 BlockState s = chunk.getBlockState(pos);
                 BlockState to = DEEPSLATE.get(s.getBlock());
@@ -200,6 +200,9 @@ public final class TaigaFeatures {
 
         private static final java.util.Map<net.minecraft.world.level.block.Block, BlockState> DEEPSLATE = java.util.Map.ofEntries(
                 java.util.Map.entry(Blocks.STONE, Blocks.DEEPSLATE.defaultBlockState()),
+                java.util.Map.entry(Blocks.ANDESITE, Blocks.DEEPSLATE.defaultBlockState()),
+                java.util.Map.entry(Blocks.DIORITE, Blocks.DEEPSLATE.defaultBlockState()),
+                java.util.Map.entry(Blocks.GRANITE, Blocks.DEEPSLATE.defaultBlockState()),
                 java.util.Map.entry(Blocks.COAL_ORE, Blocks.DEEPSLATE_COAL_ORE.defaultBlockState()),
                 java.util.Map.entry(Blocks.IRON_ORE, Blocks.DEEPSLATE_IRON_ORE.defaultBlockState()),
                 java.util.Map.entry(Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE.defaultBlockState()),
@@ -255,7 +258,7 @@ public final class TaigaFeatures {
             ServerLevel server = level.getLevel();
             var source = server.getChunkSource().getGenerator().getBiomeSource();
             var sampler = server.getChunkSource().randomState().sampler();
-            int taiga = 0, snowy = 0, other = 0;
+            int taiga = 0, snowy = 0, rock = 0, other = 0;
             for (int r = 16; r <= 48; r += 16)
                 for (int a = 0; a < 8; a++) {
                     int sx = x + (int) Math.round(r * Math.cos(a * Math.PI / 4)), sz = z + (int) Math.round(r * Math.sin(a * Math.PI / 4));
@@ -263,9 +266,11 @@ public final class TaigaFeatures {
                     if (b.is(BiomeTags.IS_RIVER) || b.is(BiomeTags.IS_OCEAN) || b.is(BiomeTags.IS_BEACH)) continue;
                     if (b.is(Biomes.TAIGA)) taiga++;
                     else if (b.is(Biomes.SNOWY_PLAINS)) snowy++;
+                    else if (b.is(Biomes.SNOWY_TAIGA) || b.is(Biomes.ICE_SPIKES)) rock++;
                     else other++;
                 }
             // a river along a border follows taiga / snowy plains if they make up a third or more of the land
+            if (rock > 0 && rock >= taiga && rock >= snowy && rock * 2 >= other) return Rule.SNOWY_ROCK;
             if (taiga > 0 && taiga >= snowy && taiga * 2 >= other) return Rule.TAIGA;
             if (snowy > 0 && snowy > taiga && snowy * 2 >= other) return Rule.SNOWY_PLAINS;
             return null;

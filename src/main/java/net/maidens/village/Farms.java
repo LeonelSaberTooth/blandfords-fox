@@ -109,7 +109,7 @@ public final class Farms {
     private static List<Plot> field(ServerLevel level, VillageRecord v, RandomSource r, int x, int z, double ox, double oz,
                                     BoundingBox village, List<BoundingBox> taken) {
         boolean alongX = r.nextBoolean();          // the plots' long side
-        int cols = 3 + r.nextInt(3), rows = 2 + r.nextInt(3);
+        int cols = 4 + r.nextInt(4), rows = 3 + r.nextInt(3);
         int[] across = new int[cols], along = new int[rows];
         for (int i = 0; i < cols; i++) across[i] = 5 + 2 * r.nextInt(3);          // 5, 7 or 9: a channel in the middle
         for (int j = 0; j < rows; j++) along[j] = 9 + r.nextInt(13);

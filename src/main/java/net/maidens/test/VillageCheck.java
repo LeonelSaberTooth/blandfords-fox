@@ -663,9 +663,9 @@ final class VillageCheck {
                 all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
             }
         log.accept("  fields: " + net.maidens.village.Farms.lastSearch + "; " + plots + " plots, " + crops[0] + " crops (" + crops[1] + " fully grown), spread over " + all);
-        if (plots == 0) {
-            // the land round the test village is all sea and mountain: a field on flat ground made for it, off to one
-            // side up in the air (so the fields and a farmer can be seen)
+        {
+            // the land round the test village is mostly sea and mountain: a field on flat ground as well, off to one
+            // side up in the air (so a whole field can be seen)
             int ix = v.centre().getX() + 260, iz = v.centre().getZ(), iy = 199;
             for (int cx = (ix - 4) >> 4; cx <= (ix + 110) >> 4; cx++)
                 for (int cz = (iz - 60) >> 4; cz <= (iz + 60) >> 4; cz++) {
@@ -679,12 +679,12 @@ final class VillageCheck {
                     level.setBlock(new BlockPos(x, iy, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
                     for (int y = iy + 1; y <= iy + 12; y++) if (!level.getBlockState(new BlockPos(x, y, z)).isAir()) level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 }
+            int before = v.blueprint.pieceCount();
             int made = net.maidens.village.Farms.fieldAt(level, v, ix + 2, iz);
+            all = null;
+            int k = 0;
             for (var p : v.blueprint.pieces())
-                if (p.name().equals(net.maidens.village.Farms.NAME)) {
-                    plots++;
-                    all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
-                }
+                if (k++ >= before) all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
             log.accept("  (test) a field on flat ground at " + ix + ", " + iy + ", " + iz + ": " + made + " plots, spread over " + all);
         }
         if (!v.treesCleared) net.maidens.village.Trees.clear(level, v);
@@ -725,7 +725,8 @@ final class VillageCheck {
             for (Maiden m : rs) {
                 if (!net.maidens.village.People.worker(m) || m.villageWork().job() != net.maidens.maiden.work.Job.NONE && m.villageWork().job() != net.maidens.maiden.work.Job.GUARD) continue;
                 m.villageWork().set(j, spots[i], 0);
-                log.accept("  (test) " + m.name() + " made a " + j.button.toLowerCase());
+                if (j == net.maidens.maiden.work.Job.FARM) farmer = m;
+                log.accept("  (test) " + m.name() + " made a " + j.button.toLowerCase() + " at " + spots[i].toShortString());
                 break;
             }
         }
@@ -733,8 +734,13 @@ final class VillageCheck {
         log.accept("  store at the start: " + v.store + "; food " + net.maidens.village.Economy.food(v));
     }
 
+    private Maiden farmer;
+
     private void economyWorkers(ServerLevel level, String when) {
         VillageRecord v = record;
+        if (farmer != null) log.accept("  " + when + ": the farmer " + farmer.name() + " alive " + farmer.isAlive() + " at " + farmer.blockPosition().toShortString()
+                + ", job " + farmer.villageWork().job() + ", hired " + farmer.employment().isHired() + ", raiding " + farmer.raider().active()
+                + ", village " + farmer.residence().village() + " (" + v.id + "), activity " + net.maidens.maiden.home.Schedule.activity(farmer) + ", goals [" + farmer.runningGoals() + "]");
         for (Maiden m : VillageSocial.everyone(level, v)) {
             var w = m.villageWork();
             if (w.job() == net.maidens.maiden.work.Job.NONE) continue;

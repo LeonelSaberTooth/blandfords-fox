@@ -108,6 +108,34 @@ public final class People {
             given++;
             log.append("; ").append(m.name()).append(" is now a ").append(TRADES[pick].button.toLowerCase()).append(" at ").append(at.toShortString());
         }
+        // no one new to give a job to: one worker a minute moves to the job furthest behind its share, from the one
+        // furthest ahead (fields laid out after everyone found work, say)
+        if (given == 0 && free.isEmpty()) {
+            int behind = -1, ahead = -1;
+            for (int i = 0; i < TRADES.length; i++) {
+                if (none[i]) continue;
+                if (behind < 0 || count[i] * SHARE[behind] < count[behind] * SHARE[i]) behind = i;
+                if (ahead < 0 || count[i] * SHARE[ahead] > count[ahead] * SHARE[i]) ahead = i;
+            }
+            if (behind >= 0 && ahead >= 0 && behind != ahead && (count[ahead] - 1) * SHARE[behind] >= (count[behind] + 1) * SHARE[ahead]) {
+                BlockPos at = switch (TRADES[behind]) {
+                    case FARM -> Farms.spot(level, v, r);
+                    case WOOD -> WorkSites.forest(level, v, r);
+                    case MINE -> WorkSites.mine(level, v, r);
+                    case FISH -> WorkSites.water(level, v, r);
+                    default -> null;
+                };
+                for (Maiden m : residents) {
+                    if (at == null || !worker(m) || m.villageWork().job() != TRADES[ahead] || m.employment().isHired()) continue;
+                    m.villageWork().set(TRADES[behind], at, 0);
+                    if (TRADES[behind] == Job.WOOD) m.villageWork().setLog(WorkSites.logNear(level, at));
+                    count[ahead]--;
+                    count[behind]++;
+                    log.append("; ").append(m.name()).append(" moves from ").append(TRADES[ahead].button.toLowerCase()).append(" to ").append(TRADES[behind].button.toLowerCase());
+                    break;
+                }
+            }
+        }
         lastJobs = n + " residents: " + guards + " guards, " + count[0] + " farmers, " + count[1] + " woodcutters, " + count[2] + " miners, "
                 + count[3] + " fishers" + (idle > 0 ? ", " + idle + " with nothing to do" : "") + log;
     }

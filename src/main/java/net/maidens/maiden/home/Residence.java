@@ -75,6 +75,9 @@ public final class Residence {
         long now = level.getGameTime();
         // her bed (only checked while its chunk is loaded: looking at unloaded ones reads them from disk)
         if (bed != null && level.isLoaded(bed) && !poi.exists(bed, h -> h.is(PoiTypes.HOME))) bed = null;
+        // the castle's beds are for the royals and their family
+        VillageRecord v = Villages.get(level).byId(village);
+        if (bed != null && v != null && v.castle != null && v.castle.isInside(bed) && !castleFolk(level, v)) leaveBed(level);
         if (bed == null && now >= nextBedSearch) {
             bed = take(level, poi, h -> h.is(PoiTypes.HOME));
             if (bed != null) m.setHome(bed);
@@ -116,8 +119,16 @@ public final class Residence {
             }
         }
         if (radius == SEARCH && !level.hasChunksAt(from.getX() - SEARCH, from.getZ() - SEARCH, from.getX() + SEARCH, from.getZ() + SEARCH)) return null;
-        Optional<BlockPos> found = poi.take(type, (h, pos) -> true, from, radius);
+        // (not a castle bed, for anyone but the royals)
+        boolean castle = v != null && v.castle != null && !castleFolk(level, v);
+        Optional<BlockPos> found = poi.take(type, (h, pos) -> !castle || !v.castle.isInside(pos), from, radius);
         return found.orElse(null);
+    }
+
+    /** A royal, or a royal's husband or wife. */
+    private boolean castleFolk(ServerLevel level, VillageRecord v) {
+        if (m.isRoyal() || v.isRoyal(m.getUUID())) return true;
+        return m.spouse() != null && v.isRoyal(m.spouse());
     }
 
     @Nullable
@@ -140,6 +151,26 @@ public final class Residence {
         bed = got.get();
         m.setHome(bed);
         return true;
+    }
+
+    /** Gives up her bed (someone else is to have it); she finds another. */
+    public void leaveBed(ServerLevel level) {
+        if (bed != null && level.isLoaded(bed)) level.getPoiManager().release(bed);
+        bed = null;
+        nextBedSearch = 0;
+    }
+
+    /** Swaps beds with someone (a married couple moving in together). */
+    public void swapBeds(ServerLevel level, Residence other) {
+        BlockPos mine = bed, theirs = other.bed;
+        if (mine == null || theirs == null) return;
+        PoiManager poi = level.getPoiManager();
+        poi.release(mine);
+        poi.release(theirs);
+        bed = null;
+        other.bed = null;
+        claimBed(level, theirs);
+        other.claimBed(level, mine);
     }
 
     /** She died: her bed and workstation are free for someone else. */

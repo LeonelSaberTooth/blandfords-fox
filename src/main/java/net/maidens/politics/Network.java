@@ -290,9 +290,9 @@ public final class Network extends SavedData {
         if (day != lastDay) {
             boolean first = lastDay < 0;
             lastDay = day;
-            if (!first) Roads.daily(level, this);
+            if (!first && Roads.ENABLED) Roads.daily(level, this);
         }
-        Roads.tick(level, this);
+        if (Roads.ENABLED) Roads.tick(level, this);
     }
 
     /** For the self test: a day of road building now. */

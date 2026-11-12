@@ -24,6 +24,12 @@ public final class Royals {
 
     /** Once a minute while the village is loaded: crowns someone if it needs a royal, and keeps the crowns right. */
     public static void tick(ServerLevel level, VillageRecord v, List<Maiden> residents) {
+        // a child isn't royal (from before that was checked): someone else is crowned
+        for (Maiden m : residents)
+            if (m.isBaby() && v.royals.remove(m.getUUID())) {
+                m.setRoyal(false);
+                Villages.get(level).setDirty();
+            }
         for (Maiden m : residents) {
             boolean royal = v.isRoyal(m.getUUID());
             if (royal != m.isRoyal()) m.setRoyal(royal);
@@ -32,21 +38,39 @@ public final class Royals {
         if (v.royals.size() >= PER_VILLAGE || residents.isEmpty()) return;
         // prefer someone free (not hired, not married to a player)
         List<Maiden> choice = new ArrayList<>();
-        for (Maiden m : residents) if (!m.isRoyal() && !m.employment().isHired() && !m.relationships().isMarried()) choice.add(m);
-        if (choice.isEmpty()) for (Maiden m : residents) if (!m.isRoyal()) choice.add(m);
+        for (Maiden m : residents) if (!m.isRoyal() && !m.isBaby() && !m.employment().isHired() && !m.relationships().isMarried()) choice.add(m);
+        if (choice.isEmpty()) for (Maiden m : residents) if (!m.isRoyal() && !m.isBaby()) choice.add(m);
         if (choice.isEmpty()) return;
         crown(level, v, choice.get(level.getRandom().nextInt(choice.size())));
     }
 
-    /** A royal sleeps in the castle (a free bed there), once it has one. */
+    /**
+     * A royal sleeps in the castle, once it has a bed, and so does her (or his) husband or wife: anyone else sleeping
+     * there is moved out first (they find a bed elsewhere).
+     */
     private static void moveIntoCastle(ServerLevel level, VillageRecord v, Maiden m) {
         BoundingBox c = v.castle;
         if (c == null || !level.hasChunksAt(c.minX(), c.minZ(), c.maxX(), c.maxZ())) return;
-        BlockPos bed = m.residence().bed();
-        if (bed != null && c.isInside(bed)) return;
-        BlockPos centre = c.getCenter();
-        level.getPoiManager().findAll(h -> h.is(PoiTypes.HOME), c::isInside, centre, 24, PoiManager.Occupancy.HAS_SPACE)
-                .findFirst().ifPresent(p -> m.residence().claimBed(level, p));
+        List<Maiden> family = new ArrayList<>(List.of(m));
+        if (m.spouse() != null && level.getEntity(m.spouse()) instanceof Maiden s && s.isAlive()) family.add(s);
+        for (Maiden who : family) {
+            BlockPos bed = who.residence().bed();
+            if (bed != null && c.isInside(bed)) continue;
+            BlockPos centre = c.getCenter();
+            var free = level.getPoiManager().findAll(h -> h.is(PoiTypes.HOME), c::isInside, centre, 32, PoiManager.Occupancy.HAS_SPACE).findFirst();
+            if (free.isEmpty()) {
+                // someone else has it: out they go
+                for (Maiden o : VillageSocial.everyone(level, v)) {
+                    BlockPos ob = o.residence().bed();
+                    if (ob != null && c.isInside(ob) && !family.contains(o) && !o.isRoyal()) {
+                        o.residence().leaveBed(level);
+                        free = java.util.Optional.of(ob);
+                        break;
+                    }
+                }
+            }
+            free.ifPresent(p -> who.residence().claimBed(level, p));
+        }
     }
 
     public static void crown(ServerLevel level, VillageRecord v, Maiden m) {

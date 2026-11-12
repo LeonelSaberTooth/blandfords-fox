@@ -269,6 +269,16 @@ public final class Castle {
         return new Buildings.Plan(ID, box, blocks, clear, beds, door);
     }
 
+    /** In the throne room (where a royal spends the day), for a corner and turn. */
+    public static BlockPos throneRoom(BlockPos corner, Rotation rot) {
+        return StructureTemplate.calculateRelativePosition(new StructurePlaceSettings().setRotation(rot), new BlockPos(12, 1, 10)).offset(corner);
+    }
+
+    /** Just outside its gate, for a corner and turn. */
+    static BlockPos door(BlockPos corner, Rotation rot) {
+        return StructureTemplate.calculateRelativePosition(new StructurePlaceSettings().setRotation(rot), new BlockPos(12, 0, SIZE)).offset(corner);
+    }
+
     /** The turn that puts the gate (south in its own frame) towards a direction. */
     static Rotation facing(int dx, int dz) {
         if (Math.abs(dx) > Math.abs(dz)) return dx > 0 ? Rotation.COUNTERCLOCKWISE_90 : Rotation.CLOCKWISE_90;

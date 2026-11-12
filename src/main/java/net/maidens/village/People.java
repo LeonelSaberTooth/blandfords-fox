@@ -32,7 +32,45 @@ public final class People {
     /** Once a minute while the village is loaded: weddings, and jobs. */
     static void tick(ServerLevel level, VillageRecord v, List<Maiden> residents) {
         marry(level, v, residents);
+        together(level, v, residents);
         jobs(level, v, residents);
+    }
+
+    /** The building a bed is in (a piece of the village's blueprint), or just the bed's spot. */
+    static net.minecraft.world.level.levelgen.structure.BoundingBox houseOf(VillageRecord v, BlockPos bed) {
+        for (Blueprint.PieceInfo p : v.blueprint.pieces())
+            if (p.box().isInside(bed) && !p.name().equals("road") && !p.name().equals(Walls.NAME) && !p.name().equals(Farms.NAME)) return p.box();
+        return new net.minecraft.world.level.levelgen.structure.BoundingBox(bed).inflatedBy(6);
+    }
+
+    /**
+     * A married couple sleeps in the same house: one moves into a free bed in the other's house, or swaps beds with
+     * someone single who sleeps there.
+     */
+    private static void together(ServerLevel level, VillageRecord v, List<Maiden> residents) {
+        for (Maiden a : residents) {
+            if (a.spouse() == null || a.residence().bed() == null) continue;
+            Maiden b = null;
+            for (Maiden o : residents) if (o.getUUID().equals(a.spouse())) b = o;
+            if (b == null || b.residence().bed() == null) continue;
+            var house = houseOf(v, b.residence().bed());
+            if (house.isInside(a.residence().bed())) continue;
+            if (a.isRoyal() || b.isRoyal()) continue;          // (the royals have the castle)
+            // a free bed in the house
+            var free = level.getPoiManager().findAll(h -> h.is(net.minecraft.world.entity.ai.village.poi.PoiTypes.HOME), house::isInside,
+                    house.getCenter(), 24, net.minecraft.world.entity.ai.village.poi.PoiManager.Occupancy.HAS_SPACE).findFirst();
+            if (free.isPresent()) {
+                a.residence().claimBed(level, free.get());
+                continue;
+            }
+            // or someone single sleeping there moves to her bed
+            for (Maiden c : residents) {
+                BlockPos cb = c.residence().bed();
+                if (c == a || c == b || cb == null || !house.isInside(cb) || c.spouse() != null || c.isRoyal()) continue;
+                a.residence().swapBeds(level, c.residence());
+                break;
+            }
+        }
     }
 
     /** How the last job search went (for the self test). */

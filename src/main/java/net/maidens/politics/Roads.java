@@ -19,6 +19,8 @@ import java.util.List;
  * over water, and a lantern post every 32 blocks. Player-built blocks are never replaced.
  */
 public final class Roads {
+    /** Off for now (to be reworked): no new roads between villages are planned or laid. */
+    public static final boolean ENABLED = false;
     private static final int PER_DAY = 160, LAID_PER_TICK = 64, LANTERN_EVERY = 32, NEAREST = 2;
 
     private Roads() {}

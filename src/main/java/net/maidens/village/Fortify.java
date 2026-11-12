@@ -46,6 +46,19 @@ public final class Fortify {
                     housesBy(level, v, true);
                 }
             }
+            // a castle not yet joined to the roads (its land wasn't all loaded, or the way was blocked): tried again now and then
+            if (v.castle != null && !v.castleRoad && v.castleCorner != null && level.getGameTime() % 1200 < 100) {
+                Rotation rot = Rotation.values()[v.castleTurn];
+                BlockPos door = Castle.door(v.castleCorner, rot);
+                if (level.hasChunksAt(door.getX() - 48, door.getZ() - 48, door.getX() + 48, door.getZ() + 48)) {
+                    Buildings.Plan road = Buildings.road(level, v, new Buildings.Plan(Castle.ID, v.castle, java.util.Map.of(), java.util.Set.of(), 0, door), 40000);
+                    if (road != null) {
+                        v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", true);
+                        v.castleRoad = true;
+                        villages.setDirty();
+                    }
+                }
+            }
             if (!v.gates.isEmpty()) Walls.joinGates(level, v);
             if (!v.bannerUp) bannerByBell(level, v);
         }
@@ -106,12 +119,13 @@ public final class Fortify {
 
     /** Adds the castle at a corner and turn, with a road from its gate. Returns false if it can't go there. */
     static boolean castleAt(ServerLevel level, VillageRecord v, BlockPos corner, Rotation rot, boolean instant) {
-        Buildings.Plan plan = Buildings.withFoundation(level, Castle.plan(corner, rot, v), 16);
+        Buildings.Plan plan = Buildings.shaped(level, v, Castle.plan(corner, rot, v));
         v.castleCorner = corner;
         v.castleTurn = rot.ordinal();
-        Buildings.Plan road = Buildings.road(level, v, plan);
+        Buildings.Plan road = Buildings.road(level, v, plan, 40000);
         v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), Castle.NAME, instant);
         if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", instant);
+        v.castleRoad = road != null;
         v.castle = plan.box();
         if (!instant) v.project = Castle.NAME;
         Villages.get(level).setDirty();
@@ -141,27 +155,9 @@ public final class Fortify {
         if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) return "That land isn't loaded.";
         BoundingBox column = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
         if (v.blueprint.overlaps(column.inflatedBy(2))) return "Something's already there.";
+        // any ground will do: it stands on a foundation, and what's in the way is felled and dug away
         int base = Buildings.groundLevel(level, new BoundingBox(fp.minX(), 0, fp.minZ(), fp.maxX(), 0, fp.maxZ()));
-        if (base == Integer.MIN_VALUE) {
-            // the castle stands on a foundation, so a gentle slope is fine: use the average if it isn't wet
-            int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
-            long sum = 0;
-            int n = 0, wet = 0;
-            for (int x = fp.minX(); x <= fp.maxX(); x += 2)
-                for (int z = fp.minZ(); z <= fp.maxZ(); z += 2) {
-                    int h = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-                    if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) {
-                        if (++wet > 40) return "The ground there is too wet.";
-                        continue;
-                    }
-                    min = Math.min(min, h);
-                    max = Math.max(max, h);
-                    sum += h;
-                    n++;
-                }
-            if (max - min > 10) return "The ground there is too steep.";
-            base = (int) Math.round((double) sum / n);
-        }
+        if (base == Integer.MIN_VALUE) return "That land isn't loaded.";
         castleAt(level, v, new BlockPos(corner.getX(), base, corner.getZ()), rot, false);
         housesBy(level, v, false);
         return null;

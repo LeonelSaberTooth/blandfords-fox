@@ -603,6 +603,12 @@ public class Maiden extends AbstractVillager {
         MaidenAi.register(this, goalSelector, targetSelector);
     }
 
+    /** Asleep, she isn't pushed about (off her bed) by others bumping into her. */
+    @Override
+    public boolean isPushable() {
+        return !isSleeping() && super.isPushable();
+    }
+
     @Override
     public void aiStep() {
         // villagers don't keep their swing going (monsters and players do): without this her arm never moves
@@ -611,7 +617,8 @@ public class Maiden extends AbstractVillager {
         if (level().isClientSide) return;
         if (tickCount % 20 == 7) updateLooks();
         // anything that makes her move (fleeing, a friend, a raid) gets her out of bed first: never walking lying down
-        if (isSleeping() && (!getNavigation().isDone() || getSleepingPos().map(b -> distanceToSqr(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5) > 4.0).orElse(false))) {
+        // (moved off her bed, she gets up rather than lying beside it)
+        if (isSleeping() && (!getNavigation().isDone() || getSleepingPos().map(b -> distanceToSqr(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5) > 1.0).orElse(false))) {
             getNavigation().stop();
             stopSleeping();
         }
@@ -816,10 +823,13 @@ public class Maiden extends AbstractVillager {
             Schedule.Activity a = Schedule.activity(this);
             if (employment.busyNow()) hat = villageWork.trade(employment.job());
             else if (a == Schedule.Activity.WORK && villageWork.onDuty()) hat = villageWork.trade(villageWork.job());
-            else if (a == Schedule.Activity.HOME || a == Schedule.Activity.SLEEP) casual = true;
-            else if (a == null) casual = kind() == Kind.WOMAN && !level().canSeeSky(blockPosition().above())
-                    && level().getBrightness(net.minecraft.world.level.LightLayer.SKY, blockPosition().above()) < 14
-                    && blockPosition().getY() > level().getSeaLevel() - 8;
+            else {
+                // casual clothes: at home time, at home (near her bed, under a roof)
+                Schedule.Activity t = Schedule.now(this);
+                BlockPos bed = residence.bed();
+                casual = (t == Schedule.Activity.HOME || t == Schedule.Activity.SLEEP) && bed != null
+                        && blockPosition().closerThan(bed, 8) && !level().canSeeSky(blockPosition().above());
+            }
             casual &= getTarget() == null && unarmoured;
         }
         if (!hat.equals(entityData.get(HAT))) entityData.set(HAT, hat);

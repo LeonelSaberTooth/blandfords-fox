@@ -271,12 +271,12 @@ public final class Blueprint {
                             }
                             if (blocked) continue;
                         }
-                        level.setBlock(p, want, Block.UPDATE_CLIENTS);
+                        Place.set(level, p.immutable(), want, q -> expected(q) != null);
                         if (want.getBlock() instanceof net.minecraft.world.level.block.AbstractBannerBlock) banner.accept(p.immutable());
                         set++;
                     }
                 } else if (!now.isAir() && expected(p) == null) {
-                    level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    Place.remove(level, p.immutable(), q -> expected(q) != null);
                     set++;
                 }
             }

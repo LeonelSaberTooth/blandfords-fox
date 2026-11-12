@@ -83,7 +83,8 @@ public final class Schedule {
         return switch (a) {
             case HOME, SLEEP -> r.bed();
             case WORK -> v == null ? null : m.villageWork().place(v);
-            case MARKET -> v == null ? null : market(m, v);
+            case MARKET -> v == null ? null : m.isRoyal() && v.castle != null && v.castleCorner != null
+                    ? net.maidens.village.Castle.throneRoom(v.castleCorner, net.minecraft.world.level.block.Rotation.values()[v.castleTurn]) : market(m, v);
             case OUTSIDE -> v == null ? null : playing(m, v);
         };
     }

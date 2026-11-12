@@ -172,8 +172,14 @@ public final class Upkeep {
         if (v == null) return true;
         m.swing(InteractionHand.MAIN_HAND);
         if (c.kind == Chore.Kind.CLEAR) {
-            if (level.getBlockState(c.pos).getFluidState().isEmpty()) level.destroyBlock(c.pos, c.drop, m);
-            else level.setBlock(c.pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            BlockState was = level.getBlockState(c.pos);
+            // plants, leaves and snow just go (no seeds and flowers left lying about); anything else is dug out
+            boolean plant = was.canBeReplaced() || was.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock
+                    || was.getBlock() instanceof net.minecraft.world.level.block.BushBlock || was.is(net.minecraft.world.level.block.Blocks.SNOW);
+            if (was.getFluidState().isEmpty() && !plant) {
+                level.destroyBlock(c.pos, c.drop, m);
+                Place.tidy(level, c.pos, q -> v.blueprint.expected(q) != null);
+            } else Place.remove(level, c.pos, q -> v.blueprint.expected(q) != null);
             v.chores.remove(c.pos.asLong());
             return true;
         }
@@ -182,7 +188,7 @@ public final class Upkeep {
         for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c.pos))) {
             if (!(e instanceof Maiden other) || !other.arriveNear(c.pos)) return false;
         }
-        place(level, c.pos, c.block);
+        place(level, v, c.pos, c.block);
         if (c.block.getBlock() instanceof net.minecraft.world.level.block.AbstractBannerBlock) Heraldry.decorate(level, c.pos, v.id);
         v.chores.remove(c.pos.asLong());
         // the other half of a door or bed, or the rest of the same block next to it, goes back at the same time
@@ -191,7 +197,7 @@ public final class Upkeep {
             BlockState e = v.blueprint.expected(n);
             if (e != null && e.is(c.block.getBlock()) && missing(level.getBlockState(n), e)
                     && level.getEntitiesOfClass(LivingEntity.class, new AABB(n)).isEmpty()) {
-                place(level, n, e);
+                place(level, v, n, e);
                 v.chores.remove(n.asLong());
             }
         }
@@ -204,7 +210,7 @@ public final class Upkeep {
                 BlockState e = v.blueprint.expected(n);
                 if (e == null || !missing(level.getBlockState(n), e)) continue;
                 if (!level.getEntitiesOfClass(LivingEntity.class, new AABB(n)).isEmpty()) continue;
-                level.setBlock(n, e, Block.UPDATE_CLIENTS);
+                Place.set(level, n.immutable(), e, q -> v.blueprint.expected(q) != null);
                 v.chores.remove(n.asLong());
                 more--;
             }
@@ -212,10 +218,10 @@ public final class Upkeep {
         return true;
     }
 
-    private static void place(ServerLevel level, BlockPos p, BlockState s) {
+    private static void place(ServerLevel level, VillageRecord v, BlockPos p, BlockState s) {
         // a crop is put back as a seedling (it grows again; picking it isn't for nothing)
         if (s.getBlock() instanceof net.minecraft.world.level.block.CropBlock crop) s = crop.getStateForAge(0);
-        level.setBlock(p, s, Block.UPDATE_CLIENTS);
+        Place.set(level, p.immutable(), s, q -> v.blueprint.expected(q) != null);
         SoundType sound = s.getSoundType();
         level.playSound(null, p, sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
     }

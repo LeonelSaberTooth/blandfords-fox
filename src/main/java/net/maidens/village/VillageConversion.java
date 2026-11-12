@@ -26,12 +26,35 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 public final class VillageConversion {
     private VillageConversion() {}
 
+    /** Structure villagers let back in after all (their village isn't a maiden village). */
+    private static final java.util.Set<java.util.UUID> LET_IN = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * A structure villager doesn't come into the world straight away: whether her village is a maiden village is
+     * decided on the next tick (once the chunk has finished loading, when looking up the village is safe). If it is,
+     * a maiden comes in her place; if not, she comes in after all. (Swapping her out after she'd come in could leave
+     * a villager players still saw but that wasn't there.)
+     */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onJoin(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level) || !(event.getEntity() instanceof Villager villager)) return;
-        if (!fromVillageStructure(villager)) return;
-        // decided on the next tick, once the chunk has finished loading: then looking up the village is safe
+        if (LET_IN.remove(villager.getUUID()) || !fromVillageStructure(villager)) return;
+        event.setCanceled(true);
         level.getServer().execute(() -> convert(level, villager));
+    }
+
+    /** Iron golems aren't made in maiden villages (one a player builds is). */
+    @SubscribeEvent
+    public static void onGolem(EntityJoinLevelEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level) || !(event.getEntity() instanceof net.minecraft.world.entity.animal.IronGolem golem)) return;
+        if (golem.isPlayerCreated()) return;
+        for (VillageRecord v : Villages.get(level).all()) {
+            var b = (v.wallBox != null ? v.wallBox : v.box).inflatedBy(24);
+            if (b.isInside(new net.minecraft.core.BlockPos(golem.getBlockX(), b.minY(), golem.getBlockZ()))) {
+                event.setCanceled(true);
+                return;
+            }
+        }
     }
 
     /**
@@ -51,16 +74,21 @@ public final class VillageConversion {
     }
 
     private static void convert(ServerLevel level, Villager villager) {
-        if (villager.isRemoved()) return;
         StructureStart village = Villages.villageAt(level, villager.blockPosition());
-        if (village == null || !Villages.rollsMaidens(level, village)) return;
+        if (village == null || !Villages.rollsMaidens(level, village)) {
+            // not a maiden village: she comes in after all
+            if (!villager.isRemoved() && level.isLoaded(villager.blockPosition())) {
+                LET_IN.add(villager.getUUID());
+                level.addFreshEntity(villager);
+            }
+            return;
+        }
         replace(level, villager, Villages.get(level).record(level, village));
     }
 
-    /** The villager goes; a maiden of that village takes her place (a baby just goes). */
+    /** The villager goes (if she ever came in); a maiden of that village takes her place (a baby becomes a child). */
     private static void replace(ServerLevel level, Villager villager, VillageRecord record) {
-        if (villager.isRemoved()) return;
-        villager.discard();
+        if (!villager.isRemoved()) villager.discard();
         Maiden m = ModEntities.MAIDEN.get().create(level);
         if (m == null) return;
         m.moveTo(villager.getX(), villager.getY(), villager.getZ(), villager.getYRot(), 0);

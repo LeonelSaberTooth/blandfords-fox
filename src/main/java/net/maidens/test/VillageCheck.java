@@ -705,6 +705,57 @@ final class VillageCheck {
         }
         if (!v.treesCleared) net.maidens.village.Trees.clear(level, v);
         log.accept("  trees: " + net.maidens.village.Trees.lastClearing);
+        {
+            // what's left inside: trees, and leaves with no log near them (floating), snow and vines hanging in the air
+            var area = v.wallBox != null ? v.wallBox : v.box;
+            int trees = 0, floating = 0, loose = 0;
+            java.util.Set<BlockPos> seenTops = new java.util.HashSet<>();
+            for (int x = area.minX(); x <= area.maxX(); x++)
+                for (int z = area.minZ(); z <= area.maxZ(); z++) {
+                    int top = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z);
+                    for (int y = top; y > top - 24; y--) {
+                        BlockPos p = new BlockPos(x, y, z);
+                        var st = level.getBlockState(p);
+                        if (st.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock && !st.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)) {
+                            boolean log = false;
+                            for (BlockPos q : BlockPos.betweenClosed(p.offset(-5, -5, -5), p.offset(5, 5, 5)))
+                                if (level.getBlockState(q).is(net.minecraft.tags.BlockTags.LOGS)) { log = true; break; }
+                            if (!log) floating++;
+                        }
+                        if ((st.is(Blocks.SNOW) || st.is(Blocks.VINE)) && !st.canSurvive(level, p)) loose++;
+                        if (st.is(net.minecraft.tags.BlockTags.LOGS) && level.getBlockState(p.below()).is(net.minecraft.tags.BlockTags.DIRT)) trees++;
+                    }
+                }
+            log.accept("  inside the village now: " + trees + " trunks on the ground, " + floating + " leaves with no log within 5, " + loose + " snow or vines hanging in the air");
+            // the castle: its road, its glass joined up, who sleeps there
+            if (v.castle != null) {
+                int panes = 0, joined = 0;
+                for (BlockPos p : BlockPos.betweenClosed(v.castle.minX(), v.castle.minY(), v.castle.minZ(), v.castle.maxX(), v.castle.maxY(), v.castle.maxZ())) {
+                    var st = level.getBlockState(p);
+                    if (!st.is(Blocks.GLASS_PANE) && !(st.getBlock() instanceof net.minecraft.world.level.block.StainedGlassPaneBlock)) continue;
+                    panes++;
+                    if (st.getValue(net.minecraft.world.level.block.CrossCollisionBlock.NORTH) || st.getValue(net.minecraft.world.level.block.CrossCollisionBlock.SOUTH)
+                            || st.getValue(net.minecraft.world.level.block.CrossCollisionBlock.EAST) || st.getValue(net.minecraft.world.level.block.CrossCollisionBlock.WEST)) joined++;
+                }
+                log.accept("  castle: road to its gate " + v.castleRoad + "; " + panes + " glass panes, " + joined + " joined to the walls");
+            }
+            List<Maiden> all = VillageSocial.everyone(level, v);
+            int couples = 0, together = 0, royalChildren = 0;
+            String royal = "-";
+            for (Maiden m : all) {
+                if (m.isRoyal()) {
+                    royal = m.name() + (m.isBaby() ? " (a child!)" : "") + " sleeping " + (m.residence().bed() == null ? "nowhere" : v.castle != null && v.castle.isInside(m.residence().bed()) ? "in the castle" : "at " + m.residence().bed().toShortString());
+                    if (m.isBaby()) royalChildren++;
+                }
+                if (m.spouse() == null || m.residence().bed() == null || m.getUUID().compareTo(m.spouse()) > 0) continue;
+                for (Maiden o : all)
+                    if (o.getUUID().equals(m.spouse()) && o.residence().bed() != null) {
+                        couples++;
+                        if (m.residence().bed().closerThan(o.residence().bed(), 8)) together++;
+                    }
+            }
+            log.accept("  people: " + all.size() + " (filled: " + v.peopled + "); " + couples + " married couples with beds, " + together + " sleeping under one roof; the royal " + royal);
+        }
         log.accept("  rank of the tester: " + net.maidens.politics.Diplomacy.rank(level, v, tester.getUUID()).label);
     }
 

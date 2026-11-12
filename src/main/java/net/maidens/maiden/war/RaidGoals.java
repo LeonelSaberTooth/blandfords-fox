@@ -30,7 +30,9 @@ public final class RaidGoals {
     /** A raider presses into the village (towards its centre), and helps herself to what's in its chests. */
     public static final class Advance extends Goal {
         private final Maiden m;
-        private int repath, lootCheck, chestSearch;
+        private int repath, lootCheck, chestSearch, stuck;
+        private double closest = Double.MAX_VALUE;
+        @org.jetbrains.annotations.Nullable private BlockPos aim;
         @org.jetbrains.annotations.Nullable private BlockPos chest;
 
         public Advance(Maiden m) {
@@ -57,6 +59,12 @@ public final class RaidGoals {
             }
             if (--repath > 0) return;
             repath = 40;
+            // a walled village: in through the nearest gate (to just outside it, then just inside it)
+            BlockPos through = throughGate(v);
+            if (through != null) {
+                go(through);
+                return;
+            }
             Vec3 c = Vec3.atBottomCenterOf(v.bell() != null ? v.bell() : v.centre());
             // in the village: off to the nearest chest with something in it
             if (m.distanceToSqr(c) < 40 * 40) {
@@ -71,6 +79,56 @@ public final class RaidGoals {
             }
             Vec3 step = m.distanceToSqr(c) > 30 * 30 ? LandRandomPos.getPosTowards(m, 20, 7, c) : LandRandomPos.getPosTowards(m, 8, 4, c);
             if (step != null) m.getNavigation().moveTo(step.x, step.y, step.z, 0.7);
+        }
+
+        /** Outside the walls: the spot to make for (outside the nearest gate, then inside it); null once she's inside. */
+        @org.jetbrains.annotations.Nullable
+        private BlockPos throughGate(VillageRecord v) {
+            if (v.wallBox == null || v.gates.isEmpty()) return null;
+            var inner = v.wallBox.inflatedBy(-2);
+            BlockPos at = m.blockPosition();
+            if (at.getX() >= inner.minX() && at.getX() <= inner.maxX() && at.getZ() >= inner.minZ() && at.getZ() <= inner.maxZ()) return null;
+            VillageRecord.Gate best = null;
+            double bd = Double.MAX_VALUE;
+            for (VillageRecord.Gate g : v.gates) {
+                double d = at.distSqr(g.pos);
+                if (d < bd) {
+                    bd = d;
+                    best = g;
+                }
+            }
+            int dx = Integer.signum(best.dx), dz = Integer.signum(best.dz);
+            BlockPos out = best.pos.offset(dx * 5, 0, dz * 5), in = best.pos.offset(-dx * 6, 0, -dz * 6);
+            // close to the gate already (outside it, or in it): straight through
+            return at.distSqr(out) < 4 * 4 || at.distSqr(best.pos) < 5 * 5 ? in : out;
+        }
+
+        /** Makes for a spot: the whole way planned now and then (further than usual), a stretch at a time otherwise. */
+        private void go(BlockPos to) {
+            Vec3 c = Vec3.atBottomCenterOf(to);
+            if (!to.equals(aim)) {
+                aim = to;
+                closest = Double.MAX_VALUE;
+                stuck = 0;
+            }
+            double d = m.distanceToSqr(c);
+            if (d < closest - 1) {
+                closest = d;
+                stuck = 0;
+            } else if (++stuck > 8 && m.arriveNear(to)) {     // 15 s without getting closer (no one watching): she gets there
+                stuck = 0;
+                return;
+            }
+            var range = m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
+            double was = range.getBaseValue();
+            range.setBaseValue(128);
+            var path = m.getNavigation().createPath(to, 1);
+            range.setBaseValue(was);
+            if (path != null && path.getNodeCount() > 1) m.getNavigation().moveTo(path, 0.7);
+            else {
+                Vec3 step = LandRandomPos.getPosTowards(m, 16, 7, c);
+                if (step != null) m.getNavigation().moveTo(step.x, step.y, step.z, 0.7);
+            }
         }
 
         /** The nearest chest in the village (loaded land only) that isn't empty. */

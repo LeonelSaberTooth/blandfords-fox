@@ -156,6 +156,9 @@ public final class VillageWork {
     public void dress() {
         if (m.employment().isHired() || m.isBaby()) return;
         boolean on = onDuty();
+        // a sword left in her hand from a raid (hers or on the village) is put away when it's over (not a guard's)
+        if (job != Job.GUARD && !m.isDefending() && !m.raider().active() && m.getTarget() == null
+                && m.getMainHandItem().getItem() instanceof net.minecraft.world.item.SwordItem) m.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
         if (job == Job.GUARD) {
             boolean fight = on || m.getTarget() != null || m.isDefending();
             swap(EquipmentSlot.HEAD, on, Items.IRON_HELMET, Items.CHAINMAIL_HELMET);

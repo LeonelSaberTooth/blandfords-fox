@@ -145,13 +145,12 @@ public final class Buildings {
         if (!v.box.inflatedBy(40).intersects(fp)) return "That's too far from " + v.name + ".";
         if (!level.hasChunksAt(fp.minX() - 2, fp.minZ() - 2, fp.maxX() + 2, fp.maxZ() + 2)) return "That land isn't loaded.";
         if (v.blueprint.overlaps(fp.inflatedBy(2))) return "Something's already there.";
+        // any ground will do: the maidens fell the trees in the way, dig into a slope and build up a foundation
         int base = groundLevel(level, fp);
-        if (base == Integer.MIN_VALUE) return "The ground there is too steep or wet.";
-        Plan plan = withFoundation(level, read(level, template, new BlockPos(corner.getX(), base, corner.getZ()), rot));
-        Plan road = plan.door() == null ? null : road(level, v, plan);
-        if (road == null) return "There's no way to join a road to its door from there.";
+        Plan plan = shaped(level, v, read(level, template, new BlockPos(corner.getX(), base, corner.getZ()), rot));
+        Plan road = plan.door() == null ? null : road(level, v, plan, 20000);
         v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template));
-        v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road");
+        if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road");
         v.project = shortName(template);
         Villages.get(level).setDirty();
         return null;
@@ -176,11 +175,13 @@ public final class Buildings {
     /** The same; instant ones are put in place all at once (a fortified village's first houses) instead of built. */
     @Nullable
     public static Plan build(ServerLevel level, VillageRecord v, ResourceLocation template, BlockPos near, boolean instant) {
-        // the nearest good spot whose door can be joined to the village's roads by a walkable path
+        // the nearest good spot whose door can be joined to the village's roads by a walkable path (or, if none can,
+        // the best spot anyway)
         int tried = 0;
-        for (Site site : findSites(level, v, template, near)) {
+        List<Site> sites = findSites(level, v, template, near);
+        for (Site site : sites) {
             if (++tried > 12) break;
-            Plan plan = withFoundation(level, read(level, template, site.origin(), site.rot()));
+            Plan plan = shaped(level, v, read(level, template, site.origin(), site.rot()));
             Plan road = plan.door() == null ? null : road(level, v, plan);
             if (road == null) continue;
             v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template), instant);
@@ -189,8 +190,14 @@ public final class Buildings {
             Villages.get(level).setDirty();
             return plan;
         }
-        lastSearch += "; " + tried + " checked for a road, none could be joined";
-        return null;
+        if (sites.isEmpty()) return null;
+        lastSearch += "; " + tried + " checked for a road, none could be joined (built without one)";
+        Site site = sites.get(0);
+        Plan plan = shaped(level, v, read(level, template, site.origin(), site.rot()));
+        v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template), instant);
+        if (!instant) v.project = shortName(template);
+        Villages.get(level).setDirty();
+        return plan;
     }
 
     private record Site(BlockPos origin, Rotation rot, double distance) {}
@@ -218,42 +225,84 @@ public final class Buildings {
             if (v.blueprint.overlaps(fp.inflatedBy(2))) { overlap++; continue; }
             int base = groundLevel(level, fp);
             if (base == Integer.MIN_VALUE) { ground++; continue; }
-            sites.add(new Site(new BlockPos(x, base, z), rot, near.distSqr(fp.getCenter())));
+            // nearer is better, and flatter and drier (less to dig, fill and build up)
+            double d = Math.sqrt(near.distSqr(fp.getCenter())) + 4 * roughness(level, fp);
+            sites.add(new Site(new BlockPos(x, base, z), rot, d));
         }
         lastSearch = shortName(template) + ": " + sites.size() + " good spots of " + TRIES + " tried (" + overlap + " on other buildings, " + ground
-                + " too steep or wet, " + unloaded + " not loaded, " + outside + " too far)";
+                + " under water, " + unloaded + " not loaded, " + outside + " too far)";
         sites.sort((p, q) -> Double.compare(p.distance(), q.distance()));
         return sites;
     }
 
-    /** The height to build at (the top of the ground, averaged), or MIN_VALUE if it's too steep or wet here. */
+    /** The height to build at: the top of the dry ground, averaged (the water's top if it's all water). */
     static int groundLevel(ServerLevel level, BoundingBox fp) {
-        int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
-        long sum = 0;
-        int n = 0, wet = 0, all = 0;
+        long sum = 0, wetSum = 0;
+        int n = 0, wet = 0;
         for (int x = fp.minX(); x <= fp.maxX(); x++)
             for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
-                all++;
-                int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+                int h = ground(level, x, z);
                 if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) {
-                    // part of it can stand in shallow water (on a foundation down to the bottom)
                     wet++;
-                    int depth = 0;
-                    BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, h, z);
-                    while (!level.getFluidState(p).isEmpty() && depth <= 6) {
-                        p.move(0, -1, 0);
-                        depth++;
-                    }
-                    if (depth > 5) return Integer.MIN_VALUE;
+                    wetSum += h;
                     continue;
                 }
-                min = Math.min(min, h);
-                max = Math.max(max, h);
                 sum += h;
                 n++;
             }
-        if (n == 0 || wet * 10 > all * 4 || max - min > MAX_SLOPE) return Integer.MIN_VALUE;
-        return (int) Math.round((double) sum / n);
+        if (n == 0 && wet == 0) return Integer.MIN_VALUE;
+        return (int) Math.round(n > 0 ? (double) sum / n : (double) wetSum / wet);
+    }
+
+    /** How uneven a spot is (the spread of the ground's heights, and a bit for every column of water). */
+    private static double roughness(ServerLevel level, BoundingBox fp) {
+        int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE, wet = 0, all = 0;
+        for (int x = fp.minX(); x <= fp.maxX(); x += 2)
+            for (int z = fp.minZ(); z <= fp.maxZ(); z += 2) {
+                int h = ground(level, x, z);
+                all++;
+                if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) wet++;
+                min = Math.min(min, h);
+                max = Math.max(max, h);
+            }
+        return (max - min) + 10.0 * wet / Math.max(1, all);
+    }
+
+    /** The top of the ground (under trees and plants). */
+    private static int ground(ServerLevel level, int x, int z) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) - 1, z);
+        for (int i = 0; i < 40; i++, p.move(0, -1, 0)) {
+            BlockState s = level.getBlockState(p);
+            if (s.is(BlockTags.LOGS) || s.is(BlockTags.LEAVES) || s.isAir() || s.canBeReplaced() && s.getFluidState().isEmpty()) continue;
+            return p.getY();
+        }
+        return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+    }
+
+    /**
+     * A building made to fit its spot: the trees on it and just round it are felled at once, a foundation goes under
+     * it down to the ground (or the bottom of shallow water), and any ground higher than its floor is dug away (up
+     * through its roof, so it isn't buried in a hillside).
+     */
+    static Plan shaped(ServerLevel level, VillageRecord v, Plan p) {
+        BoundingBox b = p.box();
+        for (int x = b.minX() - 2; x <= b.maxX() + 2; x++)
+            for (int z = b.minZ() - 2; z <= b.maxZ() + 2; z++) {
+                BlockPos top = Trees.treeTop(level, x, z);
+                if (top != null) Trees.fellAt(level, v, top);
+            }
+        Plan f = withFoundation(level, p, 16);
+        Set<BlockPos> clear = new HashSet<>(f.clear());
+        for (int x = b.minX(); x <= b.maxX(); x++)
+            for (int z = b.minZ(); z <= b.maxZ(); z++) {
+                int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+                for (int y = b.maxY() + 1; y <= Math.min(top, b.maxY() + 16); y++) clear.add(new BlockPos(x, y, z));
+            }
+        if (clear.size() == f.clear().size()) return f;
+        List<BlockPos> all = new ArrayList<>(f.blocks().keySet());
+        all.addAll(clear);
+        BoundingBox box = BoundingBox.encapsulatingPositions(all).orElse(f.box());
+        return new Plan(f.template(), box, f.blocks(), clear, f.beds(), f.door());
     }
 
     /** Fills the gaps under the bottom layer down to the ground, so nothing floats on a slope. */
@@ -273,7 +322,7 @@ public final class Buildings {
                 for (int y = b.minY() - 1; y >= b.minY() - depth; y--) {
                     BlockPos q = new BlockPos(x, y, z);
                     BlockState s = level.getBlockState(q);
-                    if (!s.isAir() && !s.canBeReplaced() && s.getFluidState().isEmpty()) break;
+                    if (!s.isAir() && !s.canBeReplaced() && s.getFluidState().isEmpty() && !s.is(BlockTags.LOGS) && !s.is(BlockTags.LEAVES)) break;
                     blocks.put(q, fill);
                 }
             }
@@ -339,6 +388,14 @@ public final class Buildings {
     /** A path from the building's door to the nearest village road, over the ground, avoiding other buildings. */
     @Nullable
     static Plan road(ServerLevel level, VillageRecord v, Plan house) {
+        return road(level, v, house, ROAD_SEARCH);
+    }
+
+    /**
+     * The same, searching further (up to limit columns); over water a plank bridge is laid at the water's top (the
+     * search goes over water only after trying the land).
+     */
+    static Plan road(ServerLevel level, VillageRecord v, Plan house, int limit) {
         Map<Long, BlockState> roadAt = new HashMap<>();
         v.blueprint.forEachBlock((p, s) -> {
             if (s.is(Upkeep.ROAD)) roadAt.put(column(p.getX(), p.getZ()), s);
@@ -355,7 +412,7 @@ public final class Buildings {
         queue.add(first);
         Long goal = null;
         BlockState material = Blocks.DIRT_PATH.defaultBlockState();
-        while (!queue.isEmpty() && cameFrom.size() < ROAD_SEARCH) {
+        while (!queue.isEmpty() && cameFrom.size() < limit) {
             long c = queue.poll();
             int x = colX(c), z = colZ(c), h = height.get(c);
             BlockState road = roadAt.get(c);
@@ -373,7 +430,9 @@ public final class Buildings {
                 BlockPos top = new BlockPos(nx, nh, nz);
                 boolean isRoad = roadAt.containsKey(n);
                 if (!isRoad) {
-                    if (avoid.isInside(top) || !level.getFluidState(top).isEmpty()) continue;
+                    // water: a bridge (only in a long search; not lava)
+                    boolean water = level.getFluidState(top).is(net.minecraft.tags.FluidTags.WATER);
+                    if (avoid.isInside(top) || !level.getFluidState(top).isEmpty() && !(water && limit > ROAD_SEARCH)) continue;
                     if (v.blueprint.expected(top) != null || v.blueprint.expected(top.above()) != null || v.blueprint.isBuildingSite(top.above())) continue;
                 }
                 cameFrom.put(n, c);
@@ -391,7 +450,7 @@ public final class Buildings {
         }
         for (long c : path) {
             BlockPos top = new BlockPos(colX(c), height.get(c), colZ(c));
-            blocks.put(top, material);
+            blocks.put(top, level.getFluidState(top).isEmpty() ? material : Blocks.SPRUCE_PLANKS.defaultBlockState());
             clear.add(top.above());
             clear.add(top.above(2));
         }

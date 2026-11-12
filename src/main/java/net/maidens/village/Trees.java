@@ -53,14 +53,11 @@ public final class Trees {
         RandomSource r = RandomSource.create(v.id ^ 0x7EE5L);
         Set<BlockPos> seen = new HashSet<>();
         int found = 0, felled = 0;
-        BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
         for (int x = b.minX(); x <= b.maxX(); x++)
             for (int z = b.minZ(); z <= b.maxZ(); z++) {
-                // the top of a trunk under the leaves (the ground's top, not counting leaves)
-                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-                BlockState top = level.getBlockState(q.set(x, y, z));
-                if (!top.is(BlockTags.LOGS) || seen.contains(q)) continue;
-                List<BlockPos> logs = trunk(level, v, q.immutable(), seen);
+                BlockPos top = treeTop(level, x, z);
+                if (top == null || seen.contains(top)) continue;
+                List<BlockPos> logs = trunk(level, top, seen);
                 if (logs == null) continue;
                 found++;
                 if (r.nextFloat() < KEEP) continue;
@@ -71,25 +68,44 @@ public final class Trees {
         return new int[]{found, felled};
     }
 
+    /** The highest log in a column, under any leaves, snow and vines on top of it; null if there's none. */
+    @org.jetbrains.annotations.Nullable
+    static BlockPos treeTop(ServerLevel level, int x, int z) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) - 1, z);
+        for (int i = 0; i < 48; i++, p.move(0, -1, 0)) {
+            BlockState s = level.getBlockState(p);
+            if (s.is(BlockTags.LOGS)) return p.immutable();
+            if (s.isAir() || s.getBlock() instanceof LeavesBlock || s.canBeReplaced() || s.is(Blocks.SNOW) || !s.isSolid()) continue;
+            return null;
+        }
+        return null;
+    }
+
     /** Takes out the natural tree a log belongs to (not a house's beam). Returns whether there was one. */
     public static boolean fellAt(ServerLevel level, VillageRecord v, BlockPos log) {
-        List<BlockPos> logs = trunk(level, v, log.immutable(), new HashSet<>());
+        List<BlockPos> logs = trunk(level, log.immutable(), new HashSet<>());
         if (logs == null) return false;
         fell(level, v, logs);
         return true;
     }
 
-    /** The logs of a natural tree from one of its logs, or null if it isn't one (a house's, the blueprint's, too big). */
-    private static List<BlockPos> trunk(ServerLevel level, VillageRecord v, BlockPos start, Set<BlockPos> seen) {
+    /**
+     * The logs of a natural tree from one of its logs, or null if it isn't one: a natural tree stands on the ground
+     * (dirt, grass...) and has natural leaves on it (a house's beams have neither). Too big ones are left alone.
+     */
+    @org.jetbrains.annotations.Nullable
+    private static List<BlockPos> trunk(ServerLevel level, BlockPos start, Set<BlockPos> seen) {
         List<BlockPos> logs = new ArrayList<>();
         ArrayDeque<BlockPos> todo = new ArrayDeque<>();
         todo.add(start);
         seen.add(start);
-        boolean leaves = false, ours = false;
+        boolean leaves = false, rooted = false;
         while (!todo.isEmpty()) {
             BlockPos p = todo.poll();
             logs.add(p);
-            if (v.blueprint.expected(p) != null || logs.size() > MAX_LOGS) ours = true;
+            if (logs.size() > MAX_LOGS) return null;
+            BlockState below = level.getBlockState(p.below());
+            if (below.is(BlockTags.DIRT) || below.is(Blocks.GRASS_BLOCK) || below.is(BlockTags.SAND) || below.is(Blocks.SNOW_BLOCK)) rooted = true;
             for (int dx = -1; dx <= 1; dx++)
                 for (int dy = -1; dy <= 1; dy++)
                     for (int dz = -1; dz <= 1; dz++) {
@@ -100,35 +116,54 @@ public final class Trees {
                         if (s.is(BlockTags.LOGS) && seen.add(n)) todo.add(n);
                     }
         }
-        return leaves && !ours ? logs : null;
+        return leaves && rooted ? logs : null;
     }
 
-    /** Takes out a tree: its logs, then the natural leaves within reach of them that no other log holds up. */
+    /**
+     * Takes out a tree: its logs, then the natural leaves no log holds up any more (as the game would let them
+     * decay), and with them the snow on them, the vines and the cocoa on it and whatever else hung from it, all
+     * without anything dropping. The village no longer expects any of it (a tree that grew inside one of its pieces).
+     */
     private static void fell(ServerLevel level, VillageRecord v, List<BlockPos> logs) {
         Set<BlockPos> gone = new HashSet<>(logs);
-        int flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
-        for (BlockPos p : logs) level.setBlock(p, Blocks.AIR.defaultBlockState(), flags);
-        // the leaves: from the logs outwards, as far as leaves reach (6), unless another tree's log is close by
-        ArrayDeque<BlockPos> todo = new ArrayDeque<>(logs);
-        Set<BlockPos> seen = new HashSet<>(logs);
-        java.util.Map<BlockPos, Integer> depth = new java.util.HashMap<>();
-        for (BlockPos p : logs) depth.put(p, 0);
-        int n = 0;
-        while (!todo.isEmpty() && n < MAX_LEAVES) {
+        int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, z0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, y1 = Integer.MIN_VALUE, z1 = Integer.MIN_VALUE;
+        for (BlockPos p : logs) {
+            x0 = Math.min(x0, p.getX()); y0 = Math.min(y0, p.getY()); z0 = Math.min(z0, p.getZ());
+            x1 = Math.max(x1, p.getX()); y1 = Math.max(y1, p.getY()); z1 = Math.max(z1, p.getZ());
+        }
+        for (BlockPos p : logs) {
+            if (v.blueprint.expected(p) != null) v.blueprint.set(p, Blocks.AIR.defaultBlockState());
+            Place.remove(level, p, q -> v.blueprint.expected(q) != null);
+            // a bee nest on it goes too
+            for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values())
+                if (level.getBlockState(p.relative(d)).is(Blocks.BEE_NEST)) Place.remove(level, p.relative(d), q -> v.blueprint.expected(q) != null);
+        }
+        // leaves still held up: within 6 steps through leaves of a log that's still there (looked for a bit further out)
+        BoundingBox reach = new BoundingBox(x0 - 7, y0 - 3, z0 - 7, x1 + 7, y1 + 8, z1 + 7);
+        BoundingBox look = reach.inflatedBy(7);
+        java.util.Map<BlockPos, Integer> held = new java.util.HashMap<>();
+        ArrayDeque<BlockPos> todo = new ArrayDeque<>();
+        for (BlockPos p : BlockPos.betweenClosed(look.minX(), look.minY(), look.minZ(), look.maxX(), look.maxY(), look.maxZ()))
+            if (level.getBlockState(p).is(BlockTags.LOGS)) {
+                BlockPos q = p.immutable();
+                held.put(q, 0);
+                todo.add(q);
+            }
+        while (!todo.isEmpty()) {
             BlockPos p = todo.poll();
-            int d = depth.get(p);
+            int d = held.get(p);
             if (d >= 6) continue;
             for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.values()) {
                 BlockPos q = p.relative(dir);
-                if (!seen.add(q)) continue;
-                BlockState s = level.getBlockState(q);
-                if (!(s.getBlock() instanceof LeavesBlock) || s.getValue(LeavesBlock.PERSISTENT) || v.blueprint.expected(q) != null) continue;
-                if (heldUp(level, q, gone)) continue;
-                level.setBlock(q, Blocks.AIR.defaultBlockState(), flags);
-                n++;
-                depth.put(q, d + 1);
+                if (held.containsKey(q) || !look.isInside(q)) continue;
+                if (!(level.getBlockState(q).getBlock() instanceof LeavesBlock)) continue;
+                held.put(q, d + 1);
                 todo.add(q);
             }
+        }
+        for (BlockPos p : BlockPos.betweenClosed(reach.minX(), reach.minY(), reach.minZ(), reach.maxX(), reach.maxY(), reach.maxZ())) {
+            BlockState s = level.getBlockState(p);
+            if (s.getBlock() instanceof LeavesBlock && !s.getValue(LeavesBlock.PERSISTENT) && !held.containsKey(p)) Place.remove(level, p.immutable(), q -> v.blueprint.expected(q) != null);
         }
         // what was on the ground under it (the dirt a trunk stood on stays; grass grows back)
         for (BlockPos p : logs) {
@@ -136,12 +171,5 @@ public final class Trees {
             if (!gone.contains(below) && level.getBlockState(below).is(Blocks.DIRT) && level.getBlockState(p).isAir())
                 level.setBlock(below, Blocks.GRASS_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
         }
-    }
-
-    /** A log of another tree within two blocks of a leaf. */
-    private static boolean heldUp(ServerLevel level, BlockPos leaf, Set<BlockPos> gone) {
-        for (BlockPos p : BlockPos.betweenClosed(leaf.offset(-2, -2, -2), leaf.offset(2, 2, 2)))
-            if (!gone.contains(p) && level.getBlockState(p).is(BlockTags.LOGS)) return true;
-        return false;
     }
 }

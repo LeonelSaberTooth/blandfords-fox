@@ -24,7 +24,10 @@ import java.util.Optional;
  * </ul>
  */
 public final class Housing {
-    private static final int MAX_RESIDENTS = 60, DAY = 24000, SETTLE_TICKS = 1200;
+    private static final int MAX_RESIDENTS = 60, DAY = 24000, SETTLE_TICKS = 1200, ARRIVE_EVERY = 2400;
+
+    /** When each village was first seen loaded (this session). */
+    private static final java.util.Map<Long, Long> SEEN = new java.util.HashMap<>();
 
     private Housing() {}
 
@@ -46,15 +49,28 @@ public final class Housing {
             Network network = Network.get(level);
             network.know(level, v);
             network.lookAround(level, c.getX(), c.getZ(), Network.NEIGHBOUR_RANGE);
-            int bedless = 0;
-            for (Maiden m : residents) if (m.residence().bed() == null && m.tickCount > SETTLE_TICKS) bedless++;
+            // a village's houses are lived in: every free bed gets someone (once, when it's first seen; after that
+            // newcomers arrive one at a time)
+            int bedless = 0, settling = 0;
+            for (Maiden m : residents) {
+                if (m.residence().bed() == null && m.tickCount > SETTLE_TICKS) bedless++;
+                if (m.residence().bed() == null) settling++;
+            }
+            // (once everyone already there has found a bed, a couple of minutes after it's first seen)
+            long seen = SEEN.computeIfAbsent(v.id, k -> level.getGameTime());
+            if (!v.peopled && settling == 0 && level.getGameTime() - seen > 2400) {
+                v.peopled = true;
+                fill(level, v);
+                Villages.get(level).setDirty();
+            }
             if (bedless > 0) {
                 if (MaidensConfig.HOUSING.get() && !v.blueprint.isBuilding()) houseFor(level, v);
+            } else if (residents.size() < MAX_RESIDENTS && level.getGameTime() - v.lastArrival >= ARRIVE_EVERY && arrive(level, v) != null) {
+                // a free bed: someone new moves in (every couple of minutes while there are beds free)
             } else if (residents.size() < MAX_RESIDENTS && level.getGameTime() - v.lastArrival >= DAY && Economy.food(v) >= Economy.NEWCOMER_FOOD) {
-                // someone new moves in if there's food to spare: into a free bed, or (with no bed free) the village
-                // builds a house for her, if it has the logs and stone
-                if (arrive(level, v) != null) v.take(Economy.FOOD, Economy.NEWCOMER_FOOD);
-                else if (MaidensConfig.HOUSING.get() && !v.blueprint.isBuilding() && Economy.canBuildHouse(v) && houseFor(level, v) != null) {
+                // no bed free: if there's food to spare and the logs and stone, the village builds a house for more
+                if (MaidensConfig.HOUSING.get() && !v.blueprint.isBuilding() && Economy.canBuildHouse(v) && houseFor(level, v) != null) {
+                    v.lastArrival = level.getGameTime();
                     Economy.payForHouse(v);
                     network.news(level, v.id, v.name + " is growing: a new house is going up.");
                 }
@@ -87,6 +103,47 @@ public final class Housing {
         return n == 0 ? v.centre() : new BlockPos((int) (x / n), (int) (y / n), (int) (z / n));
     }
 
+    /**
+     * Someone for every free bed in the village (not the castle's): in a house with two or more free beds, a married
+     * couple first; she appears beside her bed. Returns how many came.
+     */
+    public static int fill(ServerLevel level, VillageRecord v) {
+        PoiManager poi = level.getPoiManager();
+        int radius = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 48;
+        BlockPos c = v.centre();
+        List<BlockPos> beds = poi.findAll(h -> h.is(PoiTypes.HOME), p -> v.castle == null || !v.castle.isInside(p), c, radius, PoiManager.Occupancy.HAS_SPACE)
+                .sorted(java.util.Comparator.comparingLong(BlockPos::asLong)).toList();
+        java.util.Map<net.minecraft.world.level.levelgen.structure.BoundingBox, List<BlockPos>> houses = new java.util.LinkedHashMap<>();
+        for (BlockPos b : beds) houses.computeIfAbsent(People.houseOf(v, b), k -> new ArrayList<>()).add(b);
+        var r = level.getRandom();
+        int came = 0;
+        for (List<BlockPos> house : houses.values()) {
+            Maiden first = null;
+            for (int i = 0; i < house.size(); i++) {
+                Maiden m = ModEntities.MAIDEN.get().create(level);
+                if (m == null) return came;
+                BlockPos bed = house.get(i);
+                m.moveTo(bed.getX() + 0.5, bed.getY() + 0.6, bed.getZ() + 0.5, r.nextFloat() * 360, 0);
+                m.ensureInitialised();
+                if (i == 0 && house.size() >= 2) m.setKind(r.nextBoolean() ? Maiden.Kind.MAN : Maiden.Kind.WOMAN);
+                else if (i == 1 && first != null) m.setKind(first.isMale() ? Maiden.Kind.WOMAN : Maiden.Kind.MAN);
+                else People.roll(m, r);
+                m.residence().joinVillage(v.id);
+                level.addFreshEntity(m);
+                m.residence().claimBed(level, bed);
+                if (i == 0) first = m;
+                if (i == 1 && first != null) {
+                    m.setSpouse(first);
+                    first.setSpouse(m);
+                    m.setMarriageState(2);
+                    first.setMarriageState(2);
+                }
+                came++;
+            }
+        }
+        return came;
+    }
+
     /** A new maiden moves in, if there's a free bed: she appears on a road near it. Returns her, or null. */
     @Nullable
     public static Maiden arrive(ServerLevel level, VillageRecord v) {
@@ -94,7 +151,7 @@ public final class Housing {
         int radius = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 48;
         BlockPos c = v.centre();
         if (!level.hasChunksAt(c.getX() - radius, c.getZ() - radius, c.getX() + radius, c.getZ() + radius)) return null;
-        Optional<BlockPos> bed = poi.findClosest(h -> h.is(PoiTypes.HOME), v.centre(), radius, PoiManager.Occupancy.HAS_SPACE);
+        Optional<BlockPos> bed = poi.findClosest(h -> h.is(PoiTypes.HOME), p -> v.castle == null || !v.castle.isInside(p), v.centre(), radius, PoiManager.Occupancy.HAS_SPACE);
         if (bed.isEmpty()) return null;
         BlockPos spot = roadNear(v, bed.get());
         Maiden m = ModEntities.MAIDEN.get().create(level);

@@ -111,6 +111,18 @@ public final class Upkeep {
 
     // ------------------------------------------------------------------ for the maidens
 
+    /** At most this many of a village's workers are on chores at once (the rest keep to their work). */
+    private static final int AT_ONCE = 4;
+
+    /** Enough of her village's people are on chores already. */
+    public static boolean busy(Maiden m) {
+        VillageRecord v = VillageSocial.villageOf(m);
+        if (v == null) return true;
+        int taken = 0;
+        for (Chore c : v.chores.values()) if (c.takenBy != null) taken++;
+        return taken >= AT_ONCE;
+    }
+
     /** Gives this maiden the nearest chore of her village that's been waiting long enough, or null. */
     @Nullable
     public static Chore take(Maiden m) {
@@ -202,6 +214,8 @@ public final class Upkeep {
     }
 
     private static void place(ServerLevel level, BlockPos p, BlockState s) {
+        // a crop is put back as a seedling (it grows again; picking it isn't for nothing)
+        if (s.getBlock() instanceof net.minecraft.world.level.block.CropBlock crop) s = crop.getStateForAge(0);
         level.setBlock(p, s, Block.UPDATE_CLIENTS);
         SoundType sound = s.getSoundType();
         level.playSound(null, p, sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);

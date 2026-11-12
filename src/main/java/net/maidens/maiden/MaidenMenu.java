@@ -36,7 +36,13 @@ public final class MaidenMenu {
                 String done = m.wishes().fulfil(p);      // what she asked for on the requests board
                 yield done != null ? done : m.relationships().gift(p);
             }
-            case ActionPayload.TRADE -> { m.trading().open(p); yield null; }
+            case ActionPayload.TRADE -> {
+                String closed = m.trading().closed(p);
+                if (closed != null) yield closed;
+                m.trading().open(p);
+                yield null;
+            }
+            case ActionPayload.FOLLOW -> m.toggleFollow(p);
             case ActionPayload.BAG -> m.employment().openBag(p);
             case ActionPayload.HIRE -> m.employment().hire(p, Job.byId(arg));
             case ActionPayload.STOP -> m.employment().stopBy(p);
@@ -51,9 +57,11 @@ public final class MaidenMenu {
     public static void send(Maiden m, ServerPlayer p, String message) {
         var rel = m.relationships();
         var job = m.employment();
-        int married = !rel.isMarried() ? 0 : rel.isMarriedTo(p) ? 1 : 2;
-        PacketDistributor.sendToPlayer(p, new MenuPayload(m.getId(), m.name(), m.title(), rel.affection(p), married,
+        // married to a player (you or someone else), or to another villager
+        int married = rel.isMarried() ? (rel.isMarriedTo(p) ? 1 : 2) : m.spouse() != null ? 2 : 0;
+        String spouse = !rel.isMarried() && m.spouse() != null ? m.spouseName() : "";
+        PacketDistributor.sendToPlayer(p, new MenuPayload(m.getId(), m.name(), m.title(), rel.affection(p), married, spouse,
                 job.job().ordinal(), job.shiftLeft(), job.employerFor(p), job.employerName(), job.canOpenBag(p), rel.isMarriedTo(p),
-                MaidensConfig.RENT_EMERALDS.get(), message));
+                MaidensConfig.RENT_EMERALDS.get(), m.isFollowing(p), message));
     }
 }

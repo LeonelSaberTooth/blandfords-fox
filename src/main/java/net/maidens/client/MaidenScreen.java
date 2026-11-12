@@ -91,6 +91,12 @@ public class MaidenScreen extends Screen {
                     .tooltip(Tooltip.create(Component.literal("What she gathered while working, and where to put tools, seeds, saplings, torches or a sword for her.")))
                     .build());
             bag.active = menu.canOpenBag();
+            addRenderableWidget(Button.builder(Component.literal(menu.following() ? "Stay here" : "Follow me"), b -> send(ActionPayload.FOLLOW, 0))
+                    .bounds(bx, row3, 75, 20)
+                    .tooltip(Tooltip.create(Component.literal(menu.following() ? "She stops following you."
+                            : "Ask her to walk with you: round her village at " + Maiden.FOLLOW_VILLAGE + " affection, anywhere at "
+                            + Maiden.FOLLOW_ANYWHERE + ".")))
+                    .build());
         } else {
             Job[] jobs = {Job.FARM, Job.GUARD, Job.WOOD, Job.MINE, Job.FISH};
             String[] tips = {
@@ -154,6 +160,8 @@ public class MaidenScreen extends Screen {
         if (workPage) {
             String cost = menu.freeWork() ? "Free for you, my love. She works until you tell her to stop."
                     : menu.employer() == 1 ? "Switching jobs is free for the rest of her shift."
+                    : menu.affection() < net.maidens.maiden.work.Employment.HIRE_AFFECTION
+                    ? "She works for people she likes (" + net.maidens.maiden.work.Employment.HIRE_AFFECTION + " affection)."
                     : "A day's work costs " + menu.rent() + " emeralds.";
             g.drawString(font, cost, tx, y0 + 104, 0xFFB79AA8, false);
         }
@@ -162,8 +170,9 @@ public class MaidenScreen extends Screen {
     private String status() {
         Job job = Job.byId(menu.job());
         StringBuilder s = new StringBuilder();
+        if (menu.following()) s.append("With you · ");
         if (menu.married() == 1) s.append("Your wife");
-        else if (menu.married() == 2) s.append("Married");
+        else if (menu.married() == 2) s.append(menu.spouse().isEmpty() ? "Married" : "Married to " + menu.spouse());
         else s.append("Single");
         if (job != Job.NONE) {
             s.append(" · ").append(job.doing.substring(0, 1).toUpperCase()).append(job.doing.substring(1));

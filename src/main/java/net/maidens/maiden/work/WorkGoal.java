@@ -29,9 +29,8 @@ public final class WorkGoal extends Goal {
     @Override
     public boolean canUse() {
         Employment e = m.employment();
-        // her village's work: in work hours (a miner still underground climbs out first)
-        boolean time = !e.forVillage() || e.busyNow() || e.inMine();
-        return e.job().atWorkSpot() && !e.isDelivering() && m.isFree() && time;
+        // hired work stops at bedtime (a resident goes home to sleep)
+        return e.isHired() && e.job().atWorkSpot() && !e.isDelivering() && m.isFree() && !net.maidens.maiden.home.Schedule.bedtime(m);
     }
 
     private int commute;

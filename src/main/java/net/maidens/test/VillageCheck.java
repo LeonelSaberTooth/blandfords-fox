@@ -167,11 +167,12 @@ final class VillageCheck {
                 }
             }
             case 9 -> {
-                if (st == 1200) economyWorkers(level, "mid-shift");
-                if (st == 1600) {
-                    level.setDayTime(level.getDayTime() / 24000 * 24000 + 9050);     // work's over: to the store with it
-                    economyWorkers(level, "end of shift");
-                }
+                // a day: at work, at the market, at home; then the day's harvest comes in
+                if (st == 1200) economyWorkers(level, "at work");
+                if (st == 1210) level.setDayTime(level.getDayTime() / 24000 * 24000 + 9300);
+                if (st == 1800) day(level, "at the market");
+                if (st == 1810) level.setDayTime(level.getDayTime() / 24000 * 24000 + 13300);
+                if (st == 2400) day(level, "at home");
                 if (st < 2800) return false;
                 economyCheck(level);
                 raidLead(level);
@@ -647,34 +648,54 @@ final class VillageCheck {
                 + " guards, " + hats + " wearing a job hat, " + casual + " in casual clothes; banner by the bell " + v.bannerUp
                 + " (" + net.maidens.village.Heraldry.base(v.id).getName() + " with " + net.maidens.village.Heraldry.pattern(v.id).location().getPath()
                 + " in " + net.maidens.village.Heraldry.accent(v.id).getName() + ")");
-        int fields = net.maidens.village.Farms.plan(level, v);
-        log.accept("  fields: " + fields + " laid out (" + net.maidens.village.Farms.lastSearch + "); ripe crop near the bell: " + net.maidens.village.Farms.ripe(level, v, v.centre()));
+        if (!v.farmsPlanned) net.maidens.village.Farms.plan(level, v);
+        int[] crops = net.maidens.village.Farms.crops(level, v);
+        int plots = 0;
+        BoundingBox all = null;
+        for (var p : v.blueprint.pieces())
+            if (p.name().equals(net.maidens.village.Farms.NAME)) {
+                plots++;
+                all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
+            }
+        log.accept("  fields: " + net.maidens.village.Farms.lastSearch + "; " + plots + " plots, " + crops[0] + " crops (" + crops[1] + " fully grown), spread over " + all);
+        if (!v.treesCleared) net.maidens.village.Trees.clear(level, v);
+        log.accept("  trees: " + net.maidens.village.Trees.lastClearing);
+        if (all != null) {
+            BlockPos fc = all.getCenter();
+            try {
+                java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("maidens.selftest"), "fields.txt"),
+                        fc.getX() + " " + level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, fc.getX(), fc.getZ()) + " " + fc.getZ()
+                                + " " + Math.max(all.getXSpan(), all.getZSpan()));
+            } catch (java.io.IOException e) {
+                log.accept("  (couldn't write fields.txt: " + e + ")");
+            }
+        }
         log.accept("  rank of the tester: " + net.maidens.politics.Diplomacy.rank(level, v, tester.getUUID()).label);
     }
 
     private java.util.Map<String, Integer> storeBefore;
 
-    /** The village's store and its workers: jobs given out at the start of a working day. */
+    /** The village's workers: jobs given out, then a working day. */
     private void economyStart(ServerLevel level) {
         VillageRecord v = record;
-        level.setDayTime(level.getDayTime() / 24000 * 24000 + 24000 + 1600);
+        level.setDayTime(level.getDayTime() / 24000 * 24000 + 24000 + 2600);
         List<Maiden> rs = VillageSocial.residents(level, v);
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 6; i++) {
             net.maidens.village.People.jobs(level, v, rs);
             log.accept("economy: jobs " + net.maidens.village.People.lastJobs);
         }
-        // the work spots, and a worker for each job if the village has nobody free (a small test village)
+        // a worker for each job there's a spot for, if the village didn't give one out (a small test village)
         net.minecraft.util.RandomSource r = level.getRandom();
-        BlockPos[] spots = {net.maidens.village.WorkSites.forest(level, v, r), net.maidens.village.WorkSites.mine(level, v, r), net.maidens.village.WorkSites.water(level, v, r)};
-        net.maidens.maiden.work.Job[] jobs = {net.maidens.maiden.work.Job.WOOD, net.maidens.maiden.work.Job.MINE, net.maidens.maiden.work.Job.FISH};
-        log.accept("  spots: wood " + spots[0] + ", mine " + spots[1] + ", water " + spots[2] + " (bell " + v.bell() + ")");
-        for (int i = 0; i < 3; i++) {
+        net.maidens.maiden.work.Job[] jobs = {net.maidens.maiden.work.Job.FARM, net.maidens.maiden.work.Job.WOOD, net.maidens.maiden.work.Job.MINE, net.maidens.maiden.work.Job.FISH};
+        BlockPos[] spots = {net.maidens.village.Farms.spot(level, v, r), net.maidens.village.WorkSites.forest(level, v, r),
+                net.maidens.village.WorkSites.mine(level, v, r), net.maidens.village.WorkSites.water(level, v, r)};
+        log.accept("  spots: farm " + spots[0] + ", wood " + spots[1] + ", mine " + spots[2] + ", water " + spots[3] + " (bell " + v.bell() + ")");
+        for (int i = 0; i < jobs.length; i++) {
             net.maidens.maiden.work.Job j = jobs[i];
-            if (spots[i] == null || rs.stream().anyMatch(m -> m.employment().forVillage() && m.employment().job() == j)) continue;
+            if (spots[i] == null || rs.stream().anyMatch(m -> m.villageWork().job() == j)) continue;
             for (Maiden m : rs) {
-                if (m.isBaby() || m.isRoyal() || m.employment().isWorking() || !m.residence().inVillage()) continue;
-                if (m.isGuard()) m.setGuard(false);
-                m.employment().startForVillage(j, spots[i], net.maidens.village.WorkSites.away(v, spots[i]));
+                if (!net.maidens.village.People.worker(m) || m.villageWork().job() != net.maidens.maiden.work.Job.NONE && m.villageWork().job() != net.maidens.maiden.work.Job.GUARD) continue;
+                m.villageWork().set(j, spots[i], 0);
                 log.accept("  (test) " + m.name() + " made a " + j.button.toLowerCase());
                 break;
             }
@@ -684,20 +705,52 @@ final class VillageCheck {
     }
 
     private void economyWorkers(ServerLevel level, String when) {
-        for (Maiden m : VillageSocial.residents(level, record)) {
-            var e = m.employment();
-            if (!e.forVillage()) continue;
-            int items = 0;
-            for (int i = 0; i < e.bag().getContainerSize(); i++) items += e.bag().getItem(i).getCount();
-            log.accept("  " + when + ": " + m.name() + " (" + e.job().button + ") " + (int) Math.sqrt(m.blockPosition().distSqr(e.workPos()))
-                    + " blocks from her spot, " + items + " items in her bag, busy " + e.busyNow() + ", delivering " + e.isDelivering()
-                    + ", hat '" + m.hat() + "', casual " + m.isCasual() + ", y " + m.blockPosition().getY() + " (spot " + e.workPos().getY() + "), goals ["
-                    + m.runningGoals() + "], work: " + e.status());
+        VillageRecord v = record;
+        for (Maiden m : VillageSocial.residents(level, v)) {
+            var w = m.villageWork();
+            if (w.job() == net.maidens.maiden.work.Job.NONE) continue;
+            BlockPos at = w.place(v);
+            log.accept("  " + when + ": " + m.name() + " (" + w.job().button + (w.job() == net.maidens.maiden.work.Job.GUARD ? w.patrols(v) ? ", walks round" : ", keeps a gate" : "")
+                    + ") " + (at == null ? "-" : (int) Math.sqrt(m.blockPosition().distSqr(at)) + " blocks from her spot")
+                    + ", on duty " + w.onDuty() + ", hat '" + m.hat() + "', casual " + m.isCasual() + ", holds " + m.getMainHandItem().getItem()
+                    + ", wears " + m.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem() + "/" + m.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem()
+                    + ", goals [" + m.runningGoals() + "]");
+        }
+    }
+
+    /** Where everyone is and what they wear at a time of day. */
+    private void day(ServerLevel level, String when) {
+        VillageRecord v = record;
+        BlockPos bell = v.bell() != null ? v.bell() : v.centre();
+        java.util.Map<String, Integer> what = new java.util.TreeMap<>();
+        int nearBell = 0, adults = 0, casual = 0, hats = 0, asleep = 0, home = 0;
+        for (Maiden m : VillageSocial.residents(level, v)) {
+            var a = net.maidens.maiden.home.Schedule.activity(m);
+            what.merge(String.valueOf(a), 1, Integer::sum);
+            if (m.blockPosition().closerThan(bell, 12)) nearBell++;
+            if (m.residence().bed() != null && m.blockPosition().closerThan(m.residence().bed(), 6)) home++;
+            if (m.isSleeping()) asleep++;
+            if (!net.maidens.maiden.home.Schedule.adult(m)) continue;
+            adults++;
+            if (m.isCasual()) casual++;
+            if (!m.hat().isEmpty()) hats++;
+        }
+        log.accept("day " + when + ": doing " + what + "; " + nearBell + " by the bell, " + home + " at home, " + asleep + " asleep; of "
+                + adults + " grown-ups " + casual + " in casual clothes, " + hats + " in work clothes");
+        // trading: only at the market
+        for (Maiden m : VillageSocial.residents(level, v)) {
+            if (net.maidens.maiden.home.Schedule.activity(m) == null || m.isBaby()) continue;
+            String closed = m.trading().closed(tester);
+            log.accept("  trade with " + m.name() + ": " + (closed == null ? "open" : "\"" + closed + "\""));
+            break;
         }
     }
 
     private void economyCheck(ServerLevel level) {
         VillageRecord v = record;
+        // the day's harvest
+        net.maidens.village.Economy.produce(level, v, VillageSocial.residents(level, v));
+        log.accept("economy: a day's work brought in " + net.maidens.village.Economy.lastHarvest);
         java.util.Map<String, Integer> gained = new java.util.TreeMap<>();
         v.store.forEach((k, n) -> {
             int d = n - storeBefore.getOrDefault(k, 0);
@@ -705,7 +758,31 @@ final class VillageCheck {
         });
         log.accept("economy: store changed by " + gained + "; food " + net.maidens.village.Economy.food(v) + ", logs " + v.count(net.maidens.village.Economy.LOGS)
                 + ", stone " + v.count(net.maidens.village.Economy.STONE));
-        economyWorkers(level, "after delivery");
+        // hiring and following take hearts; married couples show in the menu
+        List<Maiden> rs = VillageSocial.residents(level, v);
+        Maiden w = null, wed = null;
+        for (Maiden m : rs) {
+            if (w == null && net.maidens.village.People.worker(m) && !m.employment().isHired()) w = m;
+            if (wed == null && m.spouse() != null) wed = m;
+        }
+        if (wed != null) log.accept("  married: " + wed.name() + " to " + wed.spouseName());
+        if (w != null) {
+            level.setDayTime(level.getDayTime() / 24000 * 24000 + 24000 + 3000);
+            tester.moveTo(w.getX() + 1, w.getY(), w.getZ());
+            w.relationships().setAffection(tester, 5);
+            log.accept("  hire at 5: \"" + w.employment().hire(tester, net.maidens.maiden.work.Job.FARM) + "\"");
+            log.accept("  follow at 5: \"" + w.toggleFollow(tester) + "\"");
+            w.relationships().setAffection(tester, 25);
+            log.accept("  follow at 25: \"" + w.toggleFollow(tester) + "\" following " + w.isFollowing(tester) + ", keeps her day " + net.maidens.maiden.home.Schedule.keeps(w));
+            log.accept("  stop: \"" + w.toggleFollow(tester) + "\"");
+            tester.moveTo(w.getX() + 400, w.getY(), w.getZ());
+            log.accept("  follow at 25 from far outside: \"" + w.toggleFollow(tester) + "\"");
+            w.relationships().setAffection(tester, 85);
+            log.accept("  follow at 85 from far outside: \"" + w.toggleFollow(tester) + "\"");
+            if (w.isFollowing(tester)) w.toggleFollow(tester);
+            tester.moveTo(w.getX() + 1, w.getY(), w.getZ());
+        }
+        economyWorkers(level, "next morning");
     }
 
     /** A raid led by the tester. */

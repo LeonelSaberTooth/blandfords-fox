@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.10.0
+- A village's day. Grown men and women: at home 6-8 in casual clothes, at work 8-15 in work clothes, at the market
+  round the bell 15-19 (a woman in her dress), home again 19-21 in casual clothes, asleep 21-6. Children are home,
+  out playing round the village, then home; the old are home, at the market, then home. Neither changes clothes.
+- You can only trade with a village resident at the market.
+- Every grown man and woman has a job for the village, and goes through the motions of it at a spot of their own
+  (nothing is really cut, dug or picked): farming at the edge of the fields (farmer or shepherd), cutting wood at the
+  edge of a wood (fletcher or leatherworker), mining at a cliff or cave mouth (mason, weaponsmith, toolsmith or
+  armorer), fishing on a shore (fisherman, with a line and float), or guarding: keeping a gate or walking round the
+  walls in an iron helmet and chestplate with a sword. Guards come first (one per gate or two, and one more for
+  every eight people); the rest are four farmers to two woodcutters, two miners and a fisher, as there's room.
+- What a village brings in is a fixed amount a day per worker: a farmer 16 food, a woodcutter 24 logs, a miner 32
+  stone with some coal and iron (now and then something rarer), a fisher 12 fish. Guards bring in nothing.
+- A few workers at a time leave their work for repairs and building.
+- Hiring takes 10 affection. Hired work overrides her day, except that a resident goes home to sleep at night.
+- Follow me (in her menu): she walks with you round her village at 20 affection, anywhere at 80 (your wife always).
+- Fields are big patchworks of plots of different sizes with paths between them, mostly wheat, fully grown when laid
+  out, with ragged edges; a crop picked is put back as a seedling.
+- Nine in ten of the trees inside a village (its walls, or among its houses) are taken out.
+- Fix: a maiden married to another villager showed as single in her menu (it now says who she's married to). When
+  one of a couple dies, the other is free to marry again.
+
 ## 0.9.1
 - Fix: a "model" name tag renamed the woman "model" instead of giving her the model's looks and walk (the game
   names a mob with a tag before she sees the click). A woman already named "model" that way gets a new name and the

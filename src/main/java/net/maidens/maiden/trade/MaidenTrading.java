@@ -54,6 +54,20 @@ public final class MaidenTrading {
     }
 
     /** Opens the trading screen with this player's prices. */
+    /** Why she won't trade now, or null: a village resident only trades at the market, in the afternoon by the bell. */
+    @org.jetbrains.annotations.Nullable
+    public String closed(ServerPlayer p) {
+        var a = net.maidens.maiden.home.Schedule.activity(m);
+        if (a == null || a == net.maidens.maiden.home.Schedule.Activity.MARKET) return null;
+        String n = p.getName().getString();
+        if (m.isBaby()) return "I don't have anything to trade, " + n + "!";
+        return switch (a) {
+            case SLEEP -> "It's the middle of the night, " + n + "! Come to the market tomorrow afternoon.";
+            case WORK -> "I'm at work, " + n + ". Come and find me at the market this afternoon, by the bell.";
+            default -> "The market's in the afternoon, by the bell, " + n + ". I'll trade with you there!";
+        };
+    }
+
     public void open(ServerPlayer p) {
         MerchantOffers offers = m.getOffers();
         double factor = m.relationships().priceFactor(p);

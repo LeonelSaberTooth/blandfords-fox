@@ -43,6 +43,9 @@ public final class ClientSelfTest {
     private static BlockPos spot;
     private static final List<Maiden> line = new ArrayList<>(), row2 = new ArrayList<>(), variants = new ArrayList<>();
     private static double walkX;
+    private static int[] fields;
+    private static BlockPos bell;
+    private static final List<Maiden> workers = new ArrayList<>();
 
     private ClientSelfTest() {}
 
@@ -122,7 +125,7 @@ public final class ClientSelfTest {
         if (t == 460) {
             mc.options.hideGui = false;
             Maiden m = line.get(0);
-            ClientAccess.openMenu(new MenuPayload(m.getId(), "Elowen", "Sweet", 63, 0, 0, 0, 0, "", false, false, 5,
+            ClientAccess.openMenu(new MenuPayload(m.getId(), "Elowen", "Sweet", 63, 2, "Tobias", 0, 0, 0, "", false, false, 5, false,
                     "You think so? That's so kind of you, Tester. I've always dreamed someone would bake me a whole cake, just for me..."));
         }
         if (t == 470) shot(mc, "menu");
@@ -305,11 +308,83 @@ public final class ClientSelfTest {
             }
         }
         if (t == 1721) shot(mc, "faces_freckles_blush_smile");
-        if (t == 1730) mc.stop();
+        // the fields the server test laid out, from a hill and from above
+        if (t == 1722) {
+            Path f = mc.gameDirectory.toPath().resolve("fields.txt");
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                int x = Integer.parseInt(p[0]), y = Integer.parseInt(p[1]), z = Integer.parseInt(p[2]), span = Integer.parseInt(p[3]);
+                fields = new int[]{x, y, z, span};
+                server.execute(() -> player(server).teleportTo(server.overworld(), x - span * 0.45, y + span * 0.4 + 10, z - span * 0.45, -45, 32));
+            } else LOG.info("[clienttest] no fields.txt");
+        }
+        if (t == 1880) shot(mc, "fields");
+        if (t == 1882 && fields != null) server.execute(() -> player(server).teleportTo(server.overworld(), fields[0] + 0.5, fields[1] + fields[3] * 0.9 + 20, fields[2] + 0.5, 0, 90));
+        if (t == 2000) shot(mc, "fields_top");
+        // the village's day: the market by the bell in the afternoon, then everyone at work in the morning
+        if (t == 2002) server.execute(() -> {
+            ServerLevel level = server.overworld();
+            net.maidens.village.VillageRecord v = village(server);
+            if (v == null) return;
+            level.setDayTime(level.getDayTime() / 24000 * 24000 + 9400);
+            bell = v.bell() != null ? v.bell() : v.centre();
+            player(server).teleportTo(level, bell.getX() - 11.5, bell.getY() + 8, bell.getZ() - 11.5, -45, 28);
+        });
+        if (t == 2600) shot(mc, "market");
+        if (t == 2602 && bell != null) server.execute(() -> player(server).teleportTo(server.overworld(), bell.getX() - 6.5, bell.getY() + 2.5, bell.getZ() - 6.5, -45, 12));
+        if (t == 2660) shot(mc, "market_close");
+        if (t == 2662) server.execute(() -> {
+            ServerLevel level = server.overworld();
+            level.setDayTime(level.getDayTime() / 24000 * 24000 + 24000 + 2600);
+        });
+        // one of each job at work (by then they've walked there), each from a few blocks away
+        if (t == 3300) server.execute(() -> {
+            net.maidens.village.VillageRecord v = village(server);
+            if (v == null) return;
+            workers.clear();
+            for (net.maidens.maiden.work.Job j : net.maidens.maiden.work.Job.values()) {
+                if (j == net.maidens.maiden.work.Job.NONE) continue;
+                for (Maiden m : net.maidens.village.VillageSocial.residents(server.overworld(), v))
+                    if (m.villageWork().job() == j && m.villageWork().onDuty()) {
+                        workers.add(m);
+                        LOG.info("[clienttest] {} at work: {} goals [{}]", j, m.blockPosition(), m.runningGoals());
+                        break;
+                    }
+            }
+        });
+        for (int k = 0; k < 5; k++) {
+            int at = 3302 + k * 110, n = k;
+            if (t == at) server.execute(() -> {
+                if (n >= workers.size()) return;
+                Maiden m = workers.get(n);
+                double a = Math.toRadians(m.getYRot() + 140);
+                double cx = m.getX() - Math.sin(a) * 4.5, cz = m.getZ() + Math.cos(a) * 4.5, cy = m.getY() + 2.2;
+                float yaw = (float) Math.toDegrees(Math.atan2(-(m.getX() - cx), m.getZ() - cz));
+                player(server).teleportTo(server.overworld(), cx, cy, cz, yaw, 18);
+            });
+            if (t == at + 100 && n < workers.size()) shot(mc, "work_" + workers.get(n).villageWork().job().name().toLowerCase());
+        }
+        if (t == 3860) mc.stop();
     }
 
     private static void bag(Maiden m, net.minecraft.world.item.Item... items) {
         for (var i : items) m.employment().bag().addItem(new ItemStack(i));
+    }
+
+    /** The village the server test made (by village.txt), or any. */
+    private static net.maidens.village.VillageRecord village(MinecraftServer server) {
+        net.maidens.village.Villages all = net.maidens.village.Villages.get(server.overworld());
+        try {
+            Path f = Minecraft.getInstance().gameDirectory.toPath().resolve("village.txt");
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                var v = all.at(new BlockPos(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2])));
+                if (v != null) return v;
+            }
+        } catch (Exception ignored) {
+        }
+        for (net.maidens.village.VillageRecord r : all.all()) return r;
+        return null;
     }
 
     private static ServerPlayer player(MinecraftServer server) {

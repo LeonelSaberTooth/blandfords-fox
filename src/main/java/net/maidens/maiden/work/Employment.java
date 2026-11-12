@@ -58,10 +58,8 @@ public final class Employment {
     @Nullable BlockPos deliverTo;
     boolean resumeAfterDelivery;
     @Nullable BlockPos lastChest;
-    /** A job for her own village (given by it, not hired): she works in work hours and brings it all to the village. */
+    /** From before village jobs were only for show: a real job for her village (put down when she's next loaded). */
     boolean forVillage;
-    /** How long (in seconds) she's been at work for her village without getting near her spot. */
-    private int lost;
     /** The job is ending (shift over, or she had to give up): a miner first climbs back out. */
     boolean wrappingUp;
     String wrapUpMessage = "";
@@ -102,20 +100,13 @@ public final class Employment {
         return forVillage;
     }
 
-    /** At work right now: hired, or her village's work during work hours. */
+    /** At hired work right now (not at bedtime: a village resident goes home to sleep). */
     public boolean busyNow() {
-        return isHired() || forVillage && net.maidens.maiden.home.Schedule.now(m) == net.maidens.maiden.home.Schedule.Activity.WORK;
+        return isHired() && !net.maidens.maiden.home.Schedule.bedtime(m);
     }
 
-    /** Her village gives her a job: where, and which way (a miner digs that way). */
-    public void startForVillage(Job j, BlockPos at, Direction dir) {
-        employer = null;
-        employerName = "";
-        start(j, dir);
-        workPos = at;
-        forVillage = true;
-        shiftLeft = -1;
-    }
+    /** Hearts it takes for her to work for you. */
+    public static final int HIRE_AFFECTION = 10;
 
     @Nullable
     public BlockPos workPos() {
@@ -163,20 +154,13 @@ public final class Employment {
         if (m.tickCount % 20 == 0) {
             if (job == Job.GUARD && m.getTarget() == null) equip(Job.GUARD);
             if (isHired() || !m.isGuard()) dress();       // (a village guard keeps her own helmet)
-            // a village job she can't get to: given up (the village finds her another spot)
-            if (forVillage && busyNow() && workPos != null && deliverTo == null) {
-                boolean near = job == Job.MINE ? inMine() || m.blockPosition().closerThan(workPos, 12) : m.blockPosition().closerThan(workPos, 32);
-                lost = near ? 0 : lost + 1;
-                if (lost > 150) {
-                    lost = 0;
-                    lastGiveUp = "couldn't get to her spot at " + workPos.toShortString();
-                    if (hasDeliverables()) Delivery.start(this, false);
-                    stop();
-                }
+            // a real job for her village from before: what she gathered goes to its store, and she stops
+            if (forVillage) {
+                net.maidens.village.VillageRecord v = net.maidens.village.VillageSocial.villageOf(m);
+                if (v != null) Delivery.unloadToVillage(this, v);
+                forVillage = false;
+                stop();
             }
-            // her village's work done for the day: what she gathered goes to its store
-            if (forVillage && m.tickCount % 100 == 0 && deliverTo == null && !busyNow() && hasDeliverables()
-                    && !inMine()) Delivery.start(this, true);
         }
     }
 
@@ -250,16 +234,13 @@ public final class Employment {
         boolean wife = m.relationships().isMarriedTo(p);
         int rent = MaidensConfig.RENT_EMERALDS.get();
         if (employer != null && !mine) return "Sorry, " + n + ", I'm working for " + employerName + " today.";
+        if (!mine && !wife && m.relationships().affection(p) < HIRE_AFFECTION)
+            return "I'd like to get to know you a little better before I work for you, " + n + ".";
         if (!mine && !wife && !p.getAbilities().instabuild) {
             if (p.getInventory().countItem(Items.EMERALD) < rent) return "A day's work is " + rent + " emeralds, " + n + ".";
             ContainerHelper.clearOrCountMatchingItems(p.getInventory(), s -> s.is(Items.EMERALD), rent, false);
         }
         if (!mine) shiftLeft = wife ? -1 : MaidensConfig.SHIFT_TICKS.get();
-        if (forVillage) {
-            // what she gathered for her village stays with it
-            net.maidens.village.VillageRecord v = net.maidens.village.VillageSocial.villageOf(m);
-            if (v != null) Delivery.unloadToVillage(this, v);
-        }
         employer = p.getUUID();
         employerName = n;
         lastEmployer = p.getUUID();

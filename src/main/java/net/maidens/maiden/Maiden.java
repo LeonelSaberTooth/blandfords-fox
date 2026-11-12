@@ -108,13 +108,13 @@ public class Maiden extends AbstractVillager {
         }
     }
 
-    /** Married to another villager (not a player): who. */
+    /** Married to another villager (not a player): who, and her (or his) name. */
     @Nullable private UUID spouse;
+    private String spouseName = "";
     /** Marrying another villager: 0 not decided yet, 1 stays single, 2 looking for someone (or married). */
     private int marriageState;
-    /** A village guard (watches a gate or the bell, fights monsters), and which post is hers. */
-    private boolean guard;
-    private int guardPost;
+    /** A player she's walking with (the menu's Follow me), or null. */
+    @Nullable private UUID follow;
 
     private final Relationships relationships = new Relationships(this);
     private final Employment employment = new Employment(this);
@@ -122,6 +122,7 @@ public class Maiden extends AbstractVillager {
     private final Residence residence = new Residence(this);
     private final Wishes wishes = new Wishes(this);
     private final Raider raider = new Raider(this);
+    private final net.maidens.maiden.work.VillageWork villageWork = new net.maidens.maiden.work.VillageWork(this);
     /** Fighting for her village in a raid (checked every 2 s). */
     private boolean defending;
 
@@ -168,6 +169,11 @@ public class Maiden extends AbstractVillager {
 
     public Wishes wishes() {
         return wishes;
+    }
+
+    /** Her job for her village (in work hours). */
+    public net.maidens.maiden.work.VillageWork villageWork() {
+        return villageWork;
     }
 
     /** Set when she was sent to raid another village. */
@@ -319,6 +325,19 @@ public class Maiden extends AbstractVillager {
 
     public void setSpouse(@Nullable UUID spouse) {
         this.spouse = spouse;
+        if (spouse == null) spouseName = "";
+    }
+
+    public void setSpouse(Maiden other) {
+        spouse = other.getUUID();
+        spouseName = other.name();
+    }
+
+    /** Her villager husband's (or wife's) name: remembered, or looked up if she's nearby. */
+    public String spouseName() {
+        if (spouse == null) return "";
+        if (spouseName.isEmpty() && level() instanceof ServerLevel sl && sl.getEntity(spouse) instanceof Maiden other) spouseName = other.name();
+        return spouseName.isEmpty() ? "someone" : spouseName;
     }
 
     public int marriageState() {
@@ -329,12 +348,84 @@ public class Maiden extends AbstractVillager {
         marriageState = state;
     }
 
+    /** A village guard (keeps a gate or walks round the walls in work hours, fights monsters). */
     public boolean isGuard() {
-        return guard;
+        return villageWork.job() == net.maidens.maiden.work.Job.GUARD;
     }
 
     public void setGuard(boolean guard) {
-        this.guard = guard;
+        if (guard) villageWork.set(net.maidens.maiden.work.Job.GUARD, null, villageWork.post());
+        else if (isGuard()) villageWork.clear();
+    }
+
+    public boolean isDefending() {
+        return defending;
+    }
+
+    // ------------------------------------------------------------------ walking with a player
+
+    public boolean isFollowing() {
+        return follow != null;
+    }
+
+    @Nullable
+    public Player followed() {
+        return follow == null ? null : level().getPlayerByUUID(follow);
+    }
+
+    public boolean isFollowing(Player p) {
+        return p.getUUID().equals(follow);
+    }
+
+    /** Hearts it takes for her to follow you round her village, and anywhere. */
+    public static final int FOLLOW_VILLAGE = 20, FOLLOW_ANYWHERE = 80;
+
+    /** Starts or stops following a player (the menu's Follow me). Returns what she says. */
+    public String toggleFollow(ServerPlayer p) {
+        String n = p.getName().getString();
+        if (isFollowing(p)) {
+            follow = null;
+            getNavigation().stop();
+            return "Alright, I'll stay here.";
+        }
+        if (isBaby()) return "I'm not allowed to wander off, " + n + "!";
+        if (employment.isHired()) return "I'm working right now, " + n + ". Maybe after?";
+        if (Schedule.bedtime(this)) return "It's late, " + n + ". I'm off to bed soon.";
+        int a = relationships.affection(p);
+        boolean wife = relationships.isMarriedTo(p);
+        if (!wife && a < FOLLOW_VILLAGE) return "I don't know you that well yet, " + n + ".";
+        if (!wife && a < FOLLOW_ANYWHERE && !inVillageArea(p)) return "I don't go outside the village with people I don't know well, " + n + ".";
+        follow = p.getUUID();
+        return wife || a >= FOLLOW_ANYWHERE ? "Lead the way, " + n + "! I'll go anywhere with you." : "Sure, I'll walk with you, " + n + ". Just around the village, though.";
+    }
+
+    /** Within her village (its walls, or its houses), with a little to spare. */
+    public boolean inVillageArea(Entity e) {
+        net.maidens.village.VillageRecord v = VillageSocial.villageOf(this);
+        if (v == null) return false;
+        net.minecraft.world.level.levelgen.structure.BoundingBox b = v.wallBox != null ? v.wallBox : v.box;
+        return e.getX() >= b.minX() - 8 && e.getX() <= b.maxX() + 9 && e.getZ() >= b.minZ() - 8 && e.getZ() <= b.maxZ() + 9;
+    }
+
+    /** Twice a second: stops following someone who has gone, or gone too far for her, or at bedtime. */
+    private void checkFollow() {
+        if (follow == null) return;
+        Player p = followed();
+        if (p == null || !p.isAlive() || p.level() != level() || p.isSpectator()) {
+            follow = null;
+            return;
+        }
+        String why;
+        int a = relationships.affection(p);
+        boolean wife = relationships.isMarriedTo(p);
+        if (Schedule.bedtime(this)) why = "It's getting late. I'm going home to bed. Goodnight!";
+        else if (employment.isHired()) why = "";
+        else if (!wife && a < FOLLOW_VILLAGE) why = "I'd rather not, actually.";
+        else if (!wife && a < FOLLOW_ANYWHERE && !inVillageArea(p)) why = "This is as far as I go. I'll head back now!";
+        else return;
+        follow = null;
+        getNavigation().stop();
+        if (!why.isEmpty() && p instanceof ServerPlayer sp) say(sp, why);
     }
 
     private static String randomName(net.minecraft.util.RandomSource r, boolean male) {
@@ -401,23 +492,12 @@ public class Maiden extends AbstractVillager {
 
     /** A village maiden nobody has claimed: not hired and not married. Only she does village chores and routine. */
     public boolean hasVillageDuties() {
-        return residence.inVillage() && !employment.isHired() && !relationships.isMarried() && !isBaby() && !raider.active();
+        return residence.inVillage() && !employment.isHired() && !relationships.isMarried() && !isBaby() && !raider.active() && follow == null;
     }
 
     /** Fights monsters: a hired guard, or a village maiden defending her village in a raid. */
     public boolean isFighter() {
-        return employment.isGuarding() || defending || raider.active() && !raider.surrendered() || guard && hasVillageDuties();
-    }
-
-    /** Where a village guard stands: just inside one of its gates (each guard her own), or by the bell. */
-    public BlockPos guardPost(net.maidens.village.VillageRecord v) {
-        if (v.gates.isEmpty()) return v.bell() != null ? v.bell() : v.centre();
-        net.maidens.village.VillageRecord.Gate g = v.gates.get(Math.floorMod(guardPost, v.gates.size()));
-        return g.pos.offset(-g.dx * 3, 0, -g.dz * 3);
-    }
-
-    public void setGuardPost(int post) {
-        guardPost = post;
+        return employment.isGuarding() || defending || raider.active() && !raider.surrendered() || isGuard() && hasVillageDuties();
     }
 
     /** A raid on her village: free village maidens (and guards) take up a sword; when it's over, they put it away. */
@@ -430,7 +510,7 @@ public class Maiden extends AbstractVillager {
         if (raid) {
             if (isSleeping()) stopSleeping();
             if (getMainHandItem().isEmpty()) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
-        } else if (getMainHandItem().is(Items.IRON_SWORD) && !guard) {
+        } else if (getMainHandItem().is(Items.IRON_SWORD) && !isGuard()) {
             setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
             setTarget(null);
         }
@@ -541,7 +621,11 @@ public class Maiden extends AbstractVillager {
         trading.tick();
         residence.tick();
         wishes.tick();
-        if (tickCount % 10 == 3) Schedule.tick(this);
+        if (tickCount % 10 == 3) {
+            Schedule.tick(this);
+            checkFollow();
+        }
+        if (tickCount % 20 == 11) villageWork.dress();
         if (tickCount % 40 == 0) updateDefending();
         if (raider.active() && tickCount % 100 == 0 && WarParties.stale(this)) {   // her raid ended while she was away
             if (raider.resident()) raider.finish();
@@ -555,12 +639,14 @@ public class Maiden extends AbstractVillager {
     private void updateRestriction() {
         Job job = employment.job();
         if (job == Job.GUARD || raider.active()) clearRestriction();      // guards follow, raiders go where the raid is
-        else if (guard && hasVillageDuties() && VillageSocial.villageOf(this) instanceof net.maidens.village.VillageRecord gv)
-            restrictTo(guardPost(gv), 6);                                    // a village guard keeps to her post
-        else if (employment.forVillage() && employment.busyNow() && employment.workPos() != null)
-            restrictTo(employment.workPos(), job == Job.MINE ? 96 : 24);     // at work for her village
-        else if (hasVillageDuties() && VillageSocial.villageOf(this) instanceof net.maidens.village.VillageRecord v)
-            restrictTo(v.centre(), Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 24);
+        else if (follow != null) clearRestriction();                      // where the player goes
+        else if (Schedule.keeps(this) && VillageSocial.villageOf(this) instanceof net.maidens.village.VillageRecord v) {
+            // her day: home, work, the market (a child playing and a guard walking round have the run of the village)
+            Schedule.Activity a = Schedule.now(this);
+            BlockPos at = a == Schedule.Activity.OUTSIDE ? null : Schedule.place(this, a);
+            if (at != null) restrictTo(at, a == Schedule.Activity.WORK ? 16 : a == Schedule.Activity.MARKET ? 8 : 5);
+            else restrictTo(v.centre(), Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 24);
+        }
         else if (job.atWorkSpot() && employment.workPos() != null) restrictTo(employment.workPos(), job == Job.MINE ? 96 : 24);
         else if (home != null) restrictTo(home, 16);
         else clearRestriction();
@@ -704,6 +790,9 @@ public class Maiden extends AbstractVillager {
         if (!level().isClientSide) {
             Containers.dropContents(level(), this, employment.bag());
             UUID spouse = relationships.spouse();
+            // her villager husband (or wife) is free to marry again
+            if (this.spouse != null && level() instanceof ServerLevel sl && sl.getEntity(this.spouse) instanceof Maiden other
+                    && getUUID().equals(other.spouse())) other.setSpouse((UUID) null);
             relationships.onDeath();
             Royals.onDeath(this);
             residence.release();
@@ -715,23 +804,25 @@ public class Maiden extends AbstractVillager {
     }
 
     /**
-     * Once a second: her job's hat while she works (a hired job, or her workstation's during work hours), and her
-     * casual clothes when she's indoors and not working (grown women only).
+     * Once a second: what she wears. A resident keeping to her day (grown men and women only): casual clothes at home
+     * and in bed, her trade's things at work, her usual clothes (a woman's dress) at the market. Hired, her job's
+     * things while she works. Anyone else: casual clothes indoors (grown women). Children and the old don't change.
      */
     private void updateLooks() {
         String hat = "";
-        if (!isBaby() && !isRoyal()) {
-            if (employment.busyNow()) hat = employment.job().hat;
-            else if (hasVillageDuties() && net.maidens.maiden.home.Schedule.now(this) == net.maidens.maiden.home.Schedule.Activity.WORK
-                    && residence.jobSite() != null && residence.profession() != null && distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(residence.jobSite())) < 10 * 10) {
-                hat = net.minecraft.core.registries.BuiltInRegistries.VILLAGER_PROFESSION.getKey(residence.profession()).getPath();
-            }
+        boolean casual = false;
+        boolean unarmoured = getItemBySlot(EquipmentSlot.CHEST).isEmpty() && getItemBySlot(EquipmentSlot.LEGS).isEmpty() && getItemBySlot(EquipmentSlot.FEET).isEmpty();
+        if (Schedule.adult(this) && !isRoyal()) {
+            Schedule.Activity a = Schedule.activity(this);
+            if (employment.busyNow()) hat = villageWork.trade(employment.job());
+            else if (a == Schedule.Activity.WORK && villageWork.onDuty()) hat = villageWork.trade(villageWork.job());
+            else if (a == Schedule.Activity.HOME || a == Schedule.Activity.SLEEP) casual = true;
+            else if (a == null) casual = kind() == Kind.WOMAN && !level().canSeeSky(blockPosition().above())
+                    && level().getBrightness(net.minecraft.world.level.LightLayer.SKY, blockPosition().above()) < 14
+                    && blockPosition().getY() > level().getSeaLevel() - 8;
+            casual &= getTarget() == null && unarmoured;
         }
         if (!hat.equals(entityData.get(HAT))) entityData.set(HAT, hat);
-        boolean casual = kind() == Kind.WOMAN && !isBaby() && !employment.busyNow() && getTarget() == null
-                && getItemBySlot(EquipmentSlot.CHEST).isEmpty() && getItemBySlot(EquipmentSlot.LEGS).isEmpty() && getItemBySlot(EquipmentSlot.FEET).isEmpty()
-                && !level().canSeeSky(blockPosition().above()) && level().getBrightness(net.minecraft.world.level.LightLayer.SKY, blockPosition().above()) < 14
-                && blockPosition().getY() > level().getSeaLevel() - 8;
         if (casual != isCasual()) entityData.set(CASUAL, casual);
     }
 
@@ -779,9 +870,9 @@ public class Maiden extends AbstractVillager {
         tag.putBoolean("Royal", isRoyal());
         tag.putInt("Kind", kind().ordinal());
         if (spouse != null) tag.putUUID("Spouse", spouse);
+        tag.putString("SpouseName", spouseName);
         tag.putInt("Marriage", marriageState);
-        tag.putBoolean("Guard", guard);
-        tag.putInt("GuardPost", guardPost);
+        villageWork.save(tag);
         raider.save(tag);
         tag.putBoolean("MaidenReady", initialised);
         tag.putInt("Skin", getSkin());
@@ -805,9 +896,9 @@ public class Maiden extends AbstractVillager {
         setRoyal(tag.getBoolean("Royal"));
         entityData.set(KIND, tag.getInt("Kind"));
         spouse = tag.hasUUID("Spouse") ? tag.getUUID("Spouse") : null;
+        spouseName = tag.getString("SpouseName");
         marriageState = tag.getInt("Marriage");
-        guard = tag.getBoolean("Guard");
-        guardPost = tag.getInt("GuardPost");
+        villageWork.load(tag);
         raider.load(tag);
         initialised = tag.getBoolean("MaidenReady");
         setSkin(tag.getInt("Skin"));

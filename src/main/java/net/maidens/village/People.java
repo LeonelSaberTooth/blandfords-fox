@@ -2,19 +2,17 @@ package net.maidens.village;
 
 import net.maidens.maiden.Maiden;
 import net.maidens.maiden.work.Job;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Who lives in a maiden village: women, men, old women and men, and children (who grow up in a few days; nobody
- * else ages). Grown-ups marry each other (half of them, four in five of the old), and some are guards: one per gate
- * (or two by the bell), plus one more for every eight villagers.
+ * else ages). Grown-ups marry each other (half of them, four in five of the old), and the grown men and women all
+ * have a job for the village ({@link #jobs}).
  */
 public final class People {
     private People() {}
@@ -31,68 +29,87 @@ public final class People {
         else m.setKind(Maiden.Kind.OLD_MAN);
     }
 
-    /** Once a minute while the village is loaded: weddings, and guards. */
+    /** Once a minute while the village is loaded: weddings, and jobs. */
     static void tick(ServerLevel level, VillageRecord v, List<Maiden> residents) {
         marry(level, v, residents);
-        guards(v, residents);
         jobs(level, v, residents);
     }
 
     /** How the last job search went (for the self test). */
     public static String lastJobs = "";
 
+    /** The other jobs, and how many of each (to every guard there's this many farmers, woodcutters...). */
+    private static final Job[] TRADES = {Job.FARM, Job.WOOD, Job.MINE, Job.FISH};
+    private static final int[] SHARE = {4, 2, 2, 1};
+    private static final int PER_MINUTE = 6;
+
+    /** Can work for the village: a grown man or woman living there, not royal, not married to a player. */
+    public static boolean worker(Maiden m) {
+        return net.maidens.maiden.home.Schedule.adult(m) && !m.isRoyal() && m.residence().inVillage() && !m.relationships().isMarried();
+    }
+
     /**
-     * Work for the village: woodcutters (one for every eight villagers), miners (one for every ten) and, with water
-     * nearby, fishers (one for every twelve), from the grown-ups who aren't guards, royals or hired. One more a minute.
+     * Every grown man and woman works for the village. Guards first: one per gate (or two), and one more for every
+     * eight people. The rest farm, cut wood, mine or fish, four farmers to two woodcutters, two miners and a fisher,
+     * as far as there are fields, woods, rock and water for them (a few more each minute).
      */
     public static void jobs(ServerLevel level, VillageRecord v, List<Maiden> residents) {
         int n = residents.size();
-        int wood = 0, mine = 0, fish = 0;
+        int[] count = new int[TRADES.length];
+        int guards = 0, idle = 0;
+        List<Maiden> free = new ArrayList<>();
         for (Maiden m : residents) {
-            if (!m.employment().forVillage()) continue;
-            switch (m.employment().job()) {
-                case WOOD -> wood++;
-                case MINE -> mine++;
-                case FISH -> fish++;
-                default -> {}
-            }
+            if (!worker(m)) continue;
+            Job j = m.villageWork().job();
+            if (j == Job.GUARD) guards++;
+            for (int i = 0; i < TRADES.length; i++) if (j == TRADES[i]) count[i]++;
+            if (j == Job.NONE) free.add(m);
         }
-        lastJobs = n + " residents: " + wood + " woodcutters, " + mine + " miners, " + fish + " fishers";
-        List<Job> wanted = new ArrayList<>();
-        if (wood < Math.max(1, n / 8)) wanted.add(Job.WOOD);
-        if (mine < Math.max(1, n / 10)) wanted.add(Job.MINE);
-        if (fish < Math.max(1, n / 12)) wanted.add(Job.FISH);
-        if (wanted.isEmpty()) return;
-        Maiden pick = null;
-        for (Maiden m : residents) {
-            if (m.isBaby() || m.isOld() || m.isGuard() || m.isRoyal() || !m.hasVillageDuties() || m.employment().isWorking()) continue;
-            // the ones with no trade of their own first; farmers stay in the fields
-            var prof = m.profession();
-            if (prof == net.minecraft.world.entity.npc.VillagerProfession.FARMER) continue;
-            if (pick == null || prof == null && pick.profession() != null) pick = m;
-        }
-        if (pick == null) return;
         RandomSource r = level.getRandom();
-        // the first job there's a place for (no trees nearby: no woodcutter, and so on)
-        Job want = null;
-        net.minecraft.core.BlockPos at = null;
-        for (Job j : wanted) {
-            at = switch (j) {
-                case WOOD -> WorkSites.forest(level, v, r);
-                case MINE -> WorkSites.mine(level, v, r);
-                case FISH -> WorkSites.water(level, v, r);
-                default -> null;
-            };
-            if (at != null) {
-                want = j;
-                break;
+        int want = Math.max(2, v.gates.size()) + n / 8, given = 0;
+        boolean[] none = new boolean[TRADES.length];
+        StringBuilder log = new StringBuilder();
+        for (Maiden m : free) {
+            if (given >= PER_MINUTE) break;
+            if (guards < want) {
+                m.villageWork().set(Job.GUARD, null, guards++);
+                given++;
+                continue;
             }
-            lastJobs += "; no spot for a " + j.button.toLowerCase();
+            // the job furthest behind its share that has somewhere to do it
+            BlockPos at = null;
+            int pick = -1;
+            while (at == null) {
+                pick = -1;
+                for (int i = 0; i < TRADES.length; i++) {
+                    if (none[i]) continue;
+                    if (pick < 0 || count[i] * SHARE[pick] < count[pick] * SHARE[i]) pick = i;
+                }
+                if (pick < 0) break;
+                at = switch (TRADES[pick]) {
+                    case FARM -> Farms.spot(level, v, r);
+                    case WOOD -> WorkSites.forest(level, v, r);
+                    case MINE -> WorkSites.mine(level, v, r);
+                    case FISH -> WorkSites.water(level, v, r);
+                    default -> null;
+                };
+                if (at == null) {
+                    none[pick] = true;
+                    log.append("; no spot for a ").append(TRADES[pick].button.toLowerCase());
+                }
+            }
+            if (at == null) {
+                idle++;
+                continue;
+            }
+            m.villageWork().set(TRADES[pick], at, 0);
+            if (TRADES[pick] == Job.WOOD) m.villageWork().setLog(WorkSites.logNear(level, at));
+            count[pick]++;
+            given++;
+            log.append("; ").append(m.name()).append(" is now a ").append(TRADES[pick].button.toLowerCase()).append(" at ").append(at.toShortString());
         }
-        if (want == null) return;
-        net.minecraft.core.Direction dir = WorkSites.away(v, at);
-        pick.employment().startForVillage(want, at, dir);
-        lastJobs += "; " + pick.name() + " is now a " + want.button.toLowerCase() + " at " + at.toShortString();
+        lastJobs = n + " residents: " + guards + " guards, " + count[0] + " farmers, " + count[1] + " woodcutters, " + count[2] + " miners, "
+                + count[3] + " fishers" + (idle > 0 ? ", " + idle + " with nothing to do" : "") + log;
     }
 
     private static boolean free(Maiden m) {
@@ -111,31 +128,12 @@ public final class People {
             if (!free(a)) continue;
             for (Maiden b : looking) {
                 if (b == a || !free(b) || b.isMale() == a.isMale() || b.isOld() != a.isOld()) continue;
-                a.setSpouse(b.getUUID());
-                b.setSpouse(a.getUUID());
+                a.setSpouse(b);
+                b.setSpouse(a);
                 net.maidens.politics.Network.get(level).news(level, v.id, a.name() + " and " + b.name() + " got married.");
                 break;
             }
         }
     }
 
-    private static void guards(VillageRecord v, List<Maiden> residents) {
-        int want = Math.max(2, v.gates.size()) + residents.size() / 8;
-        int have = 0;
-        for (Maiden m : residents) {
-            if (!m.isGuard()) continue;
-            have++;
-            if (m.hasVillageDuties() && m.getMainHandItem().isEmpty()) m.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
-        }
-        for (Maiden m : residents) {
-            if (have >= want) break;
-            if (m.isGuard() || m.isBaby() || m.isOld() || m.isRoyal() || !m.hasVillageDuties()) continue;
-            m.setGuard(true);
-            m.setGuardPost(have);
-            // a sword and a helmet (her own, not from a bag)
-            m.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
-            m.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.CHAINMAIL_HELMET));
-            have++;
-        }
-    }
 }

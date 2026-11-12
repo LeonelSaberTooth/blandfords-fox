@@ -7,7 +7,7 @@ import net.minecraft.world.entity.player.Player;
 
 import java.util.EnumSet;
 
-/** A hired guard keeps close to the player who hired her, and catches up if left far behind. */
+/** A hired guard keeps close to the player who hired her, and catches up if left far behind (not at bedtime). */
 final class FollowEmployerGoal extends Goal {
     private final Maiden m;
     private Player p;
@@ -20,14 +20,14 @@ final class FollowEmployerGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        if (!m.employment().isGuarding() || m.getTarget() != null) return false;
+        if (!m.employment().isGuarding() || m.getTarget() != null || net.maidens.maiden.home.Schedule.bedtime(m)) return false;
         p = m.employment().employerPlayer();
         return p != null && !p.isSpectator() && m.distanceToSqr(p) > 4 * 4;
     }
 
     @Override
     public boolean canContinueToUse() {
-        return m.employment().isGuarding() && p != null && p.isAlive() && m.getTarget() == null && m.distanceToSqr(p) > 2.5 * 2.5;
+        return m.employment().isGuarding() && !net.maidens.maiden.home.Schedule.bedtime(m) && p != null && p.isAlive() && m.getTarget() == null && m.distanceToSqr(p) > 2.5 * 2.5;
     }
 
     @Override

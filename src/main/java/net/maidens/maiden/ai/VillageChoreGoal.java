@@ -15,8 +15,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.EnumSet;
 
 /**
- * A free village maiden (not hired, not married) takes one of her village's chores, carries the block there
- * (or a shovel, to clear a road) and does it.
+ * In work hours a few of the village's workers (not its guards) leave their work for a chore (a repair, a house going
+ * up): she carries the block there (or a shovel, to clear a road) and does it.
  */
 final class VillageChoreGoal extends Goal {
     private static final double REACH = 3.5, MAX_REACH = 8;
@@ -39,14 +39,14 @@ final class VillageChoreGoal extends Goal {
     public boolean canUse() {
         if (--cooldown > 0) return false;
         cooldown = 10;     // (goals are only checked every other tick, so not tickCount % n)
-        if (!m.hasVillageDuties() || m.employment().busyNow() || m.isRoyal() || m.isGuard() || !m.isFree() || m.isSleeping() || !choreTime(m)) return false;
+        if (!m.hasVillageDuties() || m.isRoyal() || m.isGuard() || !m.isFree() || m.isSleeping() || !choreTime(m) || Upkeep.busy(m)) return false;
         chore = Upkeep.take(m);
         return chore != null;
     }
 
     @Override
     public boolean canContinueToUse() {
-        return chore != null && m.hasVillageDuties() && !m.employment().busyNow() && m.isFree() && ticks < GIVE_UP && choreTime(m)
+        return chore != null && m.hasVillageDuties() && m.isFree() && ticks < GIVE_UP && choreTime(m)
                 && Upkeep.stillNeeded(m, chore);
     }
 
@@ -108,9 +108,8 @@ final class VillageChoreGoal extends Goal {
         if (!m.employment().isWorking() && !m.isGuard()) m.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
     }
 
-    /** Chores are for the working day and the evening at the bell, not when she should be at home or asleep. */
+    /** Chores are work: in work hours, for the grown-ups. */
     private static boolean choreTime(Maiden m) {
-        Schedule.Activity a = Schedule.now(m);
-        return a == Schedule.Activity.WORK || a == Schedule.Activity.GATHER;
+        return Schedule.activity(m) == Schedule.Activity.WORK;
     }
 }

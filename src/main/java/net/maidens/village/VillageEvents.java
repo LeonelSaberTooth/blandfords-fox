@@ -43,6 +43,7 @@ public final class VillageEvents {
             Upkeep.tick(level, villages);
             Fortify.tick(level, villages);
             HomeVillages.tick(level, villages);
+            Trees.tick(level, villages);
             Farms.tick(level, villages);
             VillageConversion.sweep(level, villages);
             WarParties.tick(level, villages);

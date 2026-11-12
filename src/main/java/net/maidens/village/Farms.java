@@ -2,13 +2,16 @@ package net.maidens.village;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -18,18 +21,18 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The village's fields: open farmland outside the houses (outside the walls, by a gate, if it has walls), a few
- * strips of one crop each (wheat, carrots, potatoes or beetroot), watered by a channel down the middle. Put there
- * when the land around the village is loaded; its farmers tend them during work hours ({@link #ripe}), and like
- * any part of the village, trampled farmland or a crop gone missing is put back by the maidens.
+ * The village's fields: a few big stretches of farmland outside the houses (outside the walls, by a gate, if it has
+ * walls), each a patchwork of plots of different sizes with paths between them, its outline ragged where plots were
+ * left out (the corners, rough or wet ground, something already there). Mostly wheat, some carrots, potatoes and
+ * beetroot, one crop to a plot, each plot watered by a channel down its middle and levelled to its own height
+ * (fields on a slope step down it). Fully grown when they're laid out. Like any part of the village, trampled
+ * farmland or a crop gone missing is put back by the maidens (a crop as a seedling).
  */
 public final class Farms {
     public static final String NAME = "field";
-    /** One field: 9 across (a channel in the middle, four rows either side), this long. */
-    private static final int WIDTH = 9, LENGTH = 15, FIELDS = 3, TRIES = 120;
+    private static final int TRIES = 80, MIN_PLOTS = 4;
     /** How the last search went (for the self test). */
     public static String lastSearch = "";
-    private static final Block[] CROPS = {Blocks.WHEAT, Blocks.CARROTS, Blocks.POTATOES, Blocks.BEETROOTS};
 
     private Farms() {}
 
@@ -39,76 +42,142 @@ public final class Farms {
             if (v.farmsPlanned || v.blueprint.pieceCount() == 0) continue;
             if (v.fortified && v.wallBox == null || Fortify.rolls(level, v.id) && !v.fortified) continue;   // walls first
             BlockPos c = v.centre();
-            int r = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 60;
+            int r = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 90;
             if (!level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r)) continue;
             plan(level, v);
         }
     }
 
-    /** Lays out the fields. Returns how many there are. */
+    /** One plot of a field: where, at what height, which way its channel runs, its crop. */
+    private record Plot(BoundingBox box, int base, boolean alongX, Block crop) {}
+
+    /** Lays out the fields. Returns how many plots there are. */
     public static int plan(ServerLevel level, VillageRecord v) {
         v.farmsPlanned = true;
         RandomSource r = RandomSource.create(v.id ^ 0xF1E1D5L);
         BlockPos c = v.centre();
         BoundingBox outside = v.wallBox != null ? v.wallBox : v.box;
         double half = Math.max(outside.getXSpan(), outside.getZSpan()) / 2.0;
-        // near a gate if there are walls (so the farmers get there), else anywhere round the edge
+        int areas = Math.min(4, 2 + Math.max(1, v.gates.size()));
         List<double[]> ways = new ArrayList<>();
         for (VillageRecord.Gate g : v.gates) ways.add(new double[]{g.pos.getX(), g.pos.getZ(), g.dx, g.dz});
-        int made = 0, unloaded = 0, taken = 0, rough = 0;
-        List<Object[]> rougher = new ArrayList<>();
-        for (int i = 0; i < TRIES && made < FIELDS; i++) {
-            int x, z;
+        // fields already laid out (and the village's other pieces) are kept clear of
+        List<BoundingBox> taken = new ArrayList<>();
+        int made = 0, plots = 0, small = 0;
+        for (int i = 0; i < TRIES && made < areas; i++) {
+            // the near edge of the field: out from a gate if there are walls (so the farmers get there), else round the edge
+            double x, z, ox, oz;
             if (!ways.isEmpty()) {
                 double[] g = ways.get(i % ways.size());
-                double len = Math.sqrt(g[2] * g[2] + g[3] * g[3]);
-                double ox = g[2] / Math.max(1, len), oz = g[3] / Math.max(1, len);
-                double out = 16 + r.nextInt(28), side = r.nextInt(41) - 20;
-                x = (int) (g[0] + ox * out - oz * side);
-                z = (int) (g[1] + oz * out + ox * side);
+                double len = Math.max(1, Math.sqrt(g[2] * g[2] + g[3] * g[3]));
+                ox = g[2] / len;
+                oz = g[3] / len;
+                double out = 8 + r.nextInt(16), side = r.nextInt(61) - 30;
+                x = g[0] + ox * out - oz * side;
+                z = g[1] + oz * out + ox * side;
             } else {
-                double a = r.nextDouble() * Math.PI * 2, d = half + 8 + r.nextInt(20);
-                x = c.getX() + (int) (Math.cos(a) * d);
-                z = c.getZ() + (int) (Math.sin(a) * d);
+                double a = r.nextDouble() * Math.PI * 2, d = half + 6 + r.nextInt(16);
+                ox = Math.cos(a);
+                oz = Math.sin(a);
+                x = c.getX() + ox * d;
+                z = c.getZ() + oz * d;
             }
-            boolean alongX = r.nextBoolean();
-            int w = alongX ? LENGTH : WIDTH, l = alongX ? WIDTH : LENGTH;
-            BoundingBox fp = new BoundingBox(x - w / 2, 0, z - l / 2, x - w / 2 + w - 1, 0, z - l / 2 + l - 1);
-            if (!level.hasChunksAt(fp.minX() - 1, fp.minZ() - 1, fp.maxX() + 1, fp.maxZ() + 1)) { unloaded++; continue; }
-            BoundingBox column = new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ());
-            if (v.blueprint.overlaps(column.inflatedBy(2))) { taken++; continue; }
-            int[] lie = level(level, fp);
-            if (lie == null) { rough++; continue; }
-            if (lie[1] > 3) {
-                // hilly: kept in case nothing flat turns up (it's levelled: filled in and dug out)
-                if (lie[1] <= 8) rougher.add(new Object[]{fp, lie[0], alongX, lie[1]});
-                rough++;
+            List<Plot> field = field(level, v, r, (int) x, (int) z, ox, oz, outside, taken);
+            if (field.size() < MIN_PLOTS) {
+                small++;
                 continue;
             }
-            add(level, v, fp, lie[0], alongX, CROPS[r.nextInt(CROPS.length)], r);
+            add(level, v, field);
+            for (Plot p : field) taken.add(p.box.inflatedBy(1));
             made++;
+            plots += field.size();
         }
-        rougher.sort(java.util.Comparator.comparingInt(o -> (int) o[3]));
-        for (Object[] o : rougher) {
-            if (made >= FIELDS) break;
-            BoundingBox fp = (BoundingBox) o[0];
-            if (v.blueprint.overlaps(new BoundingBox(fp.minX(), -64, fp.minZ(), fp.maxX(), 320, fp.maxZ()).inflatedBy(2))) continue;
-            add(level, v, fp, (int) o[1], (boolean) o[2], CROPS[r.nextInt(CROPS.length)], r);
-            made++;
-        }
-        lastSearch = made + " fields (" + taken + " spots taken, " + rough + " too rough or wet, " + unloaded + " not loaded)";
+        lastSearch = made + " fields, " + plots + " plots (" + small + " spots too small or rough)";
         Villages.get(level).setDirty();
-        return made;
+        return plots;
+    }
+
+    /**
+     * A patchwork from a spot on its near edge, growing away from the village: columns and rows of plots of
+     * different sizes, a path between each, the ones that don't fit (or are taken by chance, mostly at the edges)
+     * left out.
+     */
+    private static List<Plot> field(ServerLevel level, VillageRecord v, RandomSource r, int x, int z, double ox, double oz,
+                                    BoundingBox village, List<BoundingBox> taken) {
+        boolean alongX = r.nextBoolean();          // the plots' long side
+        int cols = 3 + r.nextInt(3), rows = 2 + r.nextInt(3);
+        int[] across = new int[cols], along = new int[rows];
+        for (int i = 0; i < cols; i++) across[i] = 5 + 2 * r.nextInt(3);          // 5, 7 or 9: a channel in the middle
+        for (int j = 0; j < rows; j++) along[j] = 9 + r.nextInt(13);
+        int wx = 0, wz = 0;
+        // in x and z: the plots' sizes, with a block of path between them
+        int[] sx = alongX ? along : across, sz = alongX ? across : along;
+        for (int s : sx) wx += s + 1;
+        for (int s : sz) wz += s + 1;
+        // the field lies beyond the spot, away from the village (centred on it across)
+        int x0 = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? x : x - wx) : x - wx / 2;
+        int z0 = Math.abs(oz) >= Math.abs(ox) ? (oz > 0 ? z : z - wz) : z - wz / 2;
+        int nx = sx.length, nz = sz.length;
+        List<Plot> out = new ArrayList<>();
+        int px = x0;
+        for (int i = 0; i < nx; i++) {
+            int pz = z0;
+            for (int j = 0; j < nz; j++) {
+                BoundingBox b = new BoundingBox(px, 0, pz, px + sx[i] - 1, 0, pz + sz[j] - 1);
+                pz += sz[j] + 1;
+                // a ragged edge: corners and sides are often left out
+                boolean edgeX = i == 0 || i == nx - 1, edgeZ = j == 0 || j == nz - 1;
+                if (r.nextFloat() < (edgeX && edgeZ ? 0.4F : edgeX || edgeZ ? 0.2F : 0.04F)) continue;
+                if (!level.hasChunksAt(b.minX() - 1, b.minZ() - 1, b.maxX() + 1, b.maxZ() + 1)) continue;
+                BoundingBox column = new BoundingBox(b.minX(), -64, b.minZ(), b.maxX(), 320, b.maxZ());
+                if (v.blueprint.overlaps(column.inflatedBy(2)) || column.intersects(village.inflatedBy(2))) continue;
+                boolean clash = false;
+                for (BoundingBox t : taken) clash |= t.intersects(b.minX() - 1, b.minZ() - 1, b.maxX() + 1, b.maxZ() + 1);
+                if (clash) continue;
+                int[] lie = lie(level, b);
+                if (lie == null || lie[1] > 4) continue;
+                float roll = r.nextFloat();
+                Block crop = roll < 0.7F ? Blocks.WHEAT : roll < 0.8F ? Blocks.CARROTS : roll < 0.9F ? Blocks.POTATOES : Blocks.BEETROOTS;
+                out.add(new Plot(b, lie[0], alongX, crop));
+            }
+            px += sx[i] + 1;
+        }
+        // plots left alone, away from the rest, don't make a field: keep the biggest patch that joins up
+        return joined(out);
+    }
+
+    /** The biggest group of plots that touch (across a path). */
+    private static List<Plot> joined(List<Plot> plots) {
+        List<Plot> best = new ArrayList<>();
+        Set<Plot> seen = new HashSet<>();
+        for (Plot p : plots) {
+            if (seen.contains(p)) continue;
+            List<Plot> group = new ArrayList<>();
+            List<Plot> todo = new ArrayList<>(List.of(p));
+            seen.add(p);
+            while (!todo.isEmpty()) {
+                Plot q = todo.remove(todo.size() - 1);
+                group.add(q);
+                for (Plot o : plots)
+                    if (!seen.contains(o) && o.box.intersects(q.box.minX() - 1, q.box.minZ() - 1, q.box.maxX() + 1, q.box.maxZ() + 1)) {
+                        seen.add(o);
+                        todo.add(o);
+                    }
+            }
+            if (group.size() > best.size()) best = group;
+        }
+        return best;
     }
 
     /** Dry ground: {its height, how uneven it is}, or null if there's water. */
-    private static int[] level(ServerLevel level, BoundingBox fp) {
+    @Nullable
+    private static int[] lie(ServerLevel level, BoundingBox fp) {
         int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
         long sum = 0;
         int n = 0;
         for (int x = fp.minX(); x <= fp.maxX(); x++)
             for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
-                int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+                int h = ground(level, x, z);
                 if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) return null;
                 min = Math.min(min, h);
                 max = Math.max(max, h);
@@ -118,51 +187,95 @@ public final class Farms {
         return new int[]{(int) Math.round((double) sum / n), max - min};
     }
 
-    private static void add(ServerLevel level, VillageRecord v, BoundingBox fp, int base, boolean alongX, Block crop, RandomSource r) {
-        Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
-        Set<BlockPos> clear = new HashSet<>();
-        int mid = alongX ? (fp.minZ() + fp.maxZ()) / 2 : (fp.minX() + fp.maxX()) / 2;
-        for (int x = fp.minX(); x <= fp.maxX(); x++)
-            for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
-                BlockPos ground = new BlockPos(x, base, z);
-                // the ground under the field, filled in where it dips
-                for (int y = base - 1; y >= base - 8; y--) {
-                    BlockPos b = new BlockPos(x, y, z);
-                    if (!level.getBlockState(b).canBeReplaced()) break;
-                    blocks.put(b, Blocks.DIRT.defaultBlockState());
-                }
-                // the channel stops a block short of each end, so the water stays in the field
-                boolean end = alongX ? x == fp.minX() || x == fp.maxX() : z == fp.minZ() || z == fp.maxZ();
-                boolean channel = (alongX ? z : x) == mid && !end;
-                if (channel) blocks.put(ground, Blocks.WATER.defaultBlockState());
-                else {
-                    blocks.put(ground, Blocks.FARMLAND.defaultBlockState().setValue(net.minecraft.world.level.block.FarmBlock.MOISTURE, 7));
-                    CropBlock cb = (CropBlock) crop;
-                    blocks.put(ground.above(), cb.getStateForAge(r.nextInt(cb.getMaxAge() + 1)));
-                }
-                for (int y = 1; y <= 8; y++) if (channel || y > 1) clear.add(ground.above(y));
-            }
-        v.blueprint.addBuilding(BoundingBox.encapsulatingPositions(new ArrayList<>(blocks.keySet())).orElse(fp), blocks, clear, NAME, true);
+    /** The top of the ground (not trees). */
+    private static int ground(ServerLevel level, int x, int z) {
+        return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
     }
 
-    /** A ripe crop in the village's fields nearest a spot (within 64 blocks), or null. */
-    public static BlockPos ripe(ServerLevel level, VillageRecord v, BlockPos near) {
-        BlockPos best = null;
-        double bestD = 64 * 64;
+    /** Puts the field in the blueprint (laid out at once): each plot, and the path round it, a piece of its own. */
+    private static void add(ServerLevel level, VillageRecord v, List<Plot> field) {
+        Set<Long> claimed = new HashSet<>();
+        for (Plot p : field)
+            for (int x = p.box.minX(); x <= p.box.maxX(); x++)
+                for (int z = p.box.minZ(); z <= p.box.maxZ(); z++) claimed.add(BlockPos.asLong(x, 0, z));
+        for (Plot p : field) {
+            Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
+            Set<BlockPos> clear = new HashSet<>();
+            BoundingBox fp = p.box;
+            int base = p.base;
+            int mid = p.alongX ? (fp.minZ() + fp.maxZ()) / 2 : (fp.minX() + fp.maxX()) / 2;
+            CropBlock crop = (CropBlock) p.crop;
+            for (int x = fp.minX(); x <= fp.maxX(); x++)
+                for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
+                    BlockPos g = new BlockPos(x, base, z);
+                    fill(level, g, blocks);
+                    // the channel stops a block short of each end, so the water stays in the plot
+                    boolean end = p.alongX ? x == fp.minX() || x == fp.maxX() : z == fp.minZ() || z == fp.maxZ();
+                    boolean channel = (p.alongX ? z : x) == mid && !end;
+                    if (channel) blocks.put(g, Blocks.WATER.defaultBlockState());
+                    else {
+                        blocks.put(g, Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, FarmBlock.MAX_MOISTURE));
+                        blocks.put(g.above(), crop.getStateForAge(crop.getMaxAge()));
+                    }
+                    for (int y = 1; y <= 8; y++) if (channel || y > 1) clear.add(g.above(y));
+                }
+            // the path round it (where no other plot is), stepping between its height and the ground's
+            for (int x = fp.minX() - 1; x <= fp.maxX() + 1; x++)
+                for (int z = fp.minZ() - 1; z <= fp.maxZ() + 1; z++) {
+                    if (!claimed.add(BlockPos.asLong(x, 0, z))) continue;
+                    int y = Math.max(base - 1, Math.min(base + 1, ground(level, x, z)));
+                    BlockPos g = new BlockPos(x, y, z);
+                    if (v.blueprint.expected(g) != null || !level.getFluidState(g).isEmpty()) continue;
+                    fill(level, g, blocks);
+                    blocks.put(g, Blocks.DIRT_PATH.defaultBlockState());
+                    for (int dy = 1; dy <= 3; dy++) clear.add(g.above(dy));
+                }
+            v.blueprint.addBuilding(BoundingBox.encapsulatingPositions(new ArrayList<>(blocks.keySet())).orElse(fp), blocks, clear, NAME, true);
+        }
+    }
+
+    /** The ground under a spot, filled in with dirt where it dips. */
+    private static void fill(ServerLevel level, BlockPos g, Map<BlockPos, BlockState> blocks) {
+        for (int y = g.getY() - 1; y >= g.getY() - 8; y--) {
+            BlockPos b = new BlockPos(g.getX(), y, g.getZ());
+            BlockState s = level.getBlockState(b);
+            if (!s.canBeReplaced() && !s.is(BlockTags.LEAVES) && !s.is(BlockTags.LOGS)) break;
+            blocks.put(b, Blocks.DIRT.defaultBlockState());
+        }
+    }
+
+    /** Somewhere for a farmer to work: on the path at the edge of one of the plots, or null if there are no fields. */
+    @Nullable
+    public static BlockPos spot(ServerLevel level, VillageRecord v, RandomSource r) {
+        List<BoundingBox> plots = new ArrayList<>();
+        for (Blueprint.PieceInfo p : v.blueprint.pieces()) if (p.name().equals(NAME)) plots.add(p.box());
+        if (plots.isEmpty()) return null;
+        for (int i = 0; i < 10; i++) {
+            BoundingBox b = plots.get(r.nextInt(plots.size()));
+            boolean side = r.nextBoolean();
+            int x = side ? b.minX() + r.nextInt(b.getXSpan()) : r.nextBoolean() ? b.minX() : b.maxX();
+            int z = side ? (r.nextBoolean() ? b.minZ() : b.maxZ()) : b.minZ() + r.nextInt(b.getZSpan());
+            if (!level.hasChunkAt(new BlockPos(x, 0, z))) continue;
+            BlockPos g = new BlockPos(x, ground(level, x, z), z);
+            if (level.getFluidState(g).isEmpty()) return g.above();
+        }
+        return null;
+    }
+
+    /** For the self test: crops in the fields, and how many fully grown. */
+    public static int[] crops(ServerLevel level, VillageRecord v) {
+        int all = 0, ripe = 0;
         for (Blueprint.PieceInfo p : v.blueprint.pieces()) {
             if (!p.name().equals(NAME)) continue;
             BoundingBox b = p.box();
-            if (b.getCenter().distSqr(near) > 80 * 80 || !level.hasChunksAt(b.minX(), b.minZ(), b.maxX(), b.maxZ())) continue;
+            if (!level.hasChunksAt(b.minX(), b.minZ(), b.maxX(), b.maxZ())) continue;
             for (BlockPos q : BlockPos.betweenClosed(b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ())) {
                 BlockState s = level.getBlockState(q);
-                if (!(s.getBlock() instanceof CropBlock crop) || !crop.isMaxAge(s)) continue;
-                double d = q.distSqr(near);
-                if (d < bestD) {
-                    bestD = d;
-                    best = q.immutable();
-                }
+                if (!(s.getBlock() instanceof CropBlock crop)) continue;
+                all++;
+                if (crop.isMaxAge(s)) ripe++;
             }
         }
-        return best;
+        return new int[]{all, ripe};
     }
 }

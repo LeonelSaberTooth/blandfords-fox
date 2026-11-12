@@ -13,8 +13,8 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * A village's store and what it lives on. Its farmers bring in crops, its woodcutters logs, its miners stone (and
- * whatever ore they find), its fishers fish. Every day its people eat (one meal for every two of them); a newcomer
+ * A village's store and what it lives on. Each day its farmers bring in crops, its woodcutters logs, its miners
+ * stone (and some ore), its fishers fish ({@link #produce}). Every day its people eat (one meal for every two of them); a newcomer
  * only moves in if there's food to spare, and the village only builds a house for more people when it has the
  * logs and stone for it. What a citizen orders built is built for free.
  */
@@ -33,6 +33,59 @@ public final class Economy {
 
     public static int food(VillageRecord v) {
         return v.count(FOOD);
+    }
+
+    /** What a day's work brought in (for the self test). */
+    public static String lastHarvest = "";
+
+    /**
+     * A day's work, once a day: every farmer brings in 16 food (mostly wheat), every woodcutter 24 logs (of the trees
+     * where she works), every miner 32 stone with some coal and iron (now and then something rarer), every fisher 12
+     * fish. Guards bring in nothing. A worker hired away by a player brings in nothing that day.
+     */
+    public static void produce(ServerLevel level, VillageRecord v, List<Maiden> residents) {
+        net.minecraft.util.RandomSource r = level.getRandom();
+        java.util.Map<String, Integer> got = new java.util.TreeMap<>();
+        java.util.function.BiConsumer<Item, Integer> add = (i, n) -> {
+            if (n <= 0) return;
+            v.storeAdd(i, n);
+            got.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getPath(), n, Integer::sum);
+        };
+        for (Maiden m : residents) {
+            var w = m.villageWork();
+            if (!People.worker(m) || m.employment().isHired() || w.spot() == null) continue;
+            switch (w.job()) {
+                case FARM -> {
+                    int wheat = 10 + r.nextInt(3), carrots = r.nextInt(16 - wheat + 1);
+                    add.accept(Items.WHEAT, wheat);
+                    add.accept(Items.CARROT, carrots);
+                    add.accept(Items.POTATO, 16 - wheat - carrots);
+                }
+                case WOOD -> {
+                    Item log = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(w.log()));
+                    add.accept(LOGS.test(log) ? log : Items.OAK_LOG, 24);
+                }
+                case MINE -> {
+                    add.accept(Items.COBBLESTONE, 32);
+                    add.accept(Items.COAL, 2 + r.nextInt(5));
+                    add.accept(Items.RAW_IRON, 1 + r.nextInt(3));
+                    float x = r.nextFloat();
+                    if (x < 0.15F) add.accept(Items.RAW_COPPER, 2 + r.nextInt(4));
+                    else if (x < 0.25F) add.accept(Items.REDSTONE, 2 + r.nextInt(4));
+                    else if (x < 0.32F) add.accept(Items.LAPIS_LAZULI, 2 + r.nextInt(4));
+                    else if (x < 0.38F) add.accept(Items.RAW_GOLD, 1 + r.nextInt(2));
+                    else if (x < 0.41F) add.accept(Items.DIAMOND, 1);
+                    else if (x < 0.42F) add.accept(Items.EMERALD, 1);
+                }
+                case FISH -> {
+                    int salmon = r.nextInt(5);
+                    add.accept(Items.COD, 12 - salmon);
+                    add.accept(Items.SALMON, salmon);
+                }
+                default -> {}
+            }
+        }
+        lastHarvest = got.toString();
     }
 
     public static boolean canBuildHouse(VillageRecord v) {
@@ -58,6 +111,7 @@ public final class Economy {
         if (v.lastMeal < 0) v.lastMeal = day;
         if (day <= v.lastMeal) return;
         v.lastMeal = day;
+        produce(level, v, residents);
         int meals = (residents.size() + 1) / 2;
         if (!v.take(FOOD, meals)) {
             v.take(FOOD, food(v));

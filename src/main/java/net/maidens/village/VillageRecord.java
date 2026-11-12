@@ -52,6 +52,8 @@ public final class VillageRecord {
     public int castleTurn;
     /** Whether its banner stands by the bell, and whether its fields are laid out. */
     public boolean bannerUp, farmsPlanned;
+    /** Most of the trees inside the village (its walls) have been taken out. */
+    public boolean treesCleared;
     /** What the village has gathered (item id, count): food from its fields and boats, logs, stone. */
     public final Map<String, Integer> store = new java.util.TreeMap<>();
     /** Whether it's been given its first stock, and the last day its people ate. */
@@ -220,6 +222,7 @@ public final class VillageRecord {
         t.putBoolean("Fortified", fortified);
         t.putBoolean("BannerUp", bannerUp);
         t.putBoolean("FarmsPlanned", farmsPlanned);
+        t.putBoolean("TreesCleared", treesCleared);
         CompoundTag st = new CompoundTag();
         store.forEach(st::putInt);
         t.put("Store", st);
@@ -265,6 +268,7 @@ public final class VillageRecord {
         r.fortified = t.getBoolean("Fortified");
         r.bannerUp = t.getBoolean("BannerUp");
         r.farmsPlanned = t.getBoolean("FarmsPlanned");
+        r.treesCleared = t.getBoolean("TreesCleared");
         CompoundTag st = t.getCompound("Store");
         for (String k : st.getAllKeys()) r.store.put(k, st.getInt(k));
         r.stocked = t.getBoolean("Stocked");

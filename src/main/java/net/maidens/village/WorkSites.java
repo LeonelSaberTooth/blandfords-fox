@@ -14,8 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Where a village's workers go: a wood with the most trees near the village, a spot outside it to dig a mine
- * from, the shore of water nearby. Found by looking at a few hundred places around it (loaded land only).
+ * Where a village's workers go: a wood with the most trees near the village, a rock face (a cliff or a cave
+ * mouth), the shore of water nearby. Found by looking at a few hundred places around it (loaded land only).
  */
 public final class WorkSites {
     private static final int SAMPLES = 300;
@@ -117,10 +117,23 @@ public final class WorkSites {
         return null;
     }
 
-    /** Dry ground a little way outside the village, by a gate if it has walls (she digs away from the village). */
+    /**
+     * Where a miner works: in front of a rock face (a cliff, a cave mouth) near the village if there's one, else dry
+     * ground a little way outside it, by a gate if it has walls.
+     */
     @Nullable
     public static BlockPos mine(ServerLevel level, VillageRecord v, RandomSource r) {
         List<Integer> y0 = heights(level, v);
+        BlockPos from = v.bell() != null ? v.bell() : v.centre();
+        for (int i = 0; i < SAMPLES; i++) {
+            int[] p = around(v, r, 72);
+            if (taken(v, p[0], p[1])) continue;
+            double dx = p[0] - from.getX(), dz = p[1] - from.getZ();
+            if (dx * dx + dz * dz > FAR * FAR) continue;
+            BlockPos g = ground(level, p[0], p[1]);
+            if (g == null || !reachable(y0, g.getY())) continue;
+            for (Direction d : Direction.Plane.HORIZONTAL) if (face(level, g, d)) return g;
+        }
         for (int i = 0; i < 60; i++) {
             int x, z;
             if (!v.gates.isEmpty()) {
@@ -139,6 +152,36 @@ public final class WorkSites {
             if (g != null && reachable(y0, g.getY())) return g;
         }
         return null;
+    }
+
+    /** Rock rising in front of a spot (a cliff), or hanging over the way in (a cave mouth). */
+    private static boolean face(ServerLevel level, BlockPos g, Direction d) {
+        for (int k = 1; k <= 2; k++) {
+            BlockPos q = g.relative(d, k);
+            int rock = 0;
+            for (int y = 0; y <= 3; y++) if (rock(level.getBlockState(q.above(y)))) rock++;
+            if (rock >= 3) return true;
+            boolean mouth = level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir() && rock(level.getBlockState(q.above(2)))
+                    && rock(level.getBlockState(q.relative(d).above(2))) && level.getBlockState(q.relative(d)).isAir();
+            if (mouth) return true;
+        }
+        return false;
+    }
+
+    private static boolean rock(BlockState s) {
+        return s.is(BlockTags.BASE_STONE_OVERWORLD) || s.is(net.neoforged.neoforge.common.Tags.Blocks.ORES) || s.is(net.minecraft.world.level.block.Blocks.SANDSTONE)
+                || s.is(BlockTags.TERRACOTTA);
+    }
+
+    /** The kind of log of the trees round a spot (oak if there are none). */
+    public static String logNear(ServerLevel level, BlockPos at) {
+        for (BlockPos p : BlockPos.withinManhattan(at, 10, 8, 10)) {
+            BlockState s = level.getBlockState(p);
+            if (!s.is(BlockTags.LOGS)) continue;
+            String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();
+            if (!id.contains("stripped")) return id;
+        }
+        return "minecraft:oak_log";
     }
 
     /** Dry ground on the shore of water near the village (not the fields' channels). */

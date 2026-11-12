@@ -121,15 +121,14 @@ public final class VillageView {
     private static String jobs(List<Maiden> residents) {
         int farm = 0, wood = 0, mine = 0, fish = 0, guard = 0;
         for (Maiden m : residents) {
-            if (m.isGuard()) guard++;
-            else if (m.employment().forVillage()) switch (m.employment().job()) {
+            switch (m.villageWork().job()) {
+                case FARM -> farm++;
                 case WOOD -> wood++;
                 case MINE -> mine++;
                 case FISH -> fish++;
+                case GUARD -> guard++;
                 default -> {}
             }
-            else if (!m.isBaby() && !m.isRoyal() && !m.employment().isHired()
-                    && (m.profession() == null || m.profession() == net.minecraft.world.entity.npc.VillagerProfession.FARMER)) farm++;
         }
         return farm + " farming, " + wood + " cutting wood, " + mine + " mining, " + fish + " fishing, " + guard + " on guard";
     }

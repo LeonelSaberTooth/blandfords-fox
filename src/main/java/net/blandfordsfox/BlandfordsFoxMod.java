@@ -100,6 +100,7 @@ public final class BlandfordsFoxMod {
         FEATURES.register("negev_paint", () -> new NegevFeatures.Paint(NoneFeatureConfiguration.CODEC));
         FEATURES.register("negev_decorate", () -> new NegevFeatures.Decorate(NoneFeatureConfiguration.CODEC));
         FEATURES.register("cold_ground", () -> new TaigaFeatures.Ground(NoneFeatureConfiguration.CODEC));
+        FEATURES.register("desert_dry", () -> new TaigaFeatures.DesertDry(NoneFeatureConfiguration.CODEC));
         FEATURES.register("cold_disk", () -> new TaigaFeatures.ColdDisk(net.minecraft.world.level.levelgen.feature.configurations.DiskConfiguration.CODEC));
     }
 

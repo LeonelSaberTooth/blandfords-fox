@@ -117,6 +117,11 @@ def main():
                                'features': f'{NS}:trees_savanna', 'step': 'vegetal_decoration'})
     bm('windswept_savanna_trees_fewer', {'type': 'neoforge:add_features', 'biomes': 'minecraft:windswept_savanna',
                                          'features': f'{NS}:trees_windswept_savanna', 'step': 'vegetal_decoration'})
+    # desert: anything still wet at the surface (where it meets the sea) is filled with sand, last
+    ours('configured_feature', 'desert_dry', {'type': f'{NS}:desert_dry', 'config': {}})
+    ours('placed_feature', 'desert_dry', {'feature': f'{NS}:desert_dry', 'placement': []})
+    bm('desert_dry', {'type': 'neoforge:add_features', 'biomes': 'minecraft:desert', 'features': f'{NS}:desert_dry',
+                      'step': 'top_layer_modification'})
     # desert: no water at all (no springs, no sugar cane by water)
     bm('desert_no_water', {'type': 'neoforge:remove_features', 'biomes': 'minecraft:desert',
                            'features': ['minecraft:spring_water', 'minecraft:patch_sugar_cane_desert']})

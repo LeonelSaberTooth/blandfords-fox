@@ -307,4 +307,39 @@ public final class TaigaFeatures {
             return super.place(new FeaturePlaceContext<>(ctx.topFeature(), level, ctx.chunkGenerator(), ctx.random(), o, config));
         }
     }
+
+    /**
+     * Last step in the desert: any water still lying at the surface of a desert column (where the
+     * desert meets the sea) is filled with sand, so there is no water in the desert at all.
+     */
+    public static final class DesertDry extends Feature<NoneFeatureConfiguration> {
+        public DesertDry(com.mojang.serialization.Codec<NoneFeatureConfiguration> codec) {
+            super(codec);
+        }
+
+        @Override
+        public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> ctx) {
+            WorldGenLevel level = ctx.level();
+            int x0 = ctx.origin().getX() & ~15, z0 = ctx.origin().getZ() & ~15;
+            ChunkAccess chunk = level.getChunk(x0 >> 4, z0 >> 4);
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            boolean any = false;
+            for (int dx = 0; dx < 16; dx++)
+                for (int dz = 0; dz < 16; dz++) {
+                    int x = x0 + dx, z = z0 + dz;
+                    int top = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z) - 1;
+                    if (!chunk.getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(top), QuartPos.fromBlock(z)).is(Biomes.DESERT)) continue;
+                    for (int y = top; y > top - 40; y--) {
+                        pos.set(x, y, z);
+                        BlockState st = level.getBlockState(pos);
+                        if (st.is(Blocks.WATER) || st.is(Blocks.ICE) || st.is(Blocks.SEAGRASS) || st.is(Blocks.TALL_SEAGRASS)
+                                || st.is(Blocks.KELP) || st.is(Blocks.KELP_PLANT)) {
+                            level.setBlock(pos, Blocks.SAND.defaultBlockState(), 2);
+                            any = true;
+                        } else break;
+                    }
+                }
+            return any;
+        }
+    }
 }

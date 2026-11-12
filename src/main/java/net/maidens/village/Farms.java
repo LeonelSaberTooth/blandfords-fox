@@ -38,7 +38,7 @@ public final class Farms {
     public static final String NAME = "field";
     /** Waterways this far apart: farmland is watered up to 4 blocks from water (the middle of each band is dry). */
     public static final int SPACING = 12;
-    private static final int MAX = 3200, MIN = 300;
+    private static final int MAX = 3200, MIN = 200;
     private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
     /** How the last search went (for the self test). */
     public static String lastSearch = "";
@@ -100,13 +100,18 @@ public final class Farms {
         return best.ground.size();
     }
 
-    /** For the self test: a field grown from a spot (no gate), laid out but not the village's. */
-    public static Field fieldAt(ServerLevel level, VillageRecord v, int x, int z) {
+    /** For the self test: a field grown from a spot, with a path from a gate (if one's given); the village's if asked. */
+    public static Field fieldAt(ServerLevel level, VillageRecord v, int x, int z, @Nullable VillageRecord.Gate gate, boolean theirs) {
         RandomSource r = RandomSource.create(v.id ^ x);
         Field f = grow(level, v, x, z, r);
         if (f == null) return new Field();
+        f.gate = gate;
         finish(level, v, f, r);
         apply(level, v, f);
+        if (theirs) {
+            record(v, f);
+            v.farmsPlanned = true;
+        }
         return f;
     }
 
@@ -140,7 +145,20 @@ public final class Farms {
     @Nullable
     private static Field grow(ServerLevel level, VillageRecord v, int sx, int sz, RandomSource r) {
         BoundingBox keepOut = (v.wallBox != null ? v.wallBox : v.box).inflatedBy(v.wallBox != null ? 4 : 8);
-        Integer h0 = farmable(level, v, keepOut, sx, sz);
+        // from the spot, or the nearest farmable ground to it
+        Integer h0 = null;
+        search:
+        for (int d = 0; d <= 8; d++)
+            for (int dx = -d; dx <= d; dx++)
+                for (int dz = -d; dz <= d; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != d) continue;
+                    h0 = farmable(level, v, keepOut, sx + dx, sz + dz);
+                    if (h0 != null) {
+                        sx += dx;
+                        sz += dz;
+                        break search;
+                    }
+                }
         if (h0 == null) return null;
         // the edge: further out in some directions (a few waves round the circle)
         double radius = Math.sqrt(MAX / Math.PI) * 1.15;

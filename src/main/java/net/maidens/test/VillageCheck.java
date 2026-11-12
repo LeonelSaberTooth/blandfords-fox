@@ -691,7 +691,10 @@ final class VillageCheck {
                             if (level.getBlockState(q).isAir() && Math.abs(dx) + Math.abs(dz) + (y - 4) < 5) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState(), 2);
                         }
             }
-            var f = net.maidens.village.Farms.fieldAt(level, v, ix + 40, iz);
+            // (the village's own field, if it has none: a gate on this ground for its path, and its farmers work there)
+            boolean theirs = v.fieldCells.length == 0;
+            var f = net.maidens.village.Farms.fieldAt(level, v, ix + 40, iz, new VillageRecord.Gate(new BlockPos(ix + 6, iy + 1, iz), 1, 0), theirs);
+            if (theirs) writeField("fields.txt", v.fieldCells);
             long[] cells = net.maidens.village.Farms.cells(f);
             int[] m = net.maidens.village.Farms.count(level, cells);
             int logs = 0;
@@ -748,11 +751,19 @@ final class VillageCheck {
             for (Maiden m : rs) {
                 if (!net.maidens.village.People.worker(m) || m.villageWork().job() != net.maidens.maiden.work.Job.NONE && m.villageWork().job() != net.maidens.maiden.work.Job.GUARD) continue;
                 m.villageWork().set(j, spots[i], 0);
-                if (j == net.maidens.maiden.work.Job.FARM) farmer = m;
+
                 log.accept("  (test) " + m.name() + " made a " + j.button.toLowerCase() + " at " + spots[i].toShortString());
                 break;
             }
         }
+        // (the test's field may be far off, up in the air: a farmer is put by it)
+        for (Maiden m : rs)
+            if (m.villageWork().job() == net.maidens.maiden.work.Job.FARM && m.villageWork().spot() != null) {
+                farmer = m;
+                BlockPos at = m.villageWork().spot();
+                m.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+                break;
+            }
         storeBefore = new java.util.TreeMap<>(v.store);
         log.accept("  store at the start: " + v.store + "; food " + net.maidens.village.Economy.food(v));
     }

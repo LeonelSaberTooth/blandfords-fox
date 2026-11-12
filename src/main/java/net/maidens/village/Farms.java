@@ -150,7 +150,7 @@ public final class Farms {
         return joined(out);
     }
 
-    /** The biggest group of plots that touch (across a path). */
+    /** The biggest group of plots that touch (across the path between them). */
     private static List<Plot> joined(List<Plot> plots) {
         List<Plot> best = new ArrayList<>();
         Set<Plot> seen = new HashSet<>();
@@ -163,7 +163,7 @@ public final class Farms {
                 Plot q = todo.remove(todo.size() - 1);
                 group.add(q);
                 for (Plot o : plots)
-                    if (!seen.contains(o) && o.box.intersects(q.box.minX() - 1, q.box.minZ() - 1, q.box.maxX() + 1, q.box.maxZ() + 1)) {
+                    if (!seen.contains(o) && o.box.intersects(q.box.minX() - 2, q.box.minZ() - 2, q.box.maxX() + 2, q.box.maxZ() + 2)) {
                         seen.add(o);
                         todo.add(o);
                     }

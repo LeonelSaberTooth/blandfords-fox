@@ -149,6 +149,7 @@ public final class Buildings {
         int base = groundLevel(level, fp);
         Plan plan = shaped(level, v, read(level, template, new BlockPos(corner.getX(), base, corner.getZ()), rot));
         Plan road = plan.door() == null ? null : road(level, v, plan, 20000);
+        prepare(level, v, plan);
         v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template));
         if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road");
         v.project = shortName(template);
@@ -184,6 +185,7 @@ public final class Buildings {
             Plan plan = shaped(level, v, read(level, template, site.origin(), site.rot()));
             Plan road = plan.door() == null ? null : road(level, v, plan);
             if (road == null) continue;
+            prepare(level, v, plan);
             v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template), instant);
             v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", instant);
             if (!instant) v.project = shortName(template);
@@ -194,6 +196,7 @@ public final class Buildings {
         lastSearch += "; " + tried + " checked for a road, none could be joined (built without one)";
         Site site = sites.get(0);
         Plan plan = shaped(level, v, read(level, template, site.origin(), site.rot()));
+        prepare(level, v, plan);
         v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), shortName(template), instant);
         if (!instant) v.project = shortName(template);
         Villages.get(level).setDirty();
@@ -279,12 +282,18 @@ public final class Buildings {
         return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
     }
 
-    /**
-     * A building made to fit its spot: the trees on it and just round it are felled at once, a foundation goes under
-     * it down to the ground (or the bottom of shallow water), and any ground higher than its floor is dug away (up
-     * through its roof, so it isn't buried in a hillside).
-     */
+    /** The building as it is (its spot is got ready separately, see {@link #prepare}). */
     static Plan shaped(ServerLevel level, VillageRecord v, Plan p) {
+        return p;
+    }
+
+    /**
+     * Gets a building's spot ready, at once, as the land is changed for a field: the trees on it and just round it are
+     * felled, a foundation goes under it down to the ground (or the bottom of shallow water), and any ground higher
+     * than its floor is dug away (up through its roof, so it isn't buried in a hillside). The maidens then build the
+     * building itself.
+     */
+    static void prepare(ServerLevel level, VillageRecord v, Plan p) {
         BoundingBox b = p.box();
         for (int x = b.minX() - 2; x <= b.maxX() + 2; x++)
             for (int z = b.minZ() - 2; z <= b.maxZ() + 2; z++) {
@@ -292,17 +301,21 @@ public final class Buildings {
                 if (top != null) Trees.fellAt(level, v, top);
             }
         Plan f = withFoundation(level, p, 16);
-        Set<BlockPos> clear = new HashSet<>(f.clear());
+        Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
+        for (var e : f.blocks().entrySet()) if (!p.blocks().containsKey(e.getKey())) blocks.put(e.getKey(), e.getValue());
+        Set<BlockPos> clear = new HashSet<>();
         for (int x = b.minX(); x <= b.maxX(); x++)
             for (int z = b.minZ(); z <= b.maxZ(); z++) {
                 int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
                 for (int y = b.maxY() + 1; y <= Math.min(top, b.maxY() + 16); y++) clear.add(new BlockPos(x, y, z));
             }
-        if (clear.size() == f.clear().size()) return f;
-        List<BlockPos> all = new ArrayList<>(f.blocks().keySet());
+        // the building's own empty spaces dug out too (the inside of a house on a slope)
+        for (BlockPos c : p.clear()) if (!level.getBlockState(c).isAir() && !level.getBlockState(c).canBeReplaced()) clear.add(c);
+        if (blocks.isEmpty() && clear.isEmpty()) return;
+        List<BlockPos> all = new ArrayList<>(blocks.keySet());
         all.addAll(clear);
-        BoundingBox box = BoundingBox.encapsulatingPositions(all).orElse(f.box());
-        return new Plan(f.template(), box, f.blocks(), clear, f.beds(), f.door());
+        BoundingBox box = BoundingBox.encapsulatingPositions(all).orElse(b);
+        v.blueprint.addBuilding(box, blocks, clear, "groundwork", true);
     }
 
     /** Fills the gaps under the bottom layer down to the ground, so nothing floats on a slope. */

@@ -123,6 +123,7 @@ public final class Fortify {
         v.castleCorner = corner;
         v.castleTurn = rot.ordinal();
         Buildings.Plan road = Buildings.road(level, v, plan, 40000);
+        Buildings.prepare(level, v, plan);
         v.blueprint.addBuilding(plan.box(), plan.blocks(), plan.clear(), Castle.NAME, instant);
         if (road != null) v.blueprint.addBuilding(road.box(), road.blocks(), road.clear(), "road", instant);
         v.castleRoad = road != null;

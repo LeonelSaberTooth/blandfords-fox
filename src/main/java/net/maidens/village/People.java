@@ -39,7 +39,7 @@ public final class People {
     /** The building a bed is in (a piece of the village's blueprint), or just the bed's spot. */
     static net.minecraft.world.level.levelgen.structure.BoundingBox houseOf(VillageRecord v, BlockPos bed) {
         for (Blueprint.PieceInfo p : v.blueprint.pieces())
-            if (p.box().isInside(bed) && !p.name().equals("road") && !p.name().equals(Walls.NAME) && !p.name().equals(Farms.NAME)) return p.box();
+            if (p.box().isInside(bed) && !p.name().equals("road") && !p.name().equals("groundwork") && !p.name().equals(Walls.NAME) && !p.name().equals(Farms.NAME)) return p.box();
         return new net.minecraft.world.level.levelgen.structure.BoundingBox(bed).inflatedBy(6);
     }
 

@@ -54,6 +54,8 @@ public final class VillageRecord {
     public boolean bannerUp, farmsPlanned;
     /** Most of the trees inside the village (its walls) have been taken out. */
     public boolean treesCleared;
+    /** The field's ground (its farmland, water and path) and the path through it (for the farmers). */
+    public long[] fieldCells = new long[0], fieldPath = new long[0];
     /** How many live there (counted once a minute while it's loaded; not saved). */
     public int population;
     /** What the village has gathered (item id, count): food from its fields and boats, logs, stone. */
@@ -225,6 +227,8 @@ public final class VillageRecord {
         t.putBoolean("BannerUp", bannerUp);
         t.putBoolean("FarmsPlanned", farmsPlanned);
         t.putBoolean("TreesCleared", treesCleared);
+        t.putLongArray("FieldCells", fieldCells);
+        t.putLongArray("FieldPath", fieldPath);
         CompoundTag st = new CompoundTag();
         store.forEach(st::putInt);
         t.put("Store", st);
@@ -271,6 +275,8 @@ public final class VillageRecord {
         r.bannerUp = t.getBoolean("BannerUp");
         r.farmsPlanned = t.getBoolean("FarmsPlanned");
         r.treesCleared = t.getBoolean("TreesCleared");
+        r.fieldCells = t.getLongArray("FieldCells");
+        r.fieldPath = t.getLongArray("FieldPath");
         CompoundTag st = t.getCompound("Store");
         for (String k : st.getAllKeys()) r.store.put(k, st.getInt(k));
         r.stocked = t.getBoolean("Stocked");

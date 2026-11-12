@@ -321,8 +321,17 @@ public final class ClientSelfTest {
         if (t == 1880) shot(mc, "fields");
         if (t == 1882 && fields != null) server.execute(() -> player(server).teleportTo(server.overworld(), fields[0] + 0.5, fields[1] + fields[3] * 0.9 + 20, fields[2] + 0.5, 0, 90));
         if (t == 2000) shot(mc, "fields_top");
+        if (t == 2001) {
+            Path f = mc.gameDirectory.toPath().resolve("fields_flat.txt");
+            if (Files.exists(f)) {
+                String[] p = Files.readString(f).trim().split(" ");
+                int x = Integer.parseInt(p[0]), y = Integer.parseInt(p[1]), z = Integer.parseInt(p[2]), span = Integer.parseInt(p[3]);
+                server.execute(() -> player(server).teleportTo(server.overworld(), x - span * 0.55, y + span * 0.35 + 6, z - span * 0.55, -45, 30));
+            }
+        }
         // the village's day: the market by the bell in the afternoon, then everyone at work in the morning
-        if (t == 2002) server.execute(() -> {
+        if (t == 2120) shot(mc, "fields_flat");
+        if (t == 2122) server.execute(() -> {
             ServerLevel level = server.overworld();
             net.maidens.village.VillageRecord v = village(server);
             if (v == null) return;

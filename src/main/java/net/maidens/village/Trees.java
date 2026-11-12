@@ -71,6 +71,14 @@ public final class Trees {
         return new int[]{found, felled};
     }
 
+    /** Takes out the natural tree a log belongs to (not a house's beam). Returns whether there was one. */
+    public static boolean fellAt(ServerLevel level, VillageRecord v, BlockPos log) {
+        List<BlockPos> logs = trunk(level, v, log.immutable(), new HashSet<>());
+        if (logs == null) return false;
+        fell(level, v, logs);
+        return true;
+    }
+
     /** The logs of a natural tree from one of its logs, or null if it isn't one (a house's, the blueprint's, too big). */
     private static List<BlockPos> trunk(ServerLevel level, VillageRecord v, BlockPos start, Set<BlockPos> seen) {
         List<BlockPos> logs = new ArrayList<>();

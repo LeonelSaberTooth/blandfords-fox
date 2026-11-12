@@ -24,6 +24,12 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 public final class VillageEvents {
     private VillageEvents() {}
 
+    /** Maidens don't trample farmland (stepping down onto a field, working in it). */
+    @SubscribeEvent
+    public static void onTrample(BlockEvent.FarmlandTrampleEvent e) {
+        if (e.getEntity() instanceof net.maidens.maiden.Maiden) e.setCanceled(true);
+    }
+
     @SubscribeEvent
     public static void onLevelTick(LevelTickEvent.Post event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;

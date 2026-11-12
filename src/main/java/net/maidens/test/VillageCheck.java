@@ -654,18 +654,12 @@ final class VillageCheck {
                 + " (" + net.maidens.village.Heraldry.base(v.id).getName() + " with " + net.maidens.village.Heraldry.pattern(v.id).location().getPath()
                 + " in " + net.maidens.village.Heraldry.accent(v.id).getName() + ")");
         if (!v.farmsPlanned) net.maidens.village.Farms.plan(level, v);
-        int[] crops = net.maidens.village.Farms.crops(level, v);
-        int plots = 0;
-        BoundingBox all = null;
-        for (var p : v.blueprint.pieces())
-            if (p.name().equals(net.maidens.village.Farms.NAME)) {
-                plots++;
-                all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
-            }
-        log.accept("  fields: " + net.maidens.village.Farms.lastSearch + "; " + plots + " plots, " + crops[0] + " crops (" + crops[1] + " fully grown), spread over " + all);
+        int[] n = net.maidens.village.Farms.count(level, v.fieldCells);
+        log.accept("  field: " + net.maidens.village.Farms.lastSearch + "; now " + n[0] + " farmland, " + n[1] + " with ripe wheat, " + n[2]
+                + " with no crop, " + n[3] + " water, " + n[4] + " path; " + v.fieldPath.length + " path spots for farmers");
+        writeField("fields.txt", v.fieldCells);
         {
-            // the land round the test village is mostly sea and mountain: a field on flat ground as well, off to one
-            // side up in the air (so a whole field can be seen)
+            // a field on open flat ground as well, off to one side up in the air, with a few trees and a pond on it
             int ix = v.centre().getX() + 260, iz = v.centre().getZ(), iy = 199;
             for (int cx = (ix - 4) >> 4; cx <= (ix + 110) >> 4; cx++)
                 for (int cz = (iz - 60) >> 4; cz <= (iz + 60) >> 4; cz++) {
@@ -678,28 +672,57 @@ final class VillageCheck {
                     level.setBlock(new BlockPos(x, iy - 1, z), Blocks.DIRT.defaultBlockState(), 2);
                     level.setBlock(new BlockPos(x, iy, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
                     for (int y = iy + 1; y <= iy + 12; y++) if (!level.getBlockState(new BlockPos(x, y, z)).isAir()) level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                    if ((x * 31 + z * 17) % 11 == 0) level.setBlock(new BlockPos(x, iy + 1, z), Blocks.SHORT_GRASS.defaultBlockState(), 2);
                 }
-            int before = v.blueprint.pieceCount();
-            int made = net.maidens.village.Farms.fieldAt(level, v, ix + 2, iz);
-            all = null;
-            int k = 0;
-            for (var p : v.blueprint.pieces())
-                if (k++ >= before) all = all == null ? p.box() : BoundingBox.encapsulatingBoxes(List.of(all, p.box())).orElse(all);
-            log.accept("  (test) a field on flat ground at " + ix + ", " + iy + ", " + iz + ": " + made + " plots, spread over " + all);
+            // a pond, a low step and a few trees
+            for (int x = ix + 60; x <= ix + 70; x++)
+                for (int z = iz - 8; z <= iz + 2; z++) level.setBlock(new BlockPos(x, iy, z), Blocks.WATER.defaultBlockState(), 2);
+            for (int x = ix + 20; x <= ix + 40; x++)
+                for (int z = iz + 20; z <= iz + 56; z++) level.setBlock(new BlockPos(x, iy, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = ix + 20; x <= ix + 40; x++)
+                for (int z = iz + 20; z <= iz + 56; z++) level.setBlock(new BlockPos(x, iy - 1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            int[][] trees = {{ix + 30, iz - 20}, {ix + 45, iz + 10}, {ix + 15, iz - 5}, {ix + 50, iz - 30}};
+            for (int[] t : trees) {
+                for (int y = 1; y <= 5; y++) level.setBlock(new BlockPos(t[0], iy + y, t[1]), Blocks.OAK_LOG.defaultBlockState(), 2);
+                for (int dx = -2; dx <= 2; dx++)
+                    for (int dz = -2; dz <= 2; dz++)
+                        for (int y = 4; y <= 6; y++) {
+                            BlockPos q = new BlockPos(t[0] + dx, iy + y, t[1] + dz);
+                            if (level.getBlockState(q).isAir() && Math.abs(dx) + Math.abs(dz) + (y - 4) < 5) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState(), 2);
+                        }
+            }
+            var f = net.maidens.village.Farms.fieldAt(level, v, ix + 40, iz);
+            long[] cells = net.maidens.village.Farms.cells(f);
+            int[] m = net.maidens.village.Farms.count(level, cells);
+            int logs = 0;
+            for (int[] t : trees) if (level.getBlockState(new BlockPos(t[0], iy + 2, t[1])).is(net.minecraft.tags.BlockTags.LOGS)) logs++;
+            log.accept("  (test) a field on flat ground at " + ix + ", " + iy + ", " + iz + ": " + m[0] + " farmland, " + m[1] + " with ripe wheat, " + m[2]
+                    + " with no crop, " + m[3] + " water, " + m[4] + " path; trees still standing " + logs + " of " + trees.length);
+            writeField("fields_flat.txt", cells);
         }
         if (!v.treesCleared) net.maidens.village.Trees.clear(level, v);
         log.accept("  trees: " + net.maidens.village.Trees.lastClearing);
-        if (all != null) {
-            BlockPos fc = all.getCenter();
-            try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("maidens.selftest"), "fields.txt"),
-                        fc.getX() + " " + level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, fc.getX(), fc.getZ()) + " " + fc.getZ()
-                                + " " + Math.max(all.getXSpan(), all.getZSpan()));
-            } catch (java.io.IOException e) {
-                log.accept("  (couldn't write fields.txt: " + e + ")");
-            }
-        }
         log.accept("  rank of the tester: " + net.maidens.politics.Diplomacy.rank(level, v, tester.getUUID()).label);
+    }
+
+    /** Where a field is (its middle, height and size) for the client test's pictures. */
+    private void writeField(String name, long[] cells) {
+        if (cells.length == 0) return;
+        int x0 = Integer.MAX_VALUE, z0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, z1 = Integer.MIN_VALUE, y = 0;
+        for (long c : cells) {
+            BlockPos p = BlockPos.of(c);
+            x0 = Math.min(x0, p.getX());
+            x1 = Math.max(x1, p.getX());
+            z0 = Math.min(z0, p.getZ());
+            z1 = Math.max(z1, p.getZ());
+            y += p.getY();
+        }
+        try {
+            java.nio.file.Files.writeString(java.nio.file.Path.of(System.getProperty("maidens.selftest"), name),
+                    (x0 + x1) / 2 + " " + y / cells.length + " " + (z0 + z1) / 2 + " " + Math.max(x1 - x0, z1 - z0));
+        } catch (java.io.IOException e) {
+            log.accept("  (couldn't write " + name + ": " + e + ")");
+        }
     }
 
     private java.util.Map<String, Integer> storeBefore;
@@ -786,8 +809,8 @@ final class VillageCheck {
         // the day's harvest
         net.maidens.village.Economy.produce(level, v, VillageSocial.everyone(level, v));
         log.accept("economy: a day's work brought in " + net.maidens.village.Economy.lastHarvest);
-        int[] crops = net.maidens.village.Farms.crops(level, v);
-        log.accept("  fields now: " + crops[0] + " crops, " + crops[1] + " fully grown");
+        int[] crops = net.maidens.village.Farms.count(level, v.fieldCells);
+        log.accept("  field now: " + crops[0] + " farmland, " + crops[1] + " with ripe wheat, " + crops[2] + " with no crop");
         java.util.Map<String, Integer> gained = new java.util.TreeMap<>();
         v.store.forEach((k, n) -> {
             int d = n - storeBefore.getOrDefault(k, 0);

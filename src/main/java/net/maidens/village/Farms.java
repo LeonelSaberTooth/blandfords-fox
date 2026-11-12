@@ -8,286 +8,422 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.FarmBlock;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 /**
- * The village's fields: a few big stretches of farmland outside the houses (outside the walls, by a gate, if it has
- * walls), each a patchwork of plots of different sizes with paths between them, its outline ragged where plots were
- * left out (the corners, rough or wet ground, something already there). Mostly wheat, some carrots, potatoes and
- * beetroot, one crop to a plot, each plot watered by a channel down its middle and levelled to its own height
- * (fields on a slope step down it). Fully grown when they're laid out. Like any part of the village, trampled
- * farmland or a crop gone missing is put back by the maidens (a crop as a seedling).
+ * The village's field: a stretch of open land outside its walls (by one of its gates) turned into wheat. It isn't a
+ * building: the land itself is changed, the way the world makes its own land. Where the field goes, the ground is
+ * farmland with ripe wheat on it, following the lie of the land; its outline is ragged, stopping where the land
+ * does (water, cliffs, rock, the walls, the village's buildings) and in lobes where it doesn't; the trees on it are
+ * gone. Waterways wind across it about every 12 blocks. A path runs from inside the village, out of the gate, to
+ * the field and through it, and the village's farmers work along it.
+ *
+ * <p>Wheat is set down after the farmland, both without the game re-checking blocks around them (so a crop is
+ * never knocked off while the light round it is still being worked out).
  */
 public final class Farms {
+    /** Fields from before (laid out as pieces of the village). */
     public static final String NAME = "field";
-    private static final int TRIES = 160, MIN_PLOTS = 3, ROUGH = 6;
-    /** Why plots were left out in the last search: not loaded, taken, wet, rough (for the self test). */
-    private static final int[] why = new int[4];
+    /** Waterways this far apart: farmland is watered up to 4 blocks from water (the middle of each band is dry). */
+    public static final int SPACING = 12;
+    private static final int MAX = 3200, MIN = 300;
+    private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
     /** How the last search went (for the self test). */
     public static String lastSearch = "";
 
     private Farms() {}
 
-    /** Every 5 s: villages without fields get them once the land around them is loaded. */
+    /** Every 5 s: a village without a field gets one once its walls are planned and the land round it is loaded. */
     static void tick(ServerLevel level, Villages villages) {
         for (VillageRecord v : villages.all()) {
             if (v.farmsPlanned || v.blueprint.pieceCount() == 0) continue;
             if (v.fortified && v.wallBox == null || Fortify.rolls(level, v.id) && !v.fortified) continue;   // walls first
             BlockPos c = v.centre();
-            int r = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 90;
+            int r = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2 + 100;
             if (!level.hasChunksAt(c.getX() - r, c.getZ() - r, c.getX() + r, c.getZ() + r)) continue;
             plan(level, v);
         }
     }
 
-    /** One plot of a field: where, at what height, which way its channel runs, its crop. */
-    private record Plot(BoundingBox box, int base, boolean alongX, Block crop) {}
+    /** A field worked out: its farmland (the ground block of each spot), its water, its path, its gate. */
+    public static final class Field {
+        final Map<Long, Integer> ground = new HashMap<>();   // x,z -> the ground's height
+        final Set<Long> water = new HashSet<>(), path = new HashSet<>();
+        final Map<Long, Integer> outerPath = new HashMap<>();
+        @Nullable VillageRecord.Gate gate;
 
-    /** Lays out the fields. Returns how many plots there are. */
+        public int size() {
+            return ground.size();
+        }
+    }
+
+    /** Lays out the village's field. Returns how many blocks of farmland it has (0 if there was no room). */
     public static int plan(ServerLevel level, VillageRecord v) {
         v.farmsPlanned = true;
-        RandomSource r = RandomSource.create(v.id ^ 0xF1E1D5L);
-        BlockPos c = v.centre();
-        BoundingBox outside = v.wallBox != null ? v.wallBox : v.box;
-        double half = Math.max(outside.getXSpan(), outside.getZSpan()) / 2.0;
-        int areas = Math.min(4, 2 + Math.max(1, v.gates.size()));
-        List<double[]> ways = new ArrayList<>();
-        for (VillageRecord.Gate g : v.gates) ways.add(new double[]{g.pos.getX(), g.pos.getZ(), g.dx, g.dz});
-        // fields already laid out (and the village's other pieces) are kept clear of
-        List<BoundingBox> taken = new ArrayList<>();
-        int made = 0, plots = 0, small = 0;
-        java.util.Arrays.fill(why, 0);
-        for (int i = 0; i < TRIES && made < areas; i++) {
-            // the near edge of the field: out from a gate if there are walls (so the farmers get there), else round the edge
-            double x, z, ox, oz;
-            if (!ways.isEmpty()) {
-                double[] g = ways.get(i % ways.size());
-                double len = Math.max(1, Math.sqrt(g[2] * g[2] + g[3] * g[3]));
-                ox = g[2] / len;
-                oz = g[3] / len;
-                double out = 8 + r.nextInt(32), side = r.nextInt(81) - 40;
-                x = g[0] + ox * out - oz * side;
-                z = g[1] + oz * out + ox * side;
-            } else {
-                double a = r.nextDouble() * Math.PI * 2, d = half + 6 + r.nextInt(32);
-                ox = Math.cos(a);
-                oz = Math.sin(a);
-                x = c.getX() + ox * d;
-                z = c.getZ() + oz * d;
-            }
-            List<Plot> field = field(level, v, r, (int) x, (int) z, ox, oz, outside, taken);
-            if (field.size() < MIN_PLOTS) {
-                small++;
-                continue;
-            }
-            add(level, v, field);
-            for (Plot p : field) taken.add(p.box.inflatedBy(1));
-            made++;
-            plots += field.size();
-        }
-        lastSearch = made + " fields, " + plots + " plots (" + small + " spots too small; plots left out: " + why[0] + " not loaded, "
-                + why[1] + " taken, " + why[2] + " wet, " + why[3] + " rough)";
         Villages.get(level).setDirty();
-        return plots;
+        RandomSource r = RandomSource.create(v.id ^ 0xF1E1D5L);
+        Field best = null;
+        double bestScore = 0;
+        int tried = 0;
+        for (Seed s : seeds(v)) {
+            Field f = grow(level, v, s.x, s.z, r);
+            tried++;
+            if (f == null || f.size() < MIN) continue;
+            f.gate = s.gate;
+            double score = f.size() - 8 * s.out;
+            if (best == null || score > bestScore) {
+                best = f;
+                bestScore = score;
+            }
+        }
+        if (best == null) {
+            lastSearch = "no field: " + tried + " spots tried, none with room";
+            return 0;
+        }
+        finish(level, v, best, r);
+        apply(level, v, best);
+        record(v, best);
+        lastSearch = "a field of " + best.ground.size() + " farmland, " + best.water.size() + " water, " + best.path.size() + " path in it, "
+                + best.outerPath.size() + " path to it (" + tried + " spots tried)";
+        return best.ground.size();
+    }
+
+    /** For the self test: a field grown from a spot (no gate), laid out but not the village's. */
+    public static Field fieldAt(ServerLevel level, VillageRecord v, int x, int z) {
+        RandomSource r = RandomSource.create(v.id ^ x);
+        Field f = grow(level, v, x, z, r);
+        if (f == null) return new Field();
+        finish(level, v, f, r);
+        apply(level, v, f);
+        return f;
+    }
+
+    // ------------------------------------------------------------------ where
+
+    private record Seed(int x, int z, int out, @Nullable VillageRecord.Gate gate) {}
+
+    /** Spots to grow a field from: out from each gate (ahead and to the sides), or round the village. */
+    private static List<Seed> seeds(VillageRecord v) {
+        List<Seed> out = new ArrayList<>();
+        for (VillageRecord.Gate g : v.gates) {
+            int dx = Integer.signum(g.dx), dz = Integer.signum(g.dz);
+            for (int o : new int[]{10, 20, 32, 46})
+                for (int side : new int[]{0, -18, 18}) out.add(new Seed(g.pos.getX() + dx * o - dz * side, g.pos.getZ() + dz * o + dx * side, o, g));
+        }
+        if (out.isEmpty()) {
+            BlockPos c = v.centre();
+            double half = Math.max(v.box.getXSpan(), v.box.getZSpan()) / 2.0;
+            for (int i = 0; i < 12; i++) {
+                double a = i * Math.PI / 6;
+                for (int o : new int[]{12, 28}) out.add(new Seed((int) (c.getX() + Math.cos(a) * (half + o)), (int) (c.getZ() + Math.sin(a) * (half + o)), o, null));
+            }
+        }
+        return out;
     }
 
     /**
-     * A patchwork from a spot on its near edge, growing away from the village: columns and rows of plots of
-     * different sizes, a path between each, the ones that don't fit (or are taken by chance, mostly at the edges)
-     * left out.
+     * The land a field can take from a spot: spreading over open farmable ground that doesn't step more than a block,
+     * outside the walls and the village's buildings, out to a ragged edge (further in some directions than others).
      */
-    private static List<Plot> field(ServerLevel level, VillageRecord v, RandomSource r, int x, int z, double ox, double oz,
-                                    BoundingBox village, List<BoundingBox> taken) {
-        boolean alongX = r.nextBoolean();          // the plots' long side
-        int cols = 4 + r.nextInt(4), rows = 3 + r.nextInt(3);
-        int[] across = new int[cols], along = new int[rows];
-        for (int i = 0; i < cols; i++) across[i] = 5 + 2 * r.nextInt(3);          // 5, 7 or 9: a channel in the middle
-        for (int j = 0; j < rows; j++) along[j] = 9 + r.nextInt(13);
-        int wx = 0, wz = 0;
-        // in x and z: the plots' sizes, with a block of path between them
-        int[] sx = alongX ? along : across, sz = alongX ? across : along;
-        for (int s : sx) wx += s + 1;
-        for (int s : sz) wz += s + 1;
-        // the field lies beyond the spot, away from the village (centred on it across)
-        int x0 = Math.abs(ox) > Math.abs(oz) ? (ox > 0 ? x : x - wx) : x - wx / 2;
-        int z0 = Math.abs(oz) >= Math.abs(ox) ? (oz > 0 ? z : z - wz) : z - wz / 2;
-        int nx = sx.length, nz = sz.length;
-        List<Plot> out = new ArrayList<>();
-        int px = x0;
-        for (int i = 0; i < nx; i++) {
-            int pz = z0;
-            for (int j = 0; j < nz; j++) {
-                BoundingBox b = new BoundingBox(px, 0, pz, px + sx[i] - 1, 0, pz + sz[j] - 1);
-                pz += sz[j] + 1;
-                // a ragged edge: corners and sides are often left out
-                boolean edgeX = i == 0 || i == nx - 1, edgeZ = j == 0 || j == nz - 1;
-                if (r.nextFloat() < (edgeX && edgeZ ? 0.4F : edgeX || edgeZ ? 0.2F : 0.04F)) continue;
-                if (!level.hasChunksAt(b.minX() - 1, b.minZ() - 1, b.maxX() + 1, b.maxZ() + 1)) { why[0]++; continue; }
-                BoundingBox column = new BoundingBox(b.minX(), -64, b.minZ(), b.maxX(), 320, b.maxZ());
-                boolean clash = v.blueprint.overlaps(column.inflatedBy(2)) || column.intersects(village.inflatedBy(2));
-                for (BoundingBox t : taken) clash |= t.intersects(b.minX() - 1, b.minZ() - 1, b.maxX() + 1, b.maxZ() + 1);
-                if (clash) { why[1]++; continue; }
-                int[] lie = lie(level, b);
-                if (lie == null) { why[2]++; continue; }
-                if (lie[1] > ROUGH) { why[3]++; continue; }
-                float roll = r.nextFloat();
-                Block crop = roll < 0.7F ? Blocks.WHEAT : roll < 0.8F ? Blocks.CARROTS : roll < 0.9F ? Blocks.POTATOES : Blocks.BEETROOTS;
-                out.add(new Plot(b, lie[0], alongX, crop));
+    @Nullable
+    private static Field grow(ServerLevel level, VillageRecord v, int sx, int sz, RandomSource r) {
+        BoundingBox keepOut = (v.wallBox != null ? v.wallBox : v.box).inflatedBy(v.wallBox != null ? 4 : 8);
+        Integer h0 = farmable(level, v, keepOut, sx, sz);
+        if (h0 == null) return null;
+        // the edge: further out in some directions (a few waves round the circle)
+        double radius = Math.sqrt(MAX / Math.PI) * 1.15;
+        double[] ph = {r.nextDouble() * 6.3, r.nextDouble() * 6.3, r.nextDouble() * 6.3};
+        Field f = new Field();
+        PriorityQueue<double[]> todo = new PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
+        Set<Long> seen = new HashSet<>();
+        todo.add(new double[]{0, sx, sz, h0});
+        seen.add(key(sx, sz));
+        while (!todo.isEmpty() && f.ground.size() < MAX) {
+            double[] c = todo.poll();
+            int x = (int) c[1], z = (int) c[2], h = (int) c[3];
+            f.ground.put(key(x, z), h);
+            for (int[] d : new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                int nx = x + d[0], nz = z + d[1];
+                if (!seen.add(key(nx, nz))) continue;
+                Integer nh = farmable(level, v, keepOut, nx, nz);
+                if (nh == null || Math.abs(nh - h) > 1) continue;
+                double dx = nx - sx, dz = nz - sz, a = Math.atan2(dz, dx);
+                double reach = radius * (1 + 0.28 * Math.sin(2 * a + ph[0]) + 0.18 * Math.sin(3 * a + ph[1]) + 0.1 * Math.sin(5 * a + ph[2]));
+                double d2 = Math.sqrt(dx * dx + dz * dz) / reach;
+                if (d2 > 1) continue;
+                todo.add(new double[]{d2, nx, nz, nh});
             }
-            px += sx[i] + 1;
         }
-        // plots left alone, away from the rest, don't make a field: keep the biggest patch that joins up
-        return joined(out);
+        return f;
     }
 
-    /** The biggest group of plots that touch (across the path between them). */
-    private static List<Plot> joined(List<Plot> plots) {
-        List<Plot> best = new ArrayList<>();
-        Set<Plot> seen = new HashSet<>();
-        for (Plot p : plots) {
-            if (seen.contains(p)) continue;
-            List<Plot> group = new ArrayList<>();
-            List<Plot> todo = new ArrayList<>(List.of(p));
-            seen.add(p);
-            while (!todo.isEmpty()) {
-                Plot q = todo.remove(todo.size() - 1);
-                group.add(q);
-                for (Plot o : plots)
-                    if (!seen.contains(o) && o.box.intersects(q.box.minX() - 2, q.box.minZ() - 2, q.box.maxX() + 2, q.box.maxZ() + 2)) {
-                        seen.add(o);
-                        todo.add(o);
-                    }
+    /** The height of farmable ground at a spot (grass or dirt, dry, open to the sky but for trees), or null. */
+    @Nullable
+    private static Integer farmable(ServerLevel level, VillageRecord v, BoundingBox keepOut, int x, int z) {
+        if (!level.hasChunk(x >> 4, z >> 4)) return null;
+        if (x >= keepOut.minX() && x <= keepOut.maxX() && z >= keepOut.minZ() && z <= keepOut.maxZ()) return null;
+        int y = ground(level, x, z);
+        if (y == Integer.MIN_VALUE) return null;
+        BlockPos g = new BlockPos(x, y, z);
+        BlockState s = level.getBlockState(g);
+        if (!(s.is(Blocks.GRASS_BLOCK) || s.is(Blocks.DIRT) || s.is(Blocks.COARSE_DIRT) || s.is(Blocks.PODZOL) || s.is(Blocks.ROOTED_DIRT))) return null;
+        if (!level.getFluidState(g.above()).isEmpty()) return null;
+        if (v.blueprint.overlaps(new BoundingBox(x - 1, -64, z - 1, x + 1, 320, z + 1))) return null;
+        return y;
+    }
+
+    /** The top of the ground at a spot: under trees, plants and snow. MIN_VALUE if it's under something else. */
+    static int ground(ServerLevel level, int x, int z) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) - 1, z);
+        for (int i = 0; i < 40; i++, p.move(0, -1, 0)) {
+            BlockState s = level.getBlockState(p);
+            if (s.is(BlockTags.LOGS) || s.getBlock() instanceof LeavesBlock || s.isAir() || s.canBeReplaced() && s.getFluidState().isEmpty()
+                    || s.is(Blocks.SNOW) || s.is(BlockTags.FLOWERS) || s.is(Blocks.SWEET_BERRY_BUSH) || s.is(Blocks.MOSS_CARPET)) continue;
+            return p.getY();
+        }
+        return Integer.MIN_VALUE;
+    }
+
+    // ------------------------------------------------------------------ shaping
+
+    /** Tidies the edge, then works out the waterways and the path. */
+    private static void finish(ServerLevel level, VillageRecord v, Field f, RandomSource r) {
+        // no one-block spurs or slivers along the edge
+        for (int pass = 0; pass < 2; pass++) {
+            List<Long> thin = new ArrayList<>();
+            for (long k : f.ground.keySet()) {
+                int n = 0;
+                for (long o : around(k)) if (f.ground.containsKey(o)) n++;
+                if (n < 2) thin.add(k);
             }
-            if (group.size() > best.size()) best = group;
+            thin.forEach(f.ground::remove);
+        }
+        // its long way: waterways run across it, one every SPACING blocks along it, winding a little
+        double cx = 0, cz = 0;
+        for (long k : f.ground.keySet()) {
+            cx += x(k);
+            cz += z(k);
+        }
+        cx /= f.size();
+        cz /= f.size();
+        double sxx = 0, szz = 0, sxz = 0;
+        for (long k : f.ground.keySet()) {
+            double dx = x(k) - cx, dz = z(k) - cz;
+            sxx += dx * dx;
+            szz += dz * dz;
+            sxz += dx * dz;
+        }
+        double th = 0.5 * Math.atan2(2 * sxz, sxx - szz), cos = Math.cos(th), sin = Math.sin(th);
+        double phase = r.nextDouble() * 6.3, shift = r.nextDouble() * SPACING;
+        for (long k : f.ground.keySet()) {
+            double dx = x(k) - cx, dz = z(k) - cz;
+            double u = dx * cos + dz * sin + shift, w = -dx * sin + dz * cos;
+            long line = Math.round(u / SPACING);
+            double wind = 2.2 * Math.sin(w / 7.0 + phase + line * 1.7) + 0.8 * Math.sin(w / 2.9 + line * 2.3);
+            if (Math.abs(u - line * SPACING - wind) < 0.75) f.water.add(k);
+        }
+        // only water that stays where it's put: every side held in at its level
+        f.water.removeIf(k -> !holds(level, f, k));
+        // the path: from inside the gate, out through it, to the field, and through it the long way
+        if (f.gate != null) {
+            VillageRecord.Gate g = f.gate;
+            int dx = Integer.signum(g.dx), dz = Integer.signum(g.dz);
+            int[] inside = {g.pos.getX() - dx * 6, g.pos.getZ() - dz * 6}, out = {g.pos.getX() + dx * 3, g.pos.getZ() + dz * 3};
+            long entry = nearest(f, out[0], out[1]);
+            // the far end: the field's furthest point the long way from where the path comes in
+            double eu = (x(entry) - cx) * cos + (z(entry) - cz) * sin;
+            long far = entry;
+            double farU = eu;
+            for (long k : f.ground.keySet()) {
+                double u = (x(k) - cx) * cos + (z(k) - cz) * sin;
+                if (eu <= 0 ? u > farU : u < farU) {
+                    farU = u;
+                    far = k;
+                }
+            }
+            long mid = nearest(f, (int) Math.round(cx), (int) Math.round(cz));
+            List<long[]> legs = List.of(new long[]{key(inside[0], inside[1]), key(out[0], out[1])}, new long[]{key(out[0], out[1]), entry},
+                    new long[]{entry, mid}, new long[]{mid, far});
+            for (long[] leg : legs)
+                for (long k : line(leg[0], leg[1])) {
+                    if (f.ground.containsKey(k)) {
+                        f.path.add(k);
+                        f.water.remove(k);
+                    } else {
+                        int y = ground(level, x(k), z(k));
+                        BlockPos p = new BlockPos(x(k), y, z(k));
+                        if (y == Integer.MIN_VALUE || v.blueprint.expected(p) != null || v.blueprint.expected(p.above()) != null) continue;
+                        BlockState s = level.getBlockState(p);
+                        if (s.is(Blocks.GRASS_BLOCK) || s.is(Blocks.DIRT) || s.is(Blocks.COARSE_DIRT) || s.is(Blocks.PODZOL) || s.is(Blocks.ROOTED_DIRT)
+                                || s.is(Blocks.MYCELIUM)) f.outerPath.put(k, y);
+                    }
+                }
+        }
+    }
+
+    /** Water at a spot stays put: each side has something solid at its level (the field's ground, or the land's). */
+    private static boolean holds(ServerLevel level, Field f, long k) {
+        int h = f.ground.get(k);
+        if (!level.getBlockState(new BlockPos(x(k), h - 1, z(k))).isSolid()) return false;
+        for (long o : around(k)) {
+            Integer oh = f.ground.get(o);
+            if (oh != null) {
+                if (oh < h) return false;
+                continue;
+            }
+            BlockPos p = new BlockPos(x(o), h, z(o));
+            BlockState s = level.getBlockState(p);
+            if (!s.isSolid() || !s.getFluidState().isEmpty()) return false;
+        }
+        return true;
+    }
+
+    /** A line of spots from one to another, with no diagonal gaps (and a second spot alongside: two wide). */
+    private static List<Long> line(long from, long to) {
+        int x0 = x(from), z0 = z(from), x1 = x(to), z1 = z(to);
+        List<Long> out = new ArrayList<>();
+        int n = Math.max(Math.abs(x1 - x0), Math.abs(z1 - z0));
+        int px = x0, pz = z0;
+        boolean alongX = Math.abs(x1 - x0) >= Math.abs(z1 - z0);
+        for (int i = 0; i <= n; i++) {
+            int x = n == 0 ? x0 : (int) Math.round(x0 + (x1 - x0) * (double) i / n), z = n == 0 ? z0 : (int) Math.round(z0 + (z1 - z0) * (double) i / n);
+            if (x != px && z != pz) out.add(key(x, pz));          // fill the corner
+            out.add(key(x, z));
+            out.add(alongX ? key(x, z + 1) : key(x + 1, z));
+            px = x;
+            pz = z;
+        }
+        return out;
+    }
+
+    private static long nearest(Field f, int x, int z) {
+        long best = 0;
+        double bd = Double.MAX_VALUE;
+        for (long k : f.ground.keySet()) {
+            double d = Math.pow(x(k) - x, 2) + Math.pow(z(k) - z, 2);
+            if (d < bd) {
+                bd = d;
+                best = k;
+            }
         }
         return best;
     }
 
-    /** Dry ground: {its height, how uneven it is}, or null if there's water. */
-    @Nullable
-    private static int[] lie(ServerLevel level, BoundingBox fp) {
-        int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
-        long sum = 0;
-        int n = 0;
-        for (int x = fp.minX(); x <= fp.maxX(); x++)
-            for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
-                int h = ground(level, x, z);
-                if (!level.getFluidState(new BlockPos(x, h, z)).isEmpty()) return null;
-                min = Math.min(min, h);
-                max = Math.max(max, h);
-                sum += h;
-                n++;
+    // ------------------------------------------------------------------ changing the land
+
+    /** Turns the land into the field: trees gone, farmland, water, the path, then the wheat. */
+    private static void apply(ServerLevel level, VillageRecord v, Field f) {
+        // the trees on it (and just round it)
+        Set<Long> near = new HashSet<>();
+        for (long k : f.ground.keySet())
+            for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) near.add(key(x(k) + dx, z(k) + dz));
+        for (long k : near) {
+            int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x(k), z(k)) - 1;
+            BlockPos p = new BlockPos(x(k), top, z(k));
+            if (level.getBlockState(p).is(BlockTags.LOGS)) Trees.fellAt(level, v, p);
+        }
+        // what grows on the ground (grass, flowers, snow, leaves left over) is cleared off it
+        for (Map.Entry<Long, Integer> e : f.ground.entrySet()) {
+            BlockPos g = new BlockPos(x(e.getKey()), e.getValue(), z(e.getKey()));
+            for (int y = 1; y <= 4; y++) {
+                BlockState s = level.getBlockState(g.above(y));
+                if (s.isAir()) continue;
+                if (s.canBeReplaced() || s.getBlock() instanceof LeavesBlock || s.is(BlockTags.FLOWERS) || s.is(Blocks.SNOW))
+                    level.setBlock(g.above(y), Blocks.AIR.defaultBlockState(), FLAGS);
             }
-        return new int[]{(int) Math.round((double) sum / n), max - min};
-    }
-
-    /** The top of the ground (not trees). */
-    private static int ground(ServerLevel level, int x, int z) {
-        return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
-    }
-
-    /** Puts the field in the blueprint (laid out at once): each plot, and the path round it, a piece of its own. */
-    private static void add(ServerLevel level, VillageRecord v, List<Plot> field) {
-        Set<Long> claimed = new HashSet<>();
-        for (Plot p : field)
-            for (int x = p.box.minX(); x <= p.box.maxX(); x++)
-                for (int z = p.box.minZ(); z <= p.box.maxZ(); z++) claimed.add(BlockPos.asLong(x, 0, z));
-        for (Plot p : field) {
-            Map<BlockPos, BlockState> blocks = new LinkedHashMap<>();
-            Set<BlockPos> clear = new HashSet<>();
-            BoundingBox fp = p.box;
-            int base = p.base;
-            int mid = p.alongX ? (fp.minZ() + fp.maxZ()) / 2 : (fp.minX() + fp.maxX()) / 2;
-            CropBlock crop = (CropBlock) p.crop;
-            for (int x = fp.minX(); x <= fp.maxX(); x++)
-                for (int z = fp.minZ(); z <= fp.maxZ(); z++) {
-                    BlockPos g = new BlockPos(x, base, z);
-                    fill(level, g, blocks);
-                    // the channel stops a block short of each end, so the water stays in the plot
-                    boolean end = p.alongX ? x == fp.minX() || x == fp.maxX() : z == fp.minZ() || z == fp.maxZ();
-                    boolean channel = (p.alongX ? z : x) == mid && !end;
-                    if (channel) blocks.put(g, Blocks.WATER.defaultBlockState());
-                    else {
-                        blocks.put(g, Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, FarmBlock.MAX_MOISTURE));
-                        blocks.put(g.above(), crop.getStateForAge(crop.getMaxAge()));
-                    }
-                    for (int y = 1; y <= 8; y++) if (channel || y > 1) clear.add(g.above(y));
-                }
-            // the path round it (where no other plot is), stepping between its height and the ground's
-            for (int x = fp.minX() - 1; x <= fp.maxX() + 1; x++)
-                for (int z = fp.minZ() - 1; z <= fp.maxZ() + 1; z++) {
-                    if (!claimed.add(BlockPos.asLong(x, 0, z))) continue;
-                    int y = Math.max(base - 1, Math.min(base + 1, ground(level, x, z)));
-                    BlockPos g = new BlockPos(x, y, z);
-                    if (v.blueprint.expected(g) != null || !level.getFluidState(g).isEmpty()) continue;
-                    fill(level, g, blocks);
-                    blocks.put(g, Blocks.DIRT_PATH.defaultBlockState());
-                    for (int dy = 1; dy <= 3; dy++) clear.add(g.above(dy));
-                }
-            v.blueprint.addBuilding(BoundingBox.encapsulatingPositions(new ArrayList<>(blocks.keySet())).orElse(fp), blocks, clear, NAME, true);
+        }
+        BlockState farmland = Blocks.FARMLAND.defaultBlockState().setValue(FarmBlock.MOISTURE, FarmBlock.MAX_MOISTURE);
+        for (Map.Entry<Long, Integer> e : f.ground.entrySet()) {
+            long k = e.getKey();
+            BlockPos g = new BlockPos(x(k), e.getValue(), z(k));
+            if (f.path.contains(k)) level.setBlock(g, Blocks.DIRT_PATH.defaultBlockState(), FLAGS);
+            else if (!f.water.contains(k) && level.getBlockState(g.above()).isAir()) level.setBlock(g, farmland, FLAGS);
+        }
+        for (long k : f.water) level.setBlock(new BlockPos(x(k), f.ground.get(k), z(k)), Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
+        for (Map.Entry<Long, Integer> e : f.outerPath.entrySet()) {
+            BlockPos g = new BlockPos(x(e.getKey()), e.getValue(), z(e.getKey()));
+            BlockState above = level.getBlockState(g.above());
+            if (!above.isAir() && (above.canBeReplaced() || above.is(Blocks.SNOW))) level.setBlock(g.above(), Blocks.AIR.defaultBlockState(), FLAGS);
+            if (level.getBlockState(g.above()).isAir()) level.setBlock(g, Blocks.DIRT_PATH.defaultBlockState(), FLAGS);
+        }
+        // the wheat, last, ripe
+        BlockState wheat = ((CropBlock) Blocks.WHEAT).getStateForAge(((CropBlock) Blocks.WHEAT).getMaxAge());
+        for (Map.Entry<Long, Integer> e : f.ground.entrySet()) {
+            BlockPos g = new BlockPos(x(e.getKey()), e.getValue(), z(e.getKey()));
+            if (level.getBlockState(g).is(Blocks.FARMLAND) && level.getBlockState(g.above()).isAir()) level.setBlock(g.above(), wheat, FLAGS);
         }
     }
 
-    /** The ground under a spot, filled in with dirt where it dips. */
-    private static void fill(ServerLevel level, BlockPos g, Map<BlockPos, BlockState> blocks) {
-        for (int y = g.getY() - 1; y >= g.getY() - 8; y--) {
-            BlockPos b = new BlockPos(g.getX(), y, g.getZ());
-            BlockState s = level.getBlockState(b);
-            if (!s.canBeReplaced() && !s.is(BlockTags.LEAVES) && !s.is(BlockTags.LOGS)) break;
-            blocks.put(b, Blocks.DIRT.defaultBlockState());
-        }
+    /** The village remembers its field (where it is, its path for the farmers). */
+    private static void record(VillageRecord v, Field f) {
+        v.fieldCells = f.ground.entrySet().stream().mapToLong(e -> BlockPos.asLong(x(e.getKey()), e.getValue(), z(e.getKey()))).toArray();
+        v.fieldPath = f.path.stream().mapToLong(k -> BlockPos.asLong(x(k), f.ground.get(k), z(k))).toArray();
     }
 
-    /** For the self test: a field laid out from a spot, growing east. Returns how many plots it has. */
-    public static int fieldAt(ServerLevel level, VillageRecord v, int x, int z) {
-        RandomSource r = RandomSource.create(v.id ^ x);
-        List<Plot> f = field(level, v, r, x, z, 1, 0, v.wallBox != null ? v.wallBox : v.box, new ArrayList<>());
-        if (f.size() >= MIN_PLOTS) add(level, v, f);
-        return f.size();
-    }
+    // ------------------------------------------------------------------ for the farmers
 
-    /** Somewhere for a farmer to work: on the path at the edge of one of the plots, or null if there are no fields. */
+    /** Somewhere for a farmer to work: on the path through the field (or the edge of an old field), or null. */
     @Nullable
     public static BlockPos spot(ServerLevel level, VillageRecord v, RandomSource r) {
+        if (v.fieldPath.length > 0) return BlockPos.of(v.fieldPath[r.nextInt(v.fieldPath.length)]).above();
         List<BoundingBox> plots = new ArrayList<>();
         for (Blueprint.PieceInfo p : v.blueprint.pieces()) if (p.name().equals(NAME)) plots.add(p.box());
         if (plots.isEmpty()) return null;
-        for (int i = 0; i < 10; i++) {
-            BoundingBox b = plots.get(r.nextInt(plots.size()));
-            boolean side = r.nextBoolean();
-            int x = side ? b.minX() + r.nextInt(b.getXSpan()) : r.nextBoolean() ? b.minX() : b.maxX();
-            int z = side ? (r.nextBoolean() ? b.minZ() : b.maxZ()) : b.minZ() + r.nextInt(b.getZSpan());
-            if (!level.hasChunkAt(new BlockPos(x, 0, z))) continue;
-            BlockPos g = new BlockPos(x, ground(level, x, z), z);
-            if (level.getFluidState(g).isEmpty()) return g.above();
-        }
-        return null;
+        BoundingBox b = plots.get(r.nextInt(plots.size()));
+        int x = r.nextBoolean() ? b.minX() : b.maxX(), z = b.minZ() + r.nextInt(b.getZSpan());
+        if (!level.hasChunkAt(new BlockPos(x, 0, z))) return null;
+        return new BlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z);
     }
 
-    /** For the self test: crops in the fields, and how many fully grown. */
-    public static int[] crops(ServerLevel level, VillageRecord v) {
-        int all = 0, ripe = 0;
-        for (Blueprint.PieceInfo p : v.blueprint.pieces()) {
-            if (!p.name().equals(NAME)) continue;
-            BoundingBox b = p.box();
-            if (!level.hasChunksAt(b.minX(), b.minZ(), b.maxX(), b.maxZ())) continue;
-            for (BlockPos q : BlockPos.betweenClosed(b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ())) {
-                BlockState s = level.getBlockState(q);
-                if (!(s.getBlock() instanceof CropBlock crop)) continue;
-                all++;
-                if (crop.isMaxAge(s)) ripe++;
-            }
+    /** For the self test: {farmland, with ripe wheat, with no crop at all, water, path} over the field's spots. */
+    public static int[] count(ServerLevel level, long[] cells) {
+        int[] n = new int[5];
+        for (long c : cells) {
+            BlockPos g = BlockPos.of(c);
+            BlockState s = level.getBlockState(g), up = level.getBlockState(g.above());
+            if (s.is(Blocks.FARMLAND)) {
+                n[0]++;
+                if (up.getBlock() instanceof CropBlock crop && crop.isMaxAge(up)) n[1]++;
+                if (!(up.getBlock() instanceof CropBlock)) n[2]++;
+            } else if (s.is(Blocks.WATER)) n[3]++;
+            else if (s.is(Blocks.DIRT_PATH)) n[4]++;
         }
-        return new int[]{all, ripe};
+        return n;
+    }
+
+    /** The same, for a field the test laid out. */
+    public static long[] cells(Field f) {
+        return f.ground.entrySet().stream().mapToLong(e -> BlockPos.asLong(x(e.getKey()), e.getValue(), z(e.getKey()))).toArray();
+    }
+
+    // ------------------------------------------------------------------ x, z in one
+
+    private static long key(int x, int z) {
+        return ((long) x << 32) | (z & 0xFFFFFFFFL);
+    }
+
+    private static int x(long k) {
+        return (int) (k >> 32);
+    }
+
+    private static int z(long k) {
+        return (int) k;
+    }
+
+    private static long[] around(long k) {
+        int x = x(k), z = z(k);
+        return new long[]{key(x + 1, z), key(x - 1, z), key(x, z + 1), key(x, z - 1)};
     }
 }

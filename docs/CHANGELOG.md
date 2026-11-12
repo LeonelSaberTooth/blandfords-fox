@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+- Fields made anew. A village's field is the land itself turned to wheat: a stretch of open ground outside the walls,
+  by a gate, following the lie of the land (no levelling), with a natural ragged outline that stops at water, cliffs,
+  rock, the walls and the village's buildings. Trees on it are taken out. Waterways wind across it about every 12
+  blocks. A path runs from inside the village, out of the gate, to the field and through it; the farmers work along
+  it. All wheat, ripe when it's made, and every crop stays (they're set down without the game re-checking them while
+  the light is still being worked out, which knocked half of them off before).
+- Farmers bring in 16 wheat a day.
+- Maidens don't trample farmland.
+
 ## 0.10.1
 - Men, old men and boys have the vanilla player's body (wide arms, the skin's outer layer) and move as a player does,
   each in one of the vanilla player skins (Steve, Alex, Ari, Efe, Kai, Makena, Noor, Sunny, Zuri), and wear the

@@ -39,7 +39,7 @@ public final class Economy {
     public static String lastHarvest = "";
 
     /**
-     * A day's work, once a day: every farmer brings in 16 food (mostly wheat), every woodcutter 24 logs (of the trees
+     * A day's work, once a day: every farmer brings in 16 wheat, every woodcutter 24 logs (of the trees
      * where she works), every miner 32 stone with some coal and iron (now and then something rarer), every fisher 12
      * fish. Guards bring in nothing. A worker hired away by a player brings in nothing that day.
      */
@@ -55,12 +55,7 @@ public final class Economy {
             var w = m.villageWork();
             if (!People.worker(m) || m.employment().isHired() || w.spot() == null) continue;
             switch (w.job()) {
-                case FARM -> {
-                    int wheat = 10 + r.nextInt(3), carrots = r.nextInt(16 - wheat + 1);
-                    add.accept(Items.WHEAT, wheat);
-                    add.accept(Items.CARROT, carrots);
-                    add.accept(Items.POTATO, 16 - wheat - carrots);
-                }
+                case FARM -> add.accept(Items.WHEAT, 16);
                 case WOOD -> {
                     Item log = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(w.log()));
                     add.accept(LOGS.test(log) ? log : Items.OAK_LOG, 24);

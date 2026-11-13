@@ -24,12 +24,11 @@ import org.jetbrains.annotations.Nullable;
 public final class TaigaFeatures {
     private TaigaFeatures() {}
 
-    /** Which ground rules a column follows. */
     /**
-     * Which ground rules a column follows: taiga; snowy plains; or snowy rock (snowy taiga and
-     * ice spikes: snow straight on deepslate, no soil or plants that need it).
+     * Which ground rules a column follows: taiga; or snowy rock (snowy plains and ice spikes:
+     * snow straight on deepslate, no soil or plants that need it). Snowy taiga stays vanilla.
      */
-    enum Rule { TAIGA, SNOWY_PLAINS, SNOWY_ROCK }
+    enum Rule { TAIGA, SNOWY_ROCK }
 
     /** Taiga ground patches: coarse dirt now and then (like old growth taiga), rarer, smaller grass patches. */
     static final double COARSE_SCALE = 11, COARSE_LEVEL = 0.71, GRASS_SCALE = 6, GRASS_LEVEL = 0.8;
@@ -40,11 +39,11 @@ public final class TaigaFeatures {
      * rivers:
      * <ul>
      * <li>taiga: the top ground block (under plants, trees and all) becomes podzol;</li>
-     * <li>snowy plains: under a snow layer the ground becomes a snow block with podzol under
-     *     it; elsewhere (under trees) podzol; no short grass or sugar cane;</li>
-     * <li>a river follows the biome around it: if that is taiga or snowy plains, its sand is
-     *     gravel, its banks follow those rules, there is no sugar cane, and short grass is
-     *     ferns (taiga) or gone (snowy plains).</li>
+     * <li>snowy plains and ice spikes: deepslate, with a snow block on top (under the snow
+     *     layer); no grass, dirt, sugar cane or plants that need soil;</li>
+     * <li>a river follows the biome around it: if that is one of these, its sand is gravel,
+     *     its banks follow those rules, there is no sugar cane, and short grass is ferns
+     *     (taiga) or gone (snowy plains, ice spikes).</li>
      * </ul>
      * Podzol under snow (a layer or a block) is snowy, so it looks like snowy grass.
      */
@@ -74,8 +73,8 @@ public final class TaigaFeatures {
                         int cell = (dx >> 2) * 4 + (dz >> 2);
                         if (!riverDone[cell]) { riverRule[cell] = around(level, x, z); riverDone[cell] = true; }
                         rule = riverRule[cell];
-                    } else rule = here.is(Biomes.TAIGA) ? Rule.TAIGA : here.is(Biomes.SNOWY_PLAINS) ? Rule.SNOWY_PLAINS
-                            : here.is(Biomes.SNOWY_TAIGA) || here.is(Biomes.ICE_SPIKES) ? Rule.SNOWY_ROCK : null;
+                    } else rule = here.is(Biomes.TAIGA) ? Rule.TAIGA
+                            : here.is(Biomes.SNOWY_PLAINS) || here.is(Biomes.ICE_SPIKES) ? Rule.SNOWY_ROCK : null;
                     if (rule != null) any |= column(level, chunk, pos, x, z, top, rule, river, ctx.random());
                 }
             return any;
@@ -119,7 +118,7 @@ public final class TaigaFeatures {
             int ground = y;
             // river edges can fall in the land biome's columns: sand by a river is gravel too
             boolean riverSand = river || level.getBlockState(pos.set(x, ground, z)).is(Blocks.SAND) && nearRiver(level, x, z);
-            if (riverSand && rule != Rule.SNOWY_ROCK) {   // no sand: gravel, bed and banks, a few blocks down
+            if (riverSand) {   // no sand: gravel, bed and banks, a few blocks down
                 for (int k = 0; k < 6; k++) {
                     pos.set(x, ground - k, z);
                     if (level.getBlockState(pos).is(Blocks.SAND)) { level.setBlock(pos, Blocks.GRAVEL.defaultBlockState(), 2); changed = true; }
@@ -135,18 +134,6 @@ public final class TaigaFeatures {
                     // snow straight on the rock: the top block is snow (the soil under it is deepslate now)
                     if (!soil && !s.is(Blocks.DEEPSLATE) && !s.is(Blocks.GRAVEL) && !s.is(Blocks.SAND)) return changed;
                     level.setBlock(pos, Blocks.SNOW_BLOCK.defaultBlockState(), 2);
-                    return true;
-                }
-                case SNOWY_PLAINS -> {
-                    if (!soil) return changed;
-                    if (snowLayer) {
-                        level.setBlock(pos, Blocks.SNOW_BLOCK.defaultBlockState(), 2);
-                        pos.set(x, ground - 1, z);
-                        BlockState under = level.getBlockState(pos);
-                        if (under.is(Blocks.DIRT) || under.is(Blocks.GRASS_BLOCK)) level.setBlock(pos, podzol(true), 2);
-                    } else {
-                        level.setBlock(pos, podzol(level.getBlockState(pos.above()).is(BlockTags.SNOW)), 2);
-                    }
                     return true;
                 }
                 default -> {   // TAIGA
@@ -252,27 +239,25 @@ public final class TaigaFeatures {
             return Blocks.PODZOL.defaultBlockState().setValue(SnowyDirtBlock.SNOWY, snowy);
         }
 
-        /** The land biome around a river spot (from the climate, so no chunks are needed): taiga, snowy plains, or other. */
+        /** The land biome around a river spot (from the climate, so no chunks are needed): taiga, snowy rock, or other. */
         @Nullable
         static Rule around(WorldGenLevel level, int x, int z) {
             ServerLevel server = level.getLevel();
             var source = server.getChunkSource().getGenerator().getBiomeSource();
             var sampler = server.getChunkSource().randomState().sampler();
-            int taiga = 0, snowy = 0, rock = 0, other = 0;
+            int taiga = 0, rock = 0, other = 0;
             for (int r = 16; r <= 48; r += 16)
                 for (int a = 0; a < 8; a++) {
                     int sx = x + (int) Math.round(r * Math.cos(a * Math.PI / 4)), sz = z + (int) Math.round(r * Math.sin(a * Math.PI / 4));
                     Holder<Biome> b = source.getNoiseBiome(QuartPos.fromBlock(sx), QuartPos.fromBlock(64), QuartPos.fromBlock(sz), sampler);
                     if (b.is(BiomeTags.IS_RIVER) || b.is(BiomeTags.IS_OCEAN) || b.is(BiomeTags.IS_BEACH)) continue;
                     if (b.is(Biomes.TAIGA)) taiga++;
-                    else if (b.is(Biomes.SNOWY_PLAINS)) snowy++;
-                    else if (b.is(Biomes.SNOWY_TAIGA) || b.is(Biomes.ICE_SPIKES)) rock++;
+                    else if (b.is(Biomes.SNOWY_PLAINS) || b.is(Biomes.ICE_SPIKES)) rock++;
                     else other++;
                 }
-            // a river along a border follows taiga / snowy plains if they make up a third or more of the land
-            if (rock > 0 && rock >= taiga && rock >= snowy && rock * 2 >= other) return Rule.SNOWY_ROCK;
-            if (taiga > 0 && taiga >= snowy && taiga * 2 >= other) return Rule.TAIGA;
-            if (snowy > 0 && snowy > taiga && snowy * 2 >= other) return Rule.SNOWY_PLAINS;
+            // a river along a border follows taiga / snowy plains / ice spikes if they make up a third or more of the land
+            if (rock > 0 && rock > taiga && rock * 2 >= other) return Rule.SNOWY_ROCK;
+            if (taiga > 0 && taiga >= rock && taiga * 2 >= other) return Rule.TAIGA;
             return null;
         }
 
@@ -297,7 +282,7 @@ public final class TaigaFeatures {
             WorldGenLevel level = ctx.level();
             BlockPos o = ctx.origin();
             Holder<Biome> b = level.getBiome(o);
-            boolean cold = b.is(Biomes.TAIGA) || b.is(Biomes.SNOWY_PLAINS)
+            boolean cold = b.is(Biomes.TAIGA) || b.is(Biomes.SNOWY_PLAINS) || b.is(Biomes.ICE_SPIKES)
                     || (b.is(BiomeTags.IS_RIVER) || b.is(BiomeTags.IS_BEACH)) && Ground.around(level, o.getX(), o.getZ()) != null;
             if (!cold) return super.place(ctx);
             var cfg = ctx.config();

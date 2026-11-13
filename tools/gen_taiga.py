@@ -4,7 +4,8 @@
   2:1) and 25% birch, every trunk 2 blocks taller than vanilla with the same crown; short
   grass and sugar cane are gone and the grass patches are all ferns; the ground is podzol
   (cold_ground, run last so berry bushes and trees still find grass to grow on first).
-- Snowy plains: no short grass or sugar cane; snow layer, then a snow block, then podzol.
+- Snowy plains and ice spikes: deepslate with snow on top (snow layer on a snow block); no
+  grass, dirt, sugar cane or plants that need soil. Snowy taiga stays vanilla.
 - Rivers through either follow the biome around them (cold_ground): gravel for sand, podzol
   banks, no sugar cane.
 
@@ -86,7 +87,7 @@ def main():
     bm('taiga_add', {'type': 'neoforge:add_features', 'biomes': TAIGA,
                      'features': [f'{NS}:taiga_trees', f'{NS}:taiga_ferns'], 'step': 'vegetal_decoration'})
     bm('cold_ground', {'type': 'neoforge:add_features',
-                       'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:snowy_taiga', 'minecraft:ice_spikes',
+                       'biomes': [TAIGA, 'minecraft:snowy_plains', 'minecraft:ice_spikes',
                                   'minecraft:river', 'minecraft:frozen_river', 'minecraft:beach', 'minecraft:snowy_beach'],
                        'features': f'{NS}:cold_ground', 'step': 'top_layer_modification'})
     # underwater sand patches: gravel in the cold biomes and their rivers (cold_disk decides)
@@ -96,13 +97,13 @@ def main():
     placed = vanilla('placed_feature', 'disk_sand')
     placed['feature'] = f'{NS}:disk_sand_or_gravel'
     ours('placed_feature', 'disk_sand_or_gravel', placed)
-    cold = [TAIGA, 'minecraft:snowy_plains', 'minecraft:river', 'minecraft:frozen_river']
+    cold = [TAIGA, 'minecraft:snowy_plains', 'minecraft:ice_spikes', 'minecraft:river', 'minecraft:frozen_river']
     bm('disk_sand_remove', {'type': 'neoforge:remove_features', 'biomes': cold, 'features': 'minecraft:disk_sand',
                             'steps': 'underground_ores'})
     bm('disk_sand_or_gravel', {'type': 'neoforge:add_features', 'biomes': cold, 'features': f'{NS}:disk_sand_or_gravel',
                                'step': 'underground_ores'})
-    # snowy taiga and ice spikes: snow on deepslate, so nothing that needs soil
-    bm('snowy_rock_remove', {'type': 'neoforge:remove_features', 'biomes': ['minecraft:snowy_taiga', 'minecraft:ice_spikes'],
+    # snowy plains and ice spikes: snow on deepslate, so nothing that needs soil
+    bm('snowy_rock_remove', {'type': 'neoforge:remove_features', 'biomes': ['minecraft:snowy_plains', 'minecraft:ice_spikes'],
                              'features': ['minecraft:patch_large_fern', 'minecraft:flower_default', 'minecraft:patch_grass_taiga_2',
                                           'minecraft:patch_grass_badlands', 'minecraft:patch_sugar_cane', 'minecraft:patch_berry_rare'],
                              'steps': 'vegetal_decoration'})

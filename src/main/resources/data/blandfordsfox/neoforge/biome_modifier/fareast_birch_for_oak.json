@@ -1,0 +1,12 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "fareast"
+    }
+  ],
+  "type": "neoforge:add_features",
+  "biomes": "minecraft:snowy_taiga",
+  "features": "blandfordsfox:fareast_winter_trees",
+  "step": "vegetal_decoration"
+}

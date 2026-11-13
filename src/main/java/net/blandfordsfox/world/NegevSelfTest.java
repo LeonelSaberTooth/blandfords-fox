@@ -469,6 +469,7 @@ public final class NegevSelfTest {
                 java.util.Map<String, Integer> riverGround = new java.util.TreeMap<>(), riverPlants = new java.util.TreeMap<>();
                 int riverColumns = 0, podzolUnderSnow = 0, podzolUnderSnowNotSnowy = 0, stoneUnder = 0, deepslateUnder = 0, dirtUnder = 0;
                 java.util.Map<String, int[]> trees = new java.util.TreeMap<>();   // bottom log -> {count, total height}
+                java.util.Map<String, Integer> otherMod = new java.util.TreeMap<>();   // blocks of other mods (Far East's lichen, moss, branches)
                 int columns = 0;
                 BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
                 for (int x = c.getX() - 64; x < c.getX() + 64; x++)
@@ -482,7 +483,12 @@ public final class NegevSelfTest {
                         if (riverCol) riverColumns++; else columns++;
                         for (int y = top; y > top - 40; y--) {
                             BlockState st = level.getBlockState(p.set(x, y, z));
-                            String id = BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath();
+                            var key = BuiltInRegistries.BLOCK.getKey(st.getBlock());
+                            String id = key.getPath();
+                            if (!key.getNamespace().equals("minecraft") && !key.getNamespace().equals(BlandfordsFoxMod.MOD_ID)) {
+                                otherMod.merge(key.toString(), 1, Integer::sum);
+                                if (!st.isSolid()) continue;
+                            }
                             if (st.is(net.minecraft.world.level.block.Blocks.PODZOL) && level.getBlockState(p.above()).is(net.minecraft.tags.BlockTags.SNOW)) {
                                 podzolUnderSnow++;
                                 if (!st.getValue(net.minecraft.world.level.block.SnowyDirtBlock.SNOWY)) podzolUnderSnowNotSnowy++;
@@ -491,6 +497,8 @@ public final class NegevSelfTest {
                                 BlockState below = level.getBlockState(p.below());
                                 if (!below.is(net.minecraft.tags.BlockTags.LOGS) && below.isSolid()) {   // bottom of a trunk
                                     id += "/on_" + BuiltInRegistries.BLOCK.getKey(below.getBlock()).getPath();
+                                    if (st.hasProperty(net.minecraft.world.level.block.RotatedPillarBlock.AXIS)
+                                            && st.getValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS) != net.minecraft.core.Direction.Axis.Y) id += "(fallen)";
                                     int h = 0;
                                     while (level.getBlockState(p.above(h)).is(net.minecraft.tags.BlockTags.LOGS)) h++;
                                     int[] t = trees.computeIfAbsent(id, k -> new int[2]);
@@ -529,6 +537,7 @@ public final class NegevSelfTest {
                 report.append(biome.location().getPath()).append(" near ").append(c.toShortString()).append(": ").append(columns).append(" columns; ground ")
                         .append(ground).append("; plants ").append(plants).append("; trees by bottom log: ").append(t)
                         .append("; under the ground (30 blocks): stone ").append(stoneUnder).append(", deepslate ").append(deepslateUnder).append(", dirt ").append(dirtUnder)
+                        .append(otherMod.isEmpty() ? "" : "; other mods' blocks " + otherMod)
                         .append("; podzol under snow ").append(podzolUnderSnow).append(" (not snowy ").append(podzolUnderSnowNotSnowy).append(")")
                         .append("; river columns ").append(riverColumns).append(" ground ").append(riverGround).append(" plants ").append(riverPlants)
                         .append("; lynxes ").append(level.getEntitiesOfClass(net.blandfordsfox.entity.Lynx.class,

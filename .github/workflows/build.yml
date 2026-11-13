@@ -79,10 +79,13 @@ jobs:
 
       - name: World generation test
         if: github.ref == 'refs/heads/main'
+        env:
+          FAREAST_KEY: ${{ secrets.FAREAST_KEY }}
         run: |
           run_test() {
-            rm -rf run-selftest/world run-selftest/selftest
+            rm -rf run-selftest/world run-selftest/selftest run-selftest/mods
             mkdir -p run-selftest
+            if [ -n "$3" ]; then mkdir -p run-selftest/mods && cp "$3" run-selftest/mods/; fi
             echo "eula=true" > run-selftest/eula.txt
             printf "level-seed=20261030\nonline-mode=false\nlevel-name=world\nmax-tick-time=-1\nlevel-type=$1\n" > run-selftest/server.properties
             timeout 1500 ./gradlew runSelftest --stacktrace > selftest.log 2>&1 || true
@@ -93,6 +96,11 @@ jobs:
           }
           run_test 'minecraft\:normal' .
           run_test 'minecraft\:large_biomes' large
+          # with Far East too (a private mod: kept encrypted here, its key a repository secret)
+          if [ -n "$FAREAST_KEY" ] && openssl enc -d -aes-256-cbc -pbkdf2 -in ci/fareast.jar.enc -out /tmp/fareast.jar -pass env:FAREAST_KEY; then
+            run_test 'minecraft\:normal' fareast /tmp/fareast.jar
+            rm -rf run-selftest/mods /tmp/fareast.jar
+          fi
           cd results && zip -qr ../selftest.zip .
 
       - name: Publish the test results

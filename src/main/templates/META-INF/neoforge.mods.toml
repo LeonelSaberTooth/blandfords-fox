@@ -35,3 +35,14 @@ the Blandford's fox, the caracal and the hyena.
     versionRange="${geckolib_version_range}"
     ordering="AFTER"
     side="BOTH"
+
+# Optional compatibility with Far East (its snowy taiga: birch instead of oak, no lichen)
+[[dependencies.${mod_id}]]
+    modId="fareast"
+    type="optional"
+    versionRange="[1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[mixins]]
+config="blandfordsfox.mixins.json"

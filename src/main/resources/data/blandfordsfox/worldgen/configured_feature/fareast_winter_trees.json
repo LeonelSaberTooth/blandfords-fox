@@ -1,0 +1,22 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "fareast"
+    }
+  ],
+  "type": "minecraft:random_selector",
+  "config": {
+    "features": [
+      {
+        "chance": 0.67368421,
+        "feature": "fareast:winter_birch_checked"
+      },
+      {
+        "chance": 0.516129,
+        "feature": "fareast:snowy_spruce_checked"
+      }
+    ],
+    "default": "fareast:snowy_pine_checked"
+  }
+}

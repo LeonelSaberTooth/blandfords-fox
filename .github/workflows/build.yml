@@ -94,13 +94,13 @@ jobs:
             grep -iE "error|exception|failed" run-selftest/logs/latest.log | head -200 > run-selftest/selftest/problems.txt || true
             cp run-selftest/selftest/* "results/$2/"
           }
-          run_test 'minecraft\:normal' .
-          run_test 'minecraft\:large_biomes' large
-          # with Far East too (a private mod: kept encrypted here, its key a repository secret)
+          # with Far East first (a private mod: kept encrypted here, its key a repository secret)
           if [ -n "$FAREAST_KEY" ] && openssl enc -d -aes-256-cbc -pbkdf2 -in ci/fareast.jar.enc -out /tmp/fareast.jar -pass env:FAREAST_KEY; then
             run_test 'minecraft\:normal' fareast /tmp/fareast.jar
             rm -rf run-selftest/mods /tmp/fareast.jar
           fi
+          run_test 'minecraft\:normal' .
+          run_test 'minecraft\:large_biomes' large
           cd results && zip -qr ../selftest.zip .
 
       - name: Publish the test results

@@ -58,8 +58,14 @@ neoForge {
     }
 }
 
+// Far East compatibility compiles against a few stand-in classes with Far East's names (only
+// what we call); they are never packaged or run: the real Far East supplies them in game.
+sourceSets { fareastStubs }
+neoForge.addModdingDependenciesTo(sourceSets.fareastStubs)
+
 dependencies {
     implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+    compileOnly sourceSets.fareastStubs.output
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

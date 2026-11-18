@@ -4,7 +4,10 @@
   "package": "net.blandfordsfox.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "FarEastNoLichenMixin"
+    "FarEastNoLichenMixin",
+    "FarEastTigerAccess",
+    "FarEastTigerMixin",
+    "FarEastTigerRunMixin"
   ],
   "injectors": {
     "defaultRequire": 0

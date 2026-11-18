@@ -18,11 +18,16 @@ public final class ClientSetup {
         event.registerEntityRenderer(BlandfordsFoxMod.HYENA.get(), HyenaRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.ONAGER.get(), OnagerRenderer::new);
         event.registerEntityRenderer(BlandfordsFoxMod.PARTRIDGE.get(), PartridgeRenderer::new);
+        // Far East's tiger with the animations made for it (registered after Far East's own renderer)
+        if (net.neoforged.fml.ModList.get().isLoaded(net.blandfordsfox.compat.FeTiger.MOD_ID))
+            net.blandfordsfox.client.fareast.FeTigerClient.renderers(event);
     }
 
     @SubscribeEvent
     public static void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(OnagerRenderer.LAYER, OnagerModel::createBodyLayer);
         event.registerLayerDefinition(OnagerRenderer.TACK_LAYER, OnagerModel::createBodyLayer);
+        if (net.neoforged.fml.ModList.get().isLoaded(net.blandfordsfox.compat.FeTiger.MOD_ID))
+            net.blandfordsfox.client.fareast.FeTigerClient.layers(event);
     }
 }

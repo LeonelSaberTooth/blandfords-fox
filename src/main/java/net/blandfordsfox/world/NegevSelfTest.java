@@ -58,6 +58,12 @@ public final class NegevSelfTest {
         StringBuilder report = new StringBuilder();
         report.append("negev columns wired: ").append(columns != null)
                 .append(", final density class: ").append(level.getChunkSource().randomState().router().finalDensity().getClass().getName()).append('\n');
+        if (net.neoforged.fml.ModList.get().isLoaded(net.blandfordsfox.compat.FeTiger.MOD_ID)) {
+            // the run with Far East installed checks only the Far East compatibility (the other runs check the rest)
+            net.blandfordsfox.compat.FeTigerSelfTest.run(level, report);
+            Files.writeString(out.resolve("report.txt"), report);
+            return;
+        }
         Pair<BlockPos, Holder<Biome>> desert = level.findClosestBiome3d(h -> h.is(Biomes.DESERT), BlockPos.ZERO.atY(64), 12000, 32, 64);
         report.append("nearest desert: ").append(desert == null ? "none" : desert.getFirst().toShortString()).append('\n');
         if (columns == null || desert == null) {

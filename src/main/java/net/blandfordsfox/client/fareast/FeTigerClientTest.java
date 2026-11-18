@@ -36,7 +36,7 @@ public final class FeTigerClientTest {
 
     private static final List<Scene> SCENES = List.of(
             new Scene("mark", FeTiger.MARK, 5.5, 1.6, 0.5, 20, 34, 42, 80, 125),
-            new Scene("cheek", FeTiger.CHEEK_RUB, -2.5, 1.6, 4.2, 15, 30, 55, 100),
+            new Scene("cheek", FeTiger.CHEEK_RUB, 2.6, 1.5, 3.4, 15, 30, 55, 100),
             new Scene("spray", FeTiger.SPRAY, 5.5, 1.4, -1.0, 15, 40, 80),
             new Scene("stretch", FeTiger.STRETCH, 5.5, 1.2, 0.5, 25, 45, 65, 85, 105, 140),
             new Scene("roar", FeTiger.ROAR, 3.0, 1.6, 4.0, 10, 30, 60),

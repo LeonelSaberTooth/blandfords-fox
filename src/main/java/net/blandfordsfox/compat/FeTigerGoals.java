@@ -1,7 +1,7 @@
 package net.blandfordsfox.compat;
 
 import net.blandfordsfox.BlandfordsFoxMod;
-import net.blandfordsfox.mixin.FarEastTigerAccess;
+import net.blandfordsfox.compat.FeTigerAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -67,8 +67,8 @@ public final class FeTigerGoals {
         mob.goalSelector.addGoal(6, new TreeGoal(mob));
     }
 
-    private static FarEastTigerAccess fe(Mob mob) {
-        return (FarEastTigerAccess) mob;
+    private static FeTigerAccess fe(Mob mob) {
+        return (FeTigerAccess) mob;
     }
 
     /** While lying down to rest, now and then it lifts its head and licks its foreleg. */
@@ -82,7 +82,7 @@ public final class FeTigerGoals {
 
         @Override
         public boolean canUse() {
-            FarEastTigerAccess t = fe(this.tiger);
+            FeTigerAccess t = fe(this.tiger);
             return !this.tiger.isBaby() && t.blandfordsfox$getActivity() == 1 && t.blandfordsfox$getAction() == 0
                     && this.tiger.getTarget() == null && t.blandfordsfox$activityTicks() > FeTiger.GROOM_TICKS + 20
                     && (eager || this.tiger.getRandom().nextInt(300) == 0);
@@ -121,7 +121,7 @@ public final class FeTigerGoals {
         }
 
         private boolean calm() {
-            FarEastTigerAccess t = fe(this.tiger);
+            FeTigerAccess t = fe(this.tiger);
             return this.tiger.getTarget() == null && t.blandfordsfox$getMood() == 0 && t.blandfordsfox$getActivity() == 0
                     && !this.tiger.isInWater() && !(this.tiger instanceof net.minecraft.world.entity.animal.Animal a && a.isInLove());
         }

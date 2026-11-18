@@ -22,10 +22,11 @@ public final class FeTiger {
     /** Blocks travelled per loop of the new walk and gallop, so the paws keep pace with the ground. */
     public static final float WALK_BLOCKS_PER_CYCLE = 1.2695F, RUN_BLOCKS_PER_CYCLE = 3.75F;
     /**
-     * Far East runs its tiger at 2.1 x its speed; this makes it run 8.1 blocks a second, which is
-     * the gallop at 1.3x (ground speed goes with the square of the speed for a walking mob).
+     * Far East runs its tiger at 2.1x its speed, about 11.9 blocks a second (measured); this makes
+     * it 8.1 blocks a second, the gallop at 1.3x (ground speed goes with the square of the speed
+     * for a walking mob: 1.32 blocks a second at 0.7, 11.9 at 2.1).
      */
-    public static final double RUN_SPEED = 2.348;
+    public static final double RUN_SPEED = 1.738;
 
     public static boolean ours(int action) {
         return action >= MARK && action <= GROOM;

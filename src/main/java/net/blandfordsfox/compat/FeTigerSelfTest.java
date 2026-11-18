@@ -1,6 +1,6 @@
 package net.blandfordsfox.compat;
 
-import net.blandfordsfox.mixin.FarEastTigerAccess;
+import net.blandfordsfox.compat.FeTigerAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -22,7 +22,7 @@ import java.util.Locale;
 public final class FeTigerSelfTest {
     private FeTigerSelfTest() {}
 
-    private static final int Y = 230, X0 = 0, Z0 = 2400, SIZE = 48;
+    private static final int Y = 230, X0 = 0, Z0 = 2400, SIZE = 48, LONG = 200;
 
     public static void run(ServerLevel level, StringBuilder report) {
         report.append("far east tiger:\n");
@@ -42,10 +42,10 @@ public final class FeTigerSelfTest {
     }
 
     private static void arena(ServerLevel level) {
-        for (int cx = (X0 >> 4) - 1; cx <= ((X0 + SIZE) >> 4) + 1; cx++)
+        for (int cx = (X0 >> 4) - 1; cx <= ((X0 + LONG) >> 4) + 1; cx++)
             for (int cz = (Z0 >> 4) - 1; cz <= ((Z0 + SIZE) >> 4) + 1; cz++) level.getChunk(cx, cz);
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-        for (int x = X0; x < X0 + SIZE; x++)
+        for (int x = X0; x < X0 + LONG; x++)
             for (int z = Z0; z < Z0 + SIZE; z++) {
                 level.setBlock(p.set(x, Y - 1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
                 for (int y = Y; y < Y + 8; y++) level.setBlock(p.set(x, y, z), Blocks.AIR.defaultBlockState(), 2);
@@ -70,20 +70,20 @@ public final class FeTigerSelfTest {
         }
     }
 
-    private static FarEastTigerAccess fe(Mob m) {
-        return (FarEastTigerAccess) m;
+    private static FeTigerAccess fe(Mob m) {
+        return (FeTigerAccess) m;
     }
 
     /** Ground speed with the move control driven at a speed, in blocks a second. */
     private static void speeds(ServerLevel level, StringBuilder report) {
         StringBuilder r = new StringBuilder("  ground speed (blocks/s) at move speed:");
-        for (double speed : new double[]{0.7, 2.1, FeTiger.RUN_SPEED}) {
+        for (double speed : new double[]{0.7, FeTiger.RUN_SPEED, 2.1}) {
             PathfinderMob t = tiger(level, X0 + 2.5, Z0 + 24.5, -90);
             t.goalSelector.removeAllGoals(g -> true);
             tick(t, 5);
             double x = 0;
             for (int i = 0; i < 70; i++) {
-                t.getMoveControl().setWantedPosition(X0 + 200, Y, Z0 + 24.5, speed);
+                t.getMoveControl().setWantedPosition(X0 + 400, Y, Z0 + 24.5, speed);
                 tick(t, 1);
                 if (i == 40) x = t.getX();
             }

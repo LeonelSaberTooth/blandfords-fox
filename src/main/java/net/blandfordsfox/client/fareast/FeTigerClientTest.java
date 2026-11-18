@@ -2,7 +2,7 @@ package net.blandfordsfox.client.fareast;
 
 import net.blandfordsfox.compat.FeTiger;
 import net.blandfordsfox.compat.FeTigerGoals;
-import net.blandfordsfox.mixin.FarEastTigerAccess;
+import net.blandfordsfox.compat.FeTigerAccess;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.core.BlockPos;
@@ -125,7 +125,7 @@ public final class FeTigerClientTest {
             t.targetSelector.removeAllGoals(g -> true);
             level.addFreshEntity(t);
             tiger = t;
-            if (s.action() == FeTiger.GROOM) ((FarEastTigerAccess) t).blandfordsfox$setActivity(1, 4000);
+            if (s.action() == FeTiger.GROOM) ((FeTigerAccess) t).blandfordsfox$setActivity(1, 4000);
             camera(server, s);
             LOG.info("[clienttest] tiger scene {} at {}", s.name(), at);
             ready = true;
@@ -144,7 +144,7 @@ public final class FeTigerClientTest {
 
     private static void start(MinecraftServer server, Scene s) {
         server.execute(() -> {
-            if (s.action() > 0) ((FarEastTigerAccess) tiger).blandfordsfox$startAction(s.action(), FeTiger.ticks(s.action()) > 0 ? FeTiger.ticks(s.action()) : 40);
+            if (s.action() > 0) ((FeTigerAccess) tiger).blandfordsfox$startAction(s.action(), FeTiger.ticks(s.action()) > 0 ? FeTiger.ticks(s.action()) : 40);
         });
     }
 

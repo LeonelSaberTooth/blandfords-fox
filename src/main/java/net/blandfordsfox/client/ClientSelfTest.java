@@ -48,6 +48,11 @@ public final class ClientSelfTest {
         if (!ON) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null || mc.getSingleplayerServer() == null) return;
+        if (net.neoforged.fml.ModList.get().isLoaded(net.blandfordsfox.compat.FeTiger.MOD_ID)) {
+            // with Far East installed, the client test photographs its tiger with the new animations instead
+            net.blandfordsfox.client.fareast.FeTigerClientTest.tick(mc);
+            return;
+        }
         tick++;
         var server = mc.getSingleplayerServer();
         if (tick == 1) {

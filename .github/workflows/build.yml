@@ -113,6 +113,9 @@ jobs:
 
       - name: Client test (screenshots with the resource pack)
         if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[client]')
+        env:
+          FAREAST_KEY: ${{ secrets.FAREAST_KEY }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           sudo apt-get update -q >/dev/null && sudo apt-get install -yq xvfb libgl1-mesa-dri libglx-mesa0 mesa-utils >/dev/null
           D=run-clienttest; rm -rf $D; mkdir -p $D/mods $D/saves $D/resourcepacks clientshots
@@ -122,6 +125,10 @@ jobs:
             echo "$p: $url" | tee -a clientshots/mods.txt
             curl -sL -o $D/mods/$p.jar "$url"
           done
+          # [tiger] in the commit message: photograph Far East's tiger with the new animations instead
+          if [ -n "$FAREAST_KEY" ] && echo "$COMMIT_MSG" | grep -q '\[tiger\]'; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -in ci/fareast.jar.enc -out $D/mods/fareast.jar -pass env:FAREAST_KEY
+          fi
           cp -r resourcepack/MiddleEast $D/resourcepacks/MiddleEast
           printf 'resourcePacks:["vanilla","mod_resources","file/MiddleEast"]\nonboardAccessibility:false\ntutorialStep:none\npauseOnLostFocus:false\nrenderDistance:8\nsimulationDistance:5\nfov:0.0\nsoundCategory_master:0.0\njoinedFirstServer:true\nskipMultiplayerWarning:true\n' > $D/options.txt
           export LIBGL_ALWAYS_SOFTWARE=1

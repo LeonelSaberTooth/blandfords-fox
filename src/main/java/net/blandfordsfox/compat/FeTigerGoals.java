@@ -123,7 +123,7 @@ public final class FeTigerGoals {
         private boolean calm() {
             FarEastTigerAccess t = fe(this.tiger);
             return this.tiger.getTarget() == null && t.blandfordsfox$getMood() == 0 && t.blandfordsfox$getActivity() == 0
-                    && !this.tiger.isInWater() && !this.tiger.isInLove();
+                    && !this.tiger.isInWater() && !(this.tiger instanceof net.minecraft.world.entity.animal.Animal a && a.isInLove());
         }
 
         @Override
@@ -300,13 +300,9 @@ public final class FeTigerGoals {
         private Plan planFor(Level level, BlockPos trunk, int kind, Direction dir) {
             float yaw = dir.toYRot();
             double rad = Math.toRadians(yaw);
-            // the tiger's forward and right, in the world
-            double fx = -Math.sin(rad), fz = Math.cos(rad), rx = -Math.cos(rad), rz = -Math.sin(rad);
-            double side = TRUNK[kind][0] / 16, back = TRUNK[kind][1] / 16;
-            // trunk = spot + right * side - forward * back  (back is negative when it is in front)
-            double cx = trunk.getX() + 0.5, cz = trunk.getZ() + 0.5;
-            double sx = cx - rx * side + fx * back, sz = cz - rz * side + fz * back;
-            Vec3 spot = new Vec3(sx, trunk.getY(), sz);
+            double fx = -Math.sin(rad), fz = Math.cos(rad);
+            Vec3 spot = spotFor(trunk, kind, yaw);
+            double sx = spot.x, sz = spot.z;
             if (!standable(level, spot)) return null;
             // a lead-in point a block and a half behind, so it walks onto the spot already facing the right way
             Vec3 lead = new Vec3(sx - fx * 1.5, trunk.getY(), sz - fz * 1.5);
@@ -328,6 +324,20 @@ public final class FeTigerGoals {
                     .minmax(this.tiger.getDimensions(this.tiger.getPose()).makeBoundingBox(b));
             return level.noCollision(this.tiger, box);
         }
+    }
+
+    /**
+     * Where a tiger facing yaw stands so the trunk is where tree animation kind (0 scratch, 1 cheek
+     * rub, 2 spray) was made with it.
+     */
+    public static Vec3 spotFor(BlockPos trunk, int kind, float yaw) {
+        double rad = Math.toRadians(yaw);
+        // the tiger's forward and right, in the world
+        double fx = -Math.sin(rad), fz = Math.cos(rad), rx = -Math.cos(rad), rz = -Math.sin(rad);
+        double side = TRUNK[kind][0] / 16, back = TRUNK[kind][1] / 16;
+        // trunk = spot + right * side - forward * back  (back is negative when it is in front)
+        double cx = trunk.getX() + 0.5, cz = trunk.getZ() + 0.5;
+        return new Vec3(cx - rx * side + fx * back, trunk.getY(), cz - rz * side + fz * back);
     }
 
     static boolean isBirch(Level level, BlockPos p) {
